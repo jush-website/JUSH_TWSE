@@ -8,6 +8,7 @@ sys.path.append(root_dir)
 
 try:
     from src.web_app import app
+    print("Successfully imported app from src.web_app")
 except Exception as e:
     print(f"Error importing app: {e}")
     print(traceback.format_exc())
