@@ -17,7 +17,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class DataFetcher:
     def __init__(self):
-        self.fm_loader = DataLoader()
+        try:
+            self.fm_loader = DataLoader()
+        except Exception as e:
+            print(f"Warning: Failed to initialize FinMind DataLoader: {e}")
+            self.fm_loader = None
+            
         # Check for FinMind token
         token = os.environ.get("FINMIND_API_TOKEN", "")
         if not token:

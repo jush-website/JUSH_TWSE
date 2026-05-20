@@ -14,6 +14,7 @@ from analyzer import StockAnalyzer
 from data_fetcher import DataFetcher
 
 # 初始化服務
+config.seed_cache()
 fetcher = DataFetcher()
 analyzer = StockAnalyzer(fetcher=fetcher)
 
@@ -52,7 +53,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
 frontend_path = os.path.join(root_dir, "frontend", "dist")
 
-if os.path.exists(frontend_path):
+if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
 
 @app.get("/{full_path:path}")

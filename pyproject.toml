@@ -19,5 +19,5 @@ dependencies = [
 [tool.vercel]
 entrypoint = "api.index:app"
 memory = 1024
-maxDuration = 10
-include_files = ["src/cache/**"]
+maxDuration = 30
+includeFiles = ["src/cache/**"]

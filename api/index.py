@@ -5,8 +5,8 @@ import traceback
 # 將專案根目錄及 src 目錄加入路徑
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src_dir = os.path.join(root_dir, "src")
-sys.path.append(root_dir)
-sys.path.append(src_dir)
+sys.path.insert(0, root_dir)
+sys.path.insert(0, src_dir)
 
 try:
     from src.web_app import app
