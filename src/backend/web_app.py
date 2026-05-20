@@ -6,12 +6,31 @@ from typing import List, Optional
 import asyncio
 import time
 import os
+import numpy as np
 from src.backend import config
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 
 from src.backend.analyzer import StockAnalyzer
 from src.backend.data_fetcher import DataFetcher
+
+import math
+
+def sanitize_data(data):
+    if isinstance(data, dict):
+        return {k: sanitize_data(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_data(v) for v in data]
+    elif isinstance(data, (np.bool_, bool)):
+        return bool(data)
+    elif isinstance(data, (np.integer, int)):
+        return int(data)
+    elif isinstance(data, (np.floating, float)):
+        val = float(data)
+        if math.isnan(val) or math.isinf(val):
+            return 0.0
+        return val
+    return data
 
 # 初始化服務
 config.seed_cache()
@@ -126,7 +145,7 @@ async def get_long_term_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     # 長期股通常不特別依照短線分數排序，保持原始精選順序或依照 PE 排序
-    return results
+    return sanitize_data(results)
 
 @app.get("/api/hot-stocks")
 async def get_hot_stocks():
@@ -139,7 +158,7 @@ async def get_hot_stocks():
         tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
     
     results = await asyncio.gather(*tasks)
-    return [res for res in results if res and "error" not in res]
+    return sanitize_data([res for res in results if res and "error" not in res])
 
 @app.get("/api/short-term-recommendations")
 async def get_short_term_recommendations():
@@ -154,7 +173,7 @@ async def get_short_term_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res and res['price'] <= config.MAX_STOCK_PRICE_FOR_ST_REC]
     results.sort(key=lambda x: x["short_term_rec"]["score"], reverse=True)
-    return results[:10]
+    return sanitize_data(results[:10])
 
 @app.get("/api/bottom-fishing-recommendations")
 async def get_bottom_fishing_recommendations():
@@ -169,7 +188,7 @@ async def get_bottom_fishing_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["bottom_fishing_rec"]["score"], reverse=True)
-    return [r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20]
+    return sanitize_data([r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20])
 
 @app.get("/api/short-term-burst-recommendations")
 async def get_short_term_burst_recommendations():
@@ -184,7 +203,7 @@ async def get_short_term_burst_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["short_term_burst_rec"]["score"], reverse=True)
-    return [r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20]
+    return sanitize_data([r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20])
 
 @app.get("/api/overnight-recommendations")
 async def get_overnight_recommendations(mode: str = "1"):
@@ -206,7 +225,7 @@ async def get_overnight_recommendations(mode: str = "1"):
             
     if mode == "1": # 盤中強勢
         results.sort(key=lambda x: x['overnight']['score'], reverse=True)
-        return [r for r in results if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30]
+        return sanitize_data([r for r in results if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30])
     else: # 盤後籌碼
         # 優先依照 broker_ratio 排序
         results.sort(key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
@@ -216,7 +235,7 @@ async def get_overnight_recommendations(mode: str = "1"):
         if not top:
             results.sort(key=lambda x: x['overnight']['score'], reverse=True)
             top = [r for r in results if r['overnight']['score'] >= 50][:30]
-        return top
+        return sanitize_data(top)
 
 @app.get("/api/cdp-recommendations")
 async def get_cdp_recommendations():
@@ -238,7 +257,7 @@ async def get_cdp_recommendations():
     results = [res for res in all_res if res and "error" not in res]
     
     hit_results = [r for r in results if r['cdp'].get('signals')]
-    return hit_results if hit_results else results[:20]
+    return sanitize_data(hit_results if hit_results else results[:20])
 
 @app.get("/api/etf-recommendations")
 async def get_etf_recommendations():
@@ -253,7 +272,7 @@ async def get_etf_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x['etf_rec']['score'], reverse=True)
-    return results
+    return sanitize_data(results)
 
 @app.get("/api/industries")
 async def get_industries():
@@ -270,7 +289,7 @@ async def get_industry_stocks(name: str):
         tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
     
     all_res = await asyncio.gather(*tasks)
-    return [res for res in all_res if res and "error" not in res]
+    return sanitize_data([res for res in all_res if res and "error" not in res])
 
 @app.get("/api/analyze/{query}")
 async def analyze_stock(query: str):
@@ -287,7 +306,7 @@ async def analyze_stock(query: str):
     res = await loop.run_in_executor(executor, analyze_wrap, sid)
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
-    return res
+    return sanitize_data(res)
 
 @app.post("/api/sync")
 async def sync_data(mode: str = "1"):
