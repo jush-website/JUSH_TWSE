@@ -130,10 +130,26 @@ async def get_news():
         
     return {"taiwan": tw_result, "global": gl_result}
 
+# 簡單的 API 快取機制，避免頻繁計算導致超時
+API_CACHE = {}
+
+def get_cached_response(key, expiry=300):
+    if key in API_CACHE:
+        ts, data = API_CACHE[key]
+        if time.time() - ts < expiry:
+            return data
+    return None
+
+def set_cached_response(key, data):
+    API_CACHE[key] = (time.time(), data)
+
 executor = ThreadPoolExecutor(max_workers=30)
 
 @app.get("/api/long-term-recommendations")
 async def get_long_term_recommendations():
+    cached = get_cached_response("long_term")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
     sids = config.LONG_TERM_STOCK_IDS
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
@@ -145,12 +161,17 @@ async def get_long_term_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     # 長期股通常不特別依照短線分數排序，保持原始精選順序或依照 PE 排序
-    return sanitize_data(results)
+    final_res = sanitize_data(results)
+    set_cached_response("long_term", final_res)
+    return final_res
 
 @app.get("/api/hot-stocks")
 async def get_hot_stocks():
+    cached = get_cached_response("hot_stocks")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -158,12 +179,17 @@ async def get_hot_stocks():
         tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
     
     results = await asyncio.gather(*tasks)
-    return sanitize_data([res for res in results if res and "error" not in res])
+    final_res = sanitize_data([res for res in results if res and "error" not in res])
+    set_cached_response("hot_stocks", final_res)
+    return final_res
 
 @app.get("/api/short-term-recommendations")
 async def get_short_term_recommendations():
+    cached = get_cached_response("short_term")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -173,12 +199,17 @@ async def get_short_term_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res and res['price'] <= config.MAX_STOCK_PRICE_FOR_ST_REC]
     results.sort(key=lambda x: x["short_term_rec"]["score"], reverse=True)
-    return sanitize_data(results[:10])
+    final_res = sanitize_data(results[:10])
+    set_cached_response("short_term", final_res)
+    return final_res
 
 @app.get("/api/bottom-fishing-recommendations")
 async def get_bottom_fishing_recommendations():
+    cached = get_cached_response("bottom_fishing")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:60])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -188,12 +219,17 @@ async def get_bottom_fishing_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["bottom_fishing_rec"]["score"], reverse=True)
-    return sanitize_data([r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20])
+    final_res = sanitize_data([r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20])
+    set_cached_response("bottom_fishing", final_res)
+    return final_res
 
 @app.get("/api/short-term-burst-recommendations")
 async def get_short_term_burst_recommendations():
+    cached = get_cached_response("short_term_burst")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:80])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -203,12 +239,17 @@ async def get_short_term_burst_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["short_term_burst_rec"]["score"], reverse=True)
-    return sanitize_data([r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20])
+    final_res = sanitize_data([r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20])
+    set_cached_response("short_term_burst", final_res)
+    return final_res
 
 @app.get("/api/overnight-recommendations")
 async def get_overnight_recommendations(mode: str = "1"):
+    cached = get_cached_response(f"overnight_{mode}")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, fetcher.get_hot_battlefield_ids)
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     def analyze_overnight(sid):
@@ -225,7 +266,7 @@ async def get_overnight_recommendations(mode: str = "1"):
             
     if mode == "1": # 盤中強勢
         results.sort(key=lambda x: x['overnight']['score'], reverse=True)
-        return sanitize_data([r for r in results if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30])
+        final_res = sanitize_data([r for r in results if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30])
     else: # 盤後籌碼
         # 優先依照 broker_ratio 排序
         results.sort(key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
@@ -235,12 +276,18 @@ async def get_overnight_recommendations(mode: str = "1"):
         if not top:
             results.sort(key=lambda x: x['overnight']['score'], reverse=True)
             top = [r for r in results if r['overnight']['score'] >= 50][:30]
-        return sanitize_data(top)
+        final_res = sanitize_data(top)
+        
+    set_cached_response(f"overnight_{mode}", final_res)
+    return final_res
 
 @app.get("/api/cdp-recommendations")
 async def get_cdp_recommendations():
+    cached = get_cached_response("cdp")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:100])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
@@ -257,7 +304,9 @@ async def get_cdp_recommendations():
     results = [res for res in all_res if res and "error" not in res]
     
     hit_results = [r for r in results if r['cdp'].get('signals')]
-    return sanitize_data(hit_results if hit_results else results[:20])
+    final_res = sanitize_data(hit_results if hit_results else results[:20])
+    set_cached_response("cdp", final_res)
+    return final_res
 
 @app.get("/api/etf-recommendations")
 async def get_etf_recommendations():
@@ -272,7 +321,9 @@ async def get_etf_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x['etf_rec']['score'], reverse=True)
-    return sanitize_data(results)
+    final_res = sanitize_data(results)
+    set_cached_response("etf", final_res)
+    return final_res
 
 @app.get("/api/industries")
 async def get_industries():

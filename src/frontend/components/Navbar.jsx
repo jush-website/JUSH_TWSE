@@ -54,6 +54,16 @@ const Navbar = ({ status }) => {
             </Link>
             
             <div className="group relative">
+              <Link 
+                to="/analyze" 
+                className={`flex items-center space-x-2 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname.includes('/analyze') ? 'text-cyan-400' : 'text-gray-300'}`}
+              >
+                <Search size={18} />
+                <span>個股分析</span>
+              </Link>
+            </div>
+
+            <div className="group relative">
               <button className={`flex items-center space-x-2 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname.includes('/recommendations') ? 'text-cyan-400' : 'text-gray-300'}`}>
                 <BarChart2 size={18} />
                 <span>精選策略</span>
@@ -130,6 +140,10 @@ const Navbar = ({ status }) => {
 
           <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
             <div className="flex items-center space-x-3"><Home size={18} /><span>首頁</span></div>
+          </Link>
+          
+          <Link to="/analyze" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
+            <div className="flex items-center space-x-3"><Search size={18} /><span>個股分析</span></div>
           </Link>
           
           <div className="rounded-xl overflow-hidden">
