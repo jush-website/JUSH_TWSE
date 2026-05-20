@@ -20,8 +20,9 @@ analyzer = StockAnalyzer(fetcher=fetcher)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 啟動時執行初步數據同步 (非阻塞方式)
-    print("[系統] 正在啟動背景數據同步...")
-    asyncio.create_task(background_sync())
+    if not os.environ.get("VERCEL"):
+        print("[系統] 正在啟動背景數據同步...")
+        asyncio.create_task(background_sync())
     yield
 
 async def background_sync():
