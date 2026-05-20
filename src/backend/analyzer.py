@@ -159,24 +159,33 @@ class StockAnalyzer:
             now = datetime.now(pytz.timezone("Asia/Taipei"))
             market_close = now.replace(hour=13, minute=31, second=0, microsecond=0)
             
-            if now < market_close:
+            if now < market_close or is_preview:
+                # 決定要比較的現價
+                # 如果是預覽模式 (已經收盤)，則用今天的收盤價來跟「明天的 CDP」比較
+                # 如果是盤中模式，則用即時價來跟「今天的 CDP」比較
+                check_price = price if price else 0
+                check_open = open_p if open_p else 0
+                
                 # 1. 強弱分水嶺 (CDP)
-                if open_p:
-                    if open_p > cdp: res["signals"].append(f"開盤 > CDP ({open_p} > {res['CDP']})，偏多")
-                    else: res["signals"].append(f"開盤 < CDP ({open_p} < {res['CDP']})，偏空")
+                if check_open > 0:
+                    if check_open > cdp: res["signals"].append(f"開盤 > CDP ({check_open} > {res['CDP']})，偏多")
+                    else: res["signals"].append(f"開盤 < CDP ({check_open} < {res['CDP']})，偏空")
 
                 # 2. 順勢操作 (跳空突破/跌破)
-                if open_p:
-                    if open_p >= ah: res["signals"].append("開盤突破 AH，動能強勁可追漲")
-                    elif open_p <= al: res["signals"].append("開盤跌破 AL，盤勢弱順勢偏空")
+                if check_open > 0:
+                    if check_open >= ah: res["signals"].append("開盤突破 AH，動能強勁可追漲")
+                    elif check_open <= al: res["signals"].append("開盤跌破 AL，盤勢弱順勢偏空")
 
                 # 3. 逆勢操作與壓力支撐
-                if price:
-                    if price >= ah: res["signals"].append("觸及 AH，考慮獲利了結")
-                    elif price >= nh: res["signals"].append("突破 NH，短線賣點")
+                if check_price > 0:
+                    if check_price >= ah: res["signals"].append("目前價 >= AH，考慮獲利了結")
+                    elif check_price >= nh: res["signals"].append("目前價 >= NH，短線賣點")
                     
-                    if price <= al: res["signals"].append("觸及 AL，考慮低接佈局")
-                    elif price <= nl: res["signals"].append("跌破 NL，短線買點")
+                    if check_price <= al: res["signals"].append("目前價 <= AL，考慮低接佈局")
+                    elif check_price <= nl: res["signals"].append("目前價 <= NL，短線買點")
+            
+            if is_preview:
+                res["signals"] = [f"[明日預覽] {s}" for s in res["signals"]]
             else:
                 # 盤後時間，CDP 已轉為「明日預覽」
                 res["is_preview"] = True
@@ -538,7 +547,7 @@ class StockAnalyzer:
         # 5. 高波動題材股 (由分析結果中的 volatility 決定)
         return "一般熱門股"
 
-    def analyze(self, stock_id: str, intraday_snapshot=None):
+    def analyze(self, stock_id: str, intraday_snapshot=None, fetch_live_chip=False):
         df_raw = self.fetcher.get_price_data(stock_id, days=250)
         if df_raw.empty or len(df_raw) < 35: return {"error": "數據不足"}
         price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(stock_id, "未知"); is_etf = self.fetcher.is_etf(stock_id)
@@ -599,30 +608,35 @@ class StockAnalyzer:
                         new_df = pd.DataFrame([new_row], index=[new_dt])
                         price_df = pd.concat([price_df, new_df])
                     merged_new_data = True
-        # 基礎均線
-        price_df.loc[:, 'MA5'] = price_df['Close'].rolling(window=5).mean()
-        price_df.loc[:, 'MA10'] = price_df['Close'].rolling(window=10).mean()
-        price_df.loc[:, 'MA20'] = price_df['Close'].rolling(window=20).mean()
-        price_df.loc[:, 'MA60'] = price_df['Close'].rolling(window=60).mean()
-        price_df.loc[:, 'MA120'] = price_df['Close'].rolling(window=120).mean()
-        price_df.loc[:, 'MA240'] = price_df['Close'].rolling(window=240).mean()
+        # 只有在有新合併數據，或者缺指標時才重新計算
+        required_cols = ['MA5', 'MA10', 'MA20', 'MA60', 'MA120', 'MA240', 'plus_di', 'minus_di', 'adx', 'obv', 'ad_line', 'bias_20', 'atr', 'BB_Upper', 'BB_Middle', 'BB_Lower', 'K', 'D', 'RSI', 'MACD_Hist']
+        if merged_new_data or any(col not in price_df.columns for col in required_cols):
+            # 基礎均線
+            price_df.loc[:, 'MA5'] = price_df['Close'].rolling(window=5).mean()
+            price_df.loc[:, 'MA10'] = price_df['Close'].rolling(window=10).mean()
+            price_df.loc[:, 'MA20'] = price_df['Close'].rolling(window=20).mean()
+            price_df.loc[:, 'MA60'] = price_df['Close'].rolling(window=60).mean()
+            price_df.loc[:, 'MA120'] = price_df['Close'].rolling(window=120).mean()
+            price_df.loc[:, 'MA240'] = price_df['Close'].rolling(window=240).mean()
+            
+            # 進階指標
+            plus_di, minus_di, adx = self.calculate_dmi(price_df)
+            price_df.loc[:, 'plus_di'] = plus_di; price_df.loc[:, 'minus_di'] = minus_di; price_df.loc[:, 'adx'] = adx
+            price_df.loc[:, 'obv'] = self.calculate_obv(price_df)
+            price_df.loc[:, 'ad_line'] = self.calculate_ad(price_df)
+            price_df.loc[:, 'bias_20'] = self.calculate_bias(price_df, n=20)
+            price_df.loc[:, 'atr'] = self.calculate_atr(price_df)
+            
+            upper, middle, lower = self.calculate_bollinger_bands(price_df)
+            price_df.loc[:, 'BB_Upper'] = upper; price_df.loc[:, 'BB_Middle'] = middle; price_df.loc[:, 'BB_Lower'] = lower
+            k, d = self.calculate_kd(price_df); price_df.loc[:, 'K'] = k; price_df.loc[:, 'D'] = d; price_df.loc[:, 'RSI'] = self.calculate_rsi(price_df)
+            dif, dea, macd_hist = self.calculate_macd(price_df); price_df.loc[:, 'MACD_Hist'] = macd_hist
         
-        # 進階指標
-        plus_di, minus_di, adx = self.calculate_dmi(price_df)
-        price_df.loc[:, 'plus_di'] = plus_di; price_df.loc[:, 'minus_di'] = minus_di; price_df.loc[:, 'adx'] = adx
-        price_df.loc[:, 'obv'] = self.calculate_obv(price_df)
-        price_df.loc[:, 'ad_line'] = self.calculate_ad(price_df)
-        price_df.loc[:, 'bias_20'] = self.calculate_bias(price_df, n=20)
-        price_df.loc[:, 'atr'] = self.calculate_atr(price_df)
-        
-        upper, middle, lower = self.calculate_bollinger_bands(price_df)
-        price_df.loc[:, 'BB_Upper'] = upper; price_df.loc[:, 'BB_Middle'] = middle; price_df.loc[:, 'BB_Lower'] = lower
-        k, d = self.calculate_kd(price_df); price_df.loc[:, 'K'] = k; price_df.loc[:, 'D'] = d; price_df.loc[:, 'RSI'] = self.calculate_rsi(price_df)
-        dif, dea, macd = self.calculate_macd(price_df); price_df.loc[:, 'MACD_Hist'] = macd
+        macd = price_df['MACD_Hist']
         
         last, prev = price_df.iloc[-1], price_df.iloc[-2]
-        chip_df = self.fetcher.get_chip_data(stock_id, days=10) if not is_etf else pd.DataFrame()
-        margin_df = self.fetcher.get_margin_data(stock_id, days=5) if not is_etf else pd.DataFrame()
+        chip_df = self.fetcher.get_chip_data(stock_id, days=10, fetch_live=fetch_live_chip) if not is_etf else pd.DataFrame()
+        margin_df = pd.DataFrame() # margin_df is not used in any evaluation strategy
         
         # 獲取基礎面與分類
         official = self.fetcher._official_cache.get(stock_id, {})
@@ -639,7 +653,14 @@ class StockAnalyzer:
         if vol_info['volatility'] > 40: category = "高波動題材股"
 
         st_res = self.evaluate_short_term(price_df, chip_df)
-        diag = []; diag.extend(self.evaluate_moving_averages(price_df)); lvl = self.identify_price_levels(price_df); diag.extend(lvl["diag"]); diag.extend(self.identify_k_patterns(price_df)); diag.extend(self.identify_macd_details(price_df)); diag.extend(self.identify_bollinger_details(price_df))
+        cdp_res = self.calculate_cdp(price_df, intraday_snapshot)
+        
+        diag = []
+        if cdp_res.get("signals"):
+            diag.extend([f"CDP診斷：{s}" for s in cdp_res["signals"]])
+
+        diag.extend(self.evaluate_moving_averages(price_df))
+        lvl = self.identify_price_levels(price_df); diag.extend(lvl["diag"]); diag.extend(self.identify_k_patterns(price_df)); diag.extend(self.identify_macd_details(price_df)); diag.extend(self.identify_bollinger_details(price_df))
         
         # 趨勢強度診斷 (DMI/ADX)
         if last['adx'] > 25:
@@ -672,7 +693,6 @@ class StockAnalyzer:
         low_pe_res = self.evaluate_low_pe_strategy(price_df, chip_df, official.get("pe"))
         bottom_fishing_res = self.evaluate_bottom_fishing(price_df, chip_df, official.get("pe"))
         st_burst_res = self.evaluate_short_term_burst(price_df, chip_df)
-        cdp_res = self.calculate_cdp(price_df, intraday_snapshot)
         
         # 新增開盤檢核表
         opening_checklist = self.evaluate_opening_checklist(intraday_snapshot)
@@ -684,7 +704,6 @@ class StockAnalyzer:
 
         if bottom_fishing_res["score"] >= 50: diag.append(f"抄底訊號：{bottom_fishing_res['status']}")
         if st_burst_res["score"] >= 60: diag.append(f"短線爆發：{st_burst_res['status']}")
-        if cdp_res.get("signals"): diag.extend(cdp_res["signals"])
 
         etf_rec = self.evaluate_etf(price_df) if is_etf else {"score":0, "status": "非ETF", "signals": []}
         strat_res = self.calculate_entry_strategy(price_df, chip_df, is_etf, intraday_snapshot)

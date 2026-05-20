@@ -130,7 +130,7 @@ async def get_news():
         
     return {"taiwan": tw_result, "global": gl_result}
 
-executor = ThreadPoolExecutor(max_workers=10)
+executor = ThreadPoolExecutor(max_workers=30)
 
 @app.get("/api/long-term-recommendations")
 async def get_long_term_recommendations():
@@ -301,7 +301,7 @@ async def analyze_stock(query: str):
     def analyze_wrap(sid):
         snapshot = fetcher.get_intraday_data(sid)
         if snapshot: snapshot['stock_id'] = sid
-        return analyzer.analyze(sid, intraday_snapshot=snapshot)
+        return analyzer.analyze(sid, intraday_snapshot=snapshot, fetch_live_chip=True)
         
     res = await loop.run_in_executor(executor, analyze_wrap, sid)
     if "error" in res:
