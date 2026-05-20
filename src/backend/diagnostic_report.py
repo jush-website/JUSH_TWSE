@@ -1,7 +1,7 @@
 import pandas as pd
-from data_fetcher import DataFetcher
-from analyzer import StockAnalyzer
-import config
+from src.backend.data_fetcher import DataFetcher
+from src.backend.analyzer import StockAnalyzer
+from src.backend import config
 import json
 
 def diagnostic_report():

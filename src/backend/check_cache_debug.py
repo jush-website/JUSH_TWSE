@@ -2,7 +2,7 @@ import pickle
 import os
 import pandas as pd
 
-import config
+from src.backend import config
 
 def check_cache():
     cache_dir = config.CACHE_DIR

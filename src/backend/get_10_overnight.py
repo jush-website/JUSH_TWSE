@@ -1,7 +1,7 @@
 import pandas as pd
-import config
-from analyzer import StockAnalyzer
-from data_fetcher import DataFetcher
+from src.backend import config
+from src.backend.analyzer import StockAnalyzer
+from src.backend.data_fetcher import DataFetcher
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import sys

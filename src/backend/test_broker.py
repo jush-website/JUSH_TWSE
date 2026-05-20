@@ -1,5 +1,5 @@
-import config
-from data_fetcher import DataFetcher
+from src.backend import config
+from src.backend.data_fetcher import DataFetcher
 import pandas as pd
 
 def test():

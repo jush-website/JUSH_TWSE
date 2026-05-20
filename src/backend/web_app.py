@@ -6,7 +6,7 @@ from typing import List, Optional
 import asyncio
 import time
 import os
-import config
+from src.backend import config
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 

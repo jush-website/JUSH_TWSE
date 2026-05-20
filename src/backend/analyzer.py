@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import config
+from src.backend import config
 import pytz
 from src.backend.data_fetcher import DataFetcher
 from datetime import datetime
