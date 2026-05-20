@@ -12,7 +12,6 @@
   ],
   "functions": {
     "api/*.py": {
-      "runtime": "@vercel/python@latest",
       "memory": 1024,
       "maxDuration": 10
     }
