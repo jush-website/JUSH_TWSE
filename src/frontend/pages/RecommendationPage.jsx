@@ -6,6 +6,8 @@ import {
   getBottomFishingRecommendations,
   getShortTermBurstRecommendations,
   getLongTermRecommendations,
+  getEtfRecommendations,
+  getCdpRecommendations,
   syncData
 } from '../services/api';
 import StockCard from '../components/StockCard';
@@ -22,7 +24,9 @@ const RecommendationPage = () => {
     'overnight': '隔日沖動能偵測 (主力分點與尾盤拉抬)',
     'bottom': '抄底絕佳標的 (乖離過大與超跌反彈)',
     'burst': '強勢爆發推薦 (放量突破與趨勢確認)',
-    'long-term': '長期精選核心 (績優龍頭與穩定配息)'
+    'long-term': '長期精選核心 (績優龍頭與穩定配息)',
+    'etf': 'ETF 佈局 (穩健進場與防禦配置)',
+    'cdp': 'CDP 逆勢分析 (當沖與隔日點位實戰)'
   };
 
   const fetchData = async () => {
@@ -35,6 +39,8 @@ const RecommendationPage = () => {
         case 'bottom': res = await getBottomFishingRecommendations(); break;
         case 'burst': res = await getShortTermBurstRecommendations(); break;
         case 'long-term': res = await getLongTermRecommendations(); break;
+        case 'etf': res = await getEtfRecommendations(); break;
+        case 'cdp': res = await getCdpRecommendations(); break;
         default: res = { data: [] };
       }
       setStocks(res.data);
