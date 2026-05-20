@@ -20,4 +20,4 @@ dependencies = [
 entrypoint = "api.index:app"
 memory = 1024
 maxDuration = 10
-
+include_files = ["src/cache/**"]

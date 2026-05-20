@@ -1,0 +1,11 @@
+{
+  "name": "stock-analysis-v5",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "python": "3.12"
+  },
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  }
+}
