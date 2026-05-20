@@ -551,28 +551,44 @@ class DataFetcher:
                 last_row = price_df.iloc[-1]
                 prev_row = price_df.iloc[-2]
                 
-                # 如果是盤後，且官方快取日期是今天，則 last_row 可能就是今天
-                # 這裡要判斷 CDP 基準應該是昨天
-                if last_row.name.date() == now.date():
+                # 確保 00:00~08:59 是昨收數據，開盤後 (09:00+) 才是當天數據
+                is_before_open = now.hour < 9
+                
+                if last_row.name.date() == now.date() and not is_before_open:
+                    # 已經是今天且已過 09:00，使用今日即時數據
                     y_row = prev_row
                     cdp_base = y_row.name.strftime("%Y-%m-%d")
                     curr_price = float(last_row['Close'])
                 else:
+                    # 00:00~08:59，或者今日數據還沒進來，一律當作是「昨日」數據
                     y_row = last_row
                     cdp_base = y_row.name.strftime("%Y-%m-%d")
                     curr_price = float(last_row['Close']) # 這裡是昨收
 
-                if official_data and official_data.get('date') == now.strftime("%Y-%m-%d"):
+                if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") and not is_before_open:
                     curr_price = float(official_data['price'])
 
                 yesterday_avg = (float(y_row['High']) + float(y_row['Low']) + float(y_row['Close'])) / 3
+                
+                # 如果在 00:00~08:59，我們要讓 open, high, low, close 都回傳昨收的狀態
+                if is_before_open:
+                    sim_open = float(last_row['Close']) # 用昨收作為平盤基準
+                    sim_high = float(last_row['Close'])
+                    sim_low = float(last_row['Close'])
+                    sim_vol = 0
+                else:
+                    sim_open = float(official_data['open']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['Open'])
+                    sim_high = float(official_data['high']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['High'])
+                    sim_low = float(official_data['low']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['Low'])
+                    sim_vol = int(official_data['volume']*1000) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else int(last_row['Volume'])
+
                 simulated_snapshot = {
                     "stock_id": stock_id,
                     "price": curr_price,
-                    "open": float(official_data['open']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['Open']),
-                    "high": float(official_data['high']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['High']),
-                    "low": float(official_data['low']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['Low']),
-                    "volume": int(official_data['volume']*1000) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else int(last_row['Volume']),
+                    "open": sim_open,
+                    "high": sim_high,
+                    "low": sim_low,
+                    "volume": sim_vol,
                     "yesterday_high": float(y_row['High']),
                     "yesterday_low": float(y_row['Low']),
                     "yesterday_close": float(y_row['Close']),
@@ -595,6 +611,10 @@ class DataFetcher:
             return get_simulated_snapshot()
             
         # 2. 盤中時間，嘗試抓取 live 1m 數據
+        # 如果是 00:00~08:59，一律回傳模擬的昨收快照，不抓取即時數據
+        if now.hour < 9:
+            return get_simulated_snapshot()
+
         try:
             sym_map = self.get_symbol_map(); symbol = sym_map.get(stock_id, f"{stock_id}.TW")
             df = yf.download(symbol, period="3d", interval="1m", progress=False, auto_adjust=False)

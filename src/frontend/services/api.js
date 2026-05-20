@@ -16,17 +16,33 @@ api.interceptors.response.use(
   (error) => Promise.reject(error)
 );
 
-export const getStatus = () => api.get('/api/status');
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "./firebase";
+
+// 輔助函式：從 Firestore 獲取數據，並模擬 Axios 的 { data: ... } 結構
+const fetchFromFirestore = async (collectionName, docId) => {
+  const docRef = doc(db, collectionName, docId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    const firestoreData = docSnap.data();
+    // 假設後端將清單存放在 { data: [...] }，或是直接存放
+    return { data: firestoreData.data || firestoreData };
+  } else {
+    return { data: [] };
+  }
+};
+
+export const getStatus = () => fetchFromFirestore('system', 'status');
 export const getGlobalMarket = () => api.get('/api/global-market');
 export const getNews = () => api.get('/api/news');
-export const getLongTermRecommendations = () => api.get('/api/long-term-recommendations');
-export const getHotStocks = () => api.get('/api/hot-stocks');
-export const getShortTermRecommendations = () => api.get('/api/short-term-recommendations');
-export const getBottomFishingRecommendations = () => api.get('/api/bottom-fishing-recommendations');
-export const getShortTermBurstRecommendations = () => api.get('/api/short-term-burst-recommendations');
-export const getOvernightRecommendations = (mode = "1") => api.get(`/api/overnight-recommendations?mode=${mode}`);
-export const getCdpRecommendations = () => api.get('/api/cdp-recommendations');
-export const getEtfRecommendations = () => api.get('/api/etf-recommendations');
+export const getLongTermRecommendations = () => fetchFromFirestore('recommendations', 'long_term');
+export const getHotStocks = () => fetchFromFirestore('recommendations', 'hot_stocks');
+export const getShortTermRecommendations = () => fetchFromFirestore('recommendations', 'short_term');
+export const getBottomFishingRecommendations = () => fetchFromFirestore('recommendations', 'bottom_fishing');
+export const getShortTermBurstRecommendations = () => fetchFromFirestore('recommendations', 'short_term_burst');
+export const getOvernightRecommendations = (mode = "1") => fetchFromFirestore('recommendations', `overnight_${mode}`);
+export const getCdpRecommendations = () => fetchFromFirestore('recommendations', 'cdp');
+export const getEtfRecommendations = () => fetchFromFirestore('recommendations', 'etf');
 export const getIndustries = () => api.get('/api/industries');
 export const getIndustryStocks = (name) => api.get(`/api/industry/${name}`);
 export const analyzeStock = (query) => api.get(`/api/analyze/${query}`);

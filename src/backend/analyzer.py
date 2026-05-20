@@ -136,8 +136,18 @@ class StockAnalyzer:
         al = cdp - dist
         
         # 決定是否為預覽模式 (基準日是否為今天)
+        # 依照使用者規則：
+        # - 開盤後 (09:00 ~ 13:30) CDP 要使用昨收數據。
+        # - 收盤後 (13:30 以後) CDP 要使用當天收盤後數據。
         now = datetime.now(pytz.timezone("Asia/Taipei"))
-        is_preview = (base_date == now.strftime("%Y-%m-%d"))
+        market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        market_close = now.replace(hour=13, minute=30, second=0, microsecond=0)
+        
+        is_preview = False
+        if now >= market_close:
+            is_preview = True # 13:30 以後，預覽明日 CDP
+        elif now < market_open:
+            is_preview = False # 00:00~08:59，預覽今日 CDP (所以用昨收)
         
         res = {
             "CDP": round(cdp, 2),
@@ -184,11 +194,12 @@ class StockAnalyzer:
                     if check_price <= al: res["signals"].append("目前價 <= AL，考慮低接佈局")
                     elif check_price <= nl: res["signals"].append("目前價 <= NL，短線買點")
             
-            if is_preview:
-                res["signals"] = [f"[明日預覽] {s}" for s in res["signals"]]
-            else:
-                # 盤後時間，CDP 已轉為「明日預覽」
+            # 如果是盤後時間 (預覽模式)，或者是在盤前 (00:00~08:59)，都只做盤前預覽訊號
+            if now >= market_close:
                 res["is_preview"] = True
+                res["signals"] = [f"[明日預覽] {s}" for s in res["signals"]]
+            elif now < market_open:
+                res["signals"] = [f"[今日預覽] {s}" for s in res["signals"]]
         
         return res
 

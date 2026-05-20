@@ -7,8 +7,7 @@ import {
   getShortTermBurstRecommendations,
   getLongTermRecommendations,
   getEtfRecommendations,
-  getCdpRecommendations,
-  syncData
+  getCdpRecommendations
 } from '../services/api';
 import StockCard from '../components/StockCard';
 import { RefreshCw, LayoutGrid, List } from 'lucide-react';
@@ -17,7 +16,6 @@ const RecommendationPage = () => {
   const { type } = useParams();
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
 
   const titles = {
     'short-term': '短線極佳推薦 (動能與量能指標)',
@@ -55,35 +53,15 @@ const RecommendationPage = () => {
     fetchData();
   }, [type]);
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await syncData();
-      await fetchData();
-    } catch (err) {
-      alert('同步失敗');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">{titles[type] || '股票推薦'}</h1>
           <p className="text-gray-400 text-sm mt-1">
-            系統根據專業演算法篩選，每日自動更新核心指標。
+            系統每3分鐘自動更新指標，由雲端資料庫直接提供。
           </p>
         </div>
-        <button 
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 px-4 py-2 rounded-lg font-medium transition"
-        >
-          <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
-          <span>{syncing ? '同步中...' : '同步數據'}</span>
-        </button>
       </div>
 
       {loading ? (
