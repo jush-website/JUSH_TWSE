@@ -1,8 +1,10 @@
 {
-  "name": "frontend",
+  "name": "stock-analysis-v5",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "engines": {
+    "python": "3.12"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
