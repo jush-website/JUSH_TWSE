@@ -42,7 +42,7 @@ app = FastAPI(title="台股偵測系統 Web 版 (Optimized)", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # 生產環境建議設定為您的 Vercel 網址
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -56,17 +56,7 @@ frontend_path = os.path.join(root_dir, "frontend", "dist")
 if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
 
-@app.get("/{full_path:path}")
-async def serve_react_app(full_path: str):
-    # 如果路徑包含 api，則不處理 (交給其他 route)
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404)
-        
-    index_path = os.path.join(frontend_path, "index.html")
-    if os.path.exists(index_path):
-        with open(index_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>台股偵測系統</h1><p>請先執行 frontend 編譯 (npm run build)。</p>")
+
 
 @app.get("/api/status")
 async def get_status():
@@ -304,6 +294,18 @@ async def sync_data(mode: str = "1"):
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
     return {"status": "success"}
+
+@app.get("/{full_path:path}")
+async def serve_react_app(full_path: str):
+    # 如果路徑包含 api，則不處理 (交給其他 route)
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404)
+        
+    index_path = os.path.join(frontend_path, "index.html")
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>台股偵測系統</h1><p>請先執行 frontend 編譯 (npm run build)。</p>")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

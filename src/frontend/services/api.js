@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '', // 在 Vercel 上前後端同網域，直接使用相對路徑
+  // 如果有設定 VITE_API_URL 就使用它 (例如 Render 部署的後端)，否則預設使用相對路徑
+  baseURL: import.meta.env.VITE_API_URL || '', 
 });
 
 // 攔截器：如果 Vercel 回傳了 index.html (通常是因為 API 崩潰或尚未部署)，則視為錯誤
