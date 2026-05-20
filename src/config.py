@@ -35,19 +35,31 @@ TARGET_BROKERS = [
 ]
 
 import os
+import shutil
 
 # Base Directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# ROOT_DIR = os.path.dirname(BASE_DIR)
 
 # Cache Settings
 if os.environ.get("VERCEL"):
     CACHE_DIR = "/tmp/cache"
+    # 在 Vercel 環境，將預先打包的快取檔案種子化到可寫入的 /tmp
+    bundled_cache_dir = os.path.join(BASE_DIR, "cache")
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR, exist_ok=True)
+    if os.path.exists(bundled_cache_dir):
+        for filename in os.listdir(bundled_cache_dir):
+            src_file = os.path.join(bundled_cache_dir, filename)
+            dst_file = os.path.join(CACHE_DIR, filename)
+            if not os.path.exists(dst_file):
+                try:
+                    shutil.copy2(src_file, dst_file)
+                except Exception as e:
+                    print(f"Error seeding cache file {filename}: {e}")
 else:
     CACHE_DIR = os.path.join(BASE_DIR, "cache")
-
-if not os.path.exists(CACHE_DIR):
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR, exist_ok=True)
 
 INTRADAY_CACHE_EXPIRY = 900 # 15 minutes
 HISTORY_CACHE_EXPIRY = 3600 * 4 # 4 hours for history metadata
