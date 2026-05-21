@@ -110,23 +110,13 @@ async def get_news():
     valid_ids = set(valid_ids)
     
     tw_result = []
-    for title, url in tw_news_items:
+    for item in tw_news_items:
         import re
-        found_ids = [sid for sid in re.findall(r'\d{4}', title) if sid in valid_ids]
-        tw_result.append({
-            "title": title,
-            "url": url,
-            "related_stocks": found_ids,
-            "source": "TWSE"
-        })
+        found_ids = [sid for sid in re.findall(r'\d{4}', item.get("title", "")) if sid in valid_ids]
+        item["related_stocks"] = found_ids
+        tw_result.append(item)
     
-    gl_result = []
-    for title, url in gl_news_items:
-        gl_result.append({
-            "title": title,
-            "url": url,
-            "source": "Global"
-        })
+    gl_result = gl_news_items
         
     return {"taiwan": tw_result, "global": gl_result}
 

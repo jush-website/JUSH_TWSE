@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-from src.backend import config
+import config
 import pytz
-from src.backend.data_fetcher import DataFetcher
+from data_fetcher import DataFetcher
 from datetime import datetime
 
 class StockAnalyzer:
@@ -136,18 +136,8 @@ class StockAnalyzer:
         al = cdp - dist
         
         # 決定是否為預覽模式 (基準日是否為今天)
-        # 依照使用者規則：
-        # - 開盤後 (09:00 ~ 13:30) CDP 要使用昨收數據。
-        # - 收盤後 (13:30 以後) CDP 要使用當天收盤後數據。
         now = datetime.now(pytz.timezone("Asia/Taipei"))
-        market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
-        market_close = now.replace(hour=13, minute=30, second=0, microsecond=0)
-        
-        is_preview = False
-        if now >= market_close:
-            is_preview = True # 13:30 以後，預覽明日 CDP
-        elif now < market_open:
-            is_preview = False # 00:00~08:59，預覽今日 CDP (所以用昨收)
+        is_preview = (base_date == now.strftime("%Y-%m-%d"))
         
         res = {
             "CDP": round(cdp, 2),
@@ -169,37 +159,27 @@ class StockAnalyzer:
             now = datetime.now(pytz.timezone("Asia/Taipei"))
             market_close = now.replace(hour=13, minute=31, second=0, microsecond=0)
             
-            if now < market_close or is_preview:
-                # 決定要比較的現價
-                # 如果是預覽模式 (已經收盤)，則用今天的收盤價來跟「明天的 CDP」比較
-                # 如果是盤中模式，則用即時價來跟「今天的 CDP」比較
-                check_price = price if price else 0
-                check_open = open_p if open_p else 0
-                
+            if now < market_close:
                 # 1. 強弱分水嶺 (CDP)
-                if check_open > 0:
-                    if check_open > cdp: res["signals"].append(f"開盤 > CDP ({check_open} > {res['CDP']})，偏多")
-                    else: res["signals"].append(f"開盤 < CDP ({check_open} < {res['CDP']})，偏空")
+                if open_p:
+                    if open_p > cdp: res["signals"].append(f"開盤 > CDP ({open_p} > {res['CDP']})，偏多")
+                    else: res["signals"].append(f"開盤 < CDP ({open_p} < {res['CDP']})，偏空")
 
                 # 2. 順勢操作 (跳空突破/跌破)
-                if check_open > 0:
-                    if check_open >= ah: res["signals"].append("開盤突破 AH，動能強勁可追漲")
-                    elif check_open <= al: res["signals"].append("開盤跌破 AL，盤勢弱順勢偏空")
+                if open_p:
+                    if open_p >= ah: res["signals"].append("開盤突破 AH，動能強勁可追漲")
+                    elif open_p <= al: res["signals"].append("開盤跌破 AL，盤勢弱順勢偏空")
 
                 # 3. 逆勢操作與壓力支撐
-                if check_price > 0:
-                    if check_price >= ah: res["signals"].append("目前價 >= AH，考慮獲利了結")
-                    elif check_price >= nh: res["signals"].append("目前價 >= NH，短線賣點")
+                if price:
+                    if price >= ah: res["signals"].append("觸及 AH，考慮獲利了結")
+                    elif price >= nh: res["signals"].append("突破 NH，短線賣點")
                     
-                    if check_price <= al: res["signals"].append("目前價 <= AL，考慮低接佈局")
-                    elif check_price <= nl: res["signals"].append("目前價 <= NL，短線買點")
-            
-            # 如果是盤後時間 (預覽模式)，或者是在盤前 (00:00~08:59)，都只做盤前預覽訊號
-            if now >= market_close:
+                    if price <= al: res["signals"].append("觸及 AL，考慮低接佈局")
+                    elif price <= nl: res["signals"].append("跌破 NL，短線買點")
+            else:
+                # 盤後時間，CDP 已轉為「明日預覽」
                 res["is_preview"] = True
-                res["signals"] = [f"[明日預覽] {s}" for s in res["signals"]]
-            elif now < market_open:
-                res["signals"] = [f"[今日預覽] {s}" for s in res["signals"]]
         
         return res
 
@@ -558,14 +538,29 @@ class StockAnalyzer:
         # 5. 高波動題材股 (由分析結果中的 volatility 決定)
         return "一般熱門股"
 
-    def analyze(self, stock_id: str, intraday_snapshot=None, fetch_live_chip=False):
+    def analyze(self, stock_id: str, intraday_snapshot=None):
         df_raw = self.fetcher.get_price_data(stock_id, days=250)
         if df_raw.empty or len(df_raw) < 35: return {"error": "數據不足"}
-        stock_name = self.fetcher._stock_id_map.get(stock_id)
-        if not stock_name:
-            off = self.fetcher._official_cache.get(stock_id, {})
-            stock_name = off.get('name', "未知")
-        price_df = df_raw.copy(); is_etf = self.fetcher.is_etf(stock_id)
+        price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(stock_id, "未知"); is_etf = self.fetcher.is_etf(stock_id)
+        
+        # 修正：如果還是沒有名稱，或是名稱就是代碼本身，嘗試從 yfinance 抓取
+        # 修正：如果還是沒有名稱，或是名稱就是代碼本身 (全數字)，嘗試從 yfinance 抓取
+        if stock_name in ["未知", stock_id, str(stock_id)] or stock_name.isdigit():
+            try:
+                symbols = []
+                sym_map_val = self.fetcher.get_symbol_map().get(stock_id)
+                if sym_map_val: symbols.append(sym_map_val)
+                symbols.extend([f"{stock_id}.TW", f"{stock_id}.TWO"])
+                
+                for symbol in symbols:
+                    t = yf.Ticker(symbol)
+                    yf_name = t.info.get('shortName') or t.info.get('longName')
+                    if yf_name:
+                        stock_name = str(yf_name).replace(" ", "")
+                        self.fetcher._stock_id_map[stock_id] = stock_name
+                        self.fetcher._stock_name_map[stock_name] = stock_id
+                        break
+            except: pass
         
         # 合併最新數據至歷史 DataFrame
         latest_history_date = price_df.index[-1].date()
@@ -577,11 +572,7 @@ class StockAnalyzer:
             if 'df_1m' in intraday_snapshot and not intraday_snapshot['df_1m'].empty:
                 snap_date = intraday_snapshot['df_1m'].index[-1].date()
             else:
-                snap_date_str = intraday_snapshot.get('date')
-                if snap_date_str:
-                    snap_date = datetime.strptime(snap_date_str, "%Y-%m-%d").date()
-                else:
-                    snap_date = datetime.now(pytz.timezone("Asia/Taipei")).date()
+                snap_date = datetime.now(pytz.timezone("Asia/Taipei")).date()
 
             if snap_date >= latest_history_date:
                 new_row = {
@@ -627,35 +618,30 @@ class StockAnalyzer:
                         new_df = pd.DataFrame([new_row], index=[new_dt])
                         price_df = pd.concat([price_df, new_df])
                     merged_new_data = True
-        # 只有在有新合併數據，或者缺指標時才重新計算
-        required_cols = ['MA5', 'MA10', 'MA20', 'MA60', 'MA120', 'MA240', 'plus_di', 'minus_di', 'adx', 'obv', 'ad_line', 'bias_20', 'atr', 'BB_Upper', 'BB_Middle', 'BB_Lower', 'K', 'D', 'RSI', 'MACD_Hist']
-        if merged_new_data or any(col not in price_df.columns for col in required_cols):
-            # 基礎均線
-            price_df.loc[:, 'MA5'] = price_df['Close'].rolling(window=5).mean()
-            price_df.loc[:, 'MA10'] = price_df['Close'].rolling(window=10).mean()
-            price_df.loc[:, 'MA20'] = price_df['Close'].rolling(window=20).mean()
-            price_df.loc[:, 'MA60'] = price_df['Close'].rolling(window=60).mean()
-            price_df.loc[:, 'MA120'] = price_df['Close'].rolling(window=120).mean()
-            price_df.loc[:, 'MA240'] = price_df['Close'].rolling(window=240).mean()
-            
-            # 進階指標
-            plus_di, minus_di, adx = self.calculate_dmi(price_df)
-            price_df.loc[:, 'plus_di'] = plus_di; price_df.loc[:, 'minus_di'] = minus_di; price_df.loc[:, 'adx'] = adx
-            price_df.loc[:, 'obv'] = self.calculate_obv(price_df)
-            price_df.loc[:, 'ad_line'] = self.calculate_ad(price_df)
-            price_df.loc[:, 'bias_20'] = self.calculate_bias(price_df, n=20)
-            price_df.loc[:, 'atr'] = self.calculate_atr(price_df)
-            
-            upper, middle, lower = self.calculate_bollinger_bands(price_df)
-            price_df.loc[:, 'BB_Upper'] = upper; price_df.loc[:, 'BB_Middle'] = middle; price_df.loc[:, 'BB_Lower'] = lower
-            k, d = self.calculate_kd(price_df); price_df.loc[:, 'K'] = k; price_df.loc[:, 'D'] = d; price_df.loc[:, 'RSI'] = self.calculate_rsi(price_df)
-            dif, dea, macd_hist = self.calculate_macd(price_df); price_df.loc[:, 'MACD_Hist'] = macd_hist
+        # 基礎均線
+        price_df.loc[:, 'MA5'] = price_df['Close'].rolling(window=5).mean()
+        price_df.loc[:, 'MA10'] = price_df['Close'].rolling(window=10).mean()
+        price_df.loc[:, 'MA20'] = price_df['Close'].rolling(window=20).mean()
+        price_df.loc[:, 'MA60'] = price_df['Close'].rolling(window=60).mean()
+        price_df.loc[:, 'MA120'] = price_df['Close'].rolling(window=120).mean()
+        price_df.loc[:, 'MA240'] = price_df['Close'].rolling(window=240).mean()
         
-        macd = price_df['MACD_Hist']
+        # 進階指標
+        plus_di, minus_di, adx = self.calculate_dmi(price_df)
+        price_df.loc[:, 'plus_di'] = plus_di; price_df.loc[:, 'minus_di'] = minus_di; price_df.loc[:, 'adx'] = adx
+        price_df.loc[:, 'obv'] = self.calculate_obv(price_df)
+        price_df.loc[:, 'ad_line'] = self.calculate_ad(price_df)
+        price_df.loc[:, 'bias_20'] = self.calculate_bias(price_df, n=20)
+        price_df.loc[:, 'atr'] = self.calculate_atr(price_df)
+        
+        upper, middle, lower = self.calculate_bollinger_bands(price_df)
+        price_df.loc[:, 'BB_Upper'] = upper; price_df.loc[:, 'BB_Middle'] = middle; price_df.loc[:, 'BB_Lower'] = lower
+        k, d = self.calculate_kd(price_df); price_df.loc[:, 'K'] = k; price_df.loc[:, 'D'] = d; price_df.loc[:, 'RSI'] = self.calculate_rsi(price_df)
+        dif, dea, macd = self.calculate_macd(price_df); price_df.loc[:, 'MACD_Hist'] = macd
         
         last, prev = price_df.iloc[-1], price_df.iloc[-2]
-        chip_df = self.fetcher.get_chip_data(stock_id, days=10, fetch_live=fetch_live_chip) if not is_etf else pd.DataFrame()
-        margin_df = pd.DataFrame() # margin_df is not used in any evaluation strategy
+        chip_df = self.fetcher.get_chip_data(stock_id, days=10) if not is_etf else pd.DataFrame()
+        margin_df = self.fetcher.get_margin_data(stock_id, days=5) if not is_etf else pd.DataFrame()
         
         # 獲取基礎面與分類
         official = self.fetcher._official_cache.get(stock_id, {})
@@ -672,14 +658,7 @@ class StockAnalyzer:
         if vol_info['volatility'] > 40: category = "高波動題材股"
 
         st_res = self.evaluate_short_term(price_df, chip_df)
-        cdp_res = self.calculate_cdp(price_df, intraday_snapshot)
-        
-        diag = []
-        if cdp_res.get("signals"):
-            diag.extend([f"CDP診斷：{s}" for s in cdp_res["signals"]])
-
-        diag.extend(self.evaluate_moving_averages(price_df))
-        lvl = self.identify_price_levels(price_df); diag.extend(lvl["diag"]); diag.extend(self.identify_k_patterns(price_df)); diag.extend(self.identify_macd_details(price_df)); diag.extend(self.identify_bollinger_details(price_df))
+        diag = []; diag.extend(self.evaluate_moving_averages(price_df)); lvl = self.identify_price_levels(price_df); diag.extend(lvl["diag"]); diag.extend(self.identify_k_patterns(price_df)); diag.extend(self.identify_macd_details(price_df)); diag.extend(self.identify_bollinger_details(price_df))
         
         # 趨勢強度診斷 (DMI/ADX)
         if last['adx'] > 25:
@@ -712,6 +691,7 @@ class StockAnalyzer:
         low_pe_res = self.evaluate_low_pe_strategy(price_df, chip_df, official.get("pe"))
         bottom_fishing_res = self.evaluate_bottom_fishing(price_df, chip_df, official.get("pe"))
         st_burst_res = self.evaluate_short_term_burst(price_df, chip_df)
+        cdp_res = self.calculate_cdp(price_df, intraday_snapshot)
         
         # 新增開盤檢核表
         opening_checklist = self.evaluate_opening_checklist(intraday_snapshot)
@@ -723,6 +703,7 @@ class StockAnalyzer:
 
         if bottom_fishing_res["score"] >= 50: diag.append(f"抄底訊號：{bottom_fishing_res['status']}")
         if st_burst_res["score"] >= 60: diag.append(f"短線爆發：{st_burst_res['status']}")
+        if cdp_res.get("signals"): diag.extend(cdp_res["signals"])
 
         etf_rec = self.evaluate_etf(price_df) if is_etf else {"score":0, "status": "非ETF", "signals": []}
         strat_res = self.calculate_entry_strategy(price_df, chip_df, is_etf, intraday_snapshot)

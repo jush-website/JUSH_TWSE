@@ -10,7 +10,7 @@ import pytz
 from FinMind.data import DataLoader
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
-from src.backend import config
+import config
 
 # 停用 SSL 警告 (針對 verify=False)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -52,11 +52,8 @@ class DataFetcher:
         self._chip_cache = {}
         self._broker_cache = {}
         self._intraday_cache = {} 
-        self._global_market_cache = (0, {}) # (timestamp, data)
-        self._news_cache = (0, ([], [])) # (timestamp, (taiwan_news, global_news))
         self._hot_ids_cache = None 
         self._last_sync_time = 0 # 紀錄最後同步時間 (timestamp)
-        self._last_history_sync_time = {}
         self._lock = threading.RLock()
         
         if not os.path.exists(config.CACHE_DIR):
@@ -64,74 +61,6 @@ class DataFetcher:
         
         self._load_local_stock_info()
         self._load_persistent_caches()
-
-    def _add_indicators(self, df):
-        if df.empty or len(df) < 35: return df
-        # 基礎均線
-        df['MA5'] = df['Close'].rolling(window=5).mean()
-        df['MA10'] = df['Close'].rolling(window=10).mean()
-        df['MA20'] = df['Close'].rolling(window=20).mean()
-        df['MA60'] = df['Close'].rolling(window=60).mean()
-        df['MA120'] = df['Close'].rolling(window=120).mean()
-        df['MA240'] = df['Close'].rolling(window=240).mean()
-        
-        # DMI
-        n = 14
-        up_move = df['High'].diff(); down_move = df['Low'].diff()
-        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
-        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-        tr1 = df['High'] - df['Low']
-        tr2 = abs(df['High'] - df['Close'].shift(1))
-        tr3 = abs(df['Low'] - df['Close'].shift(1))
-        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        atr = tr.rolling(window=n).mean()
-        df['plus_di'] = 100 * (pd.Series(plus_dm, index=df.index).rolling(window=n).mean() / (atr + 1e-9))
-        df['minus_di'] = 100 * (pd.Series(minus_dm, index=df.index).rolling(window=n).mean() / (atr + 1e-9))
-        dx = 100 * abs(df['plus_di'] - df['minus_di']) / (df['plus_di'] + df['minus_di'] + 1e-9)
-        df['adx'] = dx.rolling(window=n).mean()
-        
-        # OBV
-        df['obv'] = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
-        
-        # AD Line
-        mf_multiplier = ((df['Close'] - df['Low']) - (df['High'] - df['Close'])) / (df['High'] - df['Low'] + 1e-9)
-        df['ad_line'] = (mf_multiplier * df['Volume']).cumsum()
-        
-        # Bias
-        df['bias_20'] = (df['Close'] - df['MA20']) / (df['MA20'] + 1e-9) * 100
-        
-        # ATR
-        df['atr'] = tr.rolling(window=n).mean()
-        
-        # BB
-        std = df['Close'].rolling(window=20).std()
-        df['BB_Upper'] = df['MA20'] + 2 * std
-        df['BB_Middle'] = df['MA20']
-        df['BB_Lower'] = df['MA20'] - 2 * std
-        
-        # KD
-        low_list = df['Low'].rolling(window=9).min()
-        high_list = df['High'].rolling(window=9).max()
-        diff = (high_list - low_list).replace(0, 1e-9)
-        rsv = (df['Close'] - low_list) / diff * 100
-        df['K'] = rsv.fillna(50).ewm(com=2, adjust=False).mean()
-        df['D'] = df['K'].ewm(com=2, adjust=False).mean()
-        
-        # RSI
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / (loss + 1e-9)
-        df['RSI'] = 100 - (100 / (1 + rs))
-        
-        # MACD
-        ema_fast = df['Close'].ewm(span=12, adjust=False).mean()
-        ema_slow = df['Close'].ewm(span=26, adjust=False).mean()
-        dif = ema_fast - ema_slow
-        dea = dif.ewm(span=9, adjust=False).mean()
-        df['MACD_Hist'] = (dif - dea) * 2
-        
-        return df
 
     def _load_persistent_caches(self):
         """從硬碟載入快取"""
@@ -292,7 +221,7 @@ class DataFetcher:
         # 盤中或盤後 -> 應為今日
         return now.date()
 
-    def prefetch_data(self, sids, fetch_chip=False, fetch_revenue=False, fetch_broker=False, fetch_fs=False):
+    def prefetch_data(self, sids, fetch_chip=True, fetch_revenue=False, fetch_broker=False, fetch_fs=True):
         if not sids: return
         
         expected_date = self.get_last_expected_trading_date()
@@ -305,14 +234,9 @@ class DataFetcher:
                 if sid in self._history_cache:
                     df = self._history_cache[sid]
                     if not df.empty:
-                        # 檢查：如果 15 分鐘內已經同步過，就視為新鮮！
-                        last_sync = self._last_history_sync_time.get(sid)
-                        if last_sync and (datetime.now() - last_sync).total_seconds() < 900:
+                        last_cache_date = df.index[-1].date()
+                        if last_cache_date >= expected_date:
                             is_stale = False
-                        else:
-                            last_cache_date = df.index[-1].date()
-                            if last_cache_date >= expected_date:
-                                is_stale = False
                 
                 if is_stale:
                     needed_sids.append(sid)
@@ -332,10 +256,6 @@ class DataFetcher:
                     for sid in current_batch_sids:
                         ticker = sym_map.get(sid, f"{sid}.TW")
                         try:
-                            # 即使失敗或無數據，也記錄同步時間，避免 15 分鐘內重複下載失敗的標的
-                            with self._lock:
-                                self._last_history_sync_time[sid] = datetime.now()
-                            
                             if isinstance(data.columns, pd.MultiIndex):
                                 if ticker not in data.columns.levels[0]: continue
                                 df = data[ticker].dropna(subset=['Close'])
@@ -352,7 +272,6 @@ class DataFetcher:
                                 df = df.rename(columns={"Date": "Date", "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"})
                                 df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
                                 df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
-                                df = self._add_indicators(df)
                                 with self._lock: self._history_cache[sid] = df
                         except: continue
                 self._save_persistent_cache("history")
@@ -403,10 +322,9 @@ class DataFetcher:
         
         # 1. 獲取大盤指數 (yfinance)
         try:
-            hist = yf.download("^TWII", period="5d", progress=False, auto_adjust=False)
+            t = yf.Ticker("^TWII")
+            hist = t.history(period="5d", auto_adjust=False)
             if not hist.empty:
-                if isinstance(hist.columns, pd.MultiIndex):
-                    hist.columns = hist.columns.get_level_values(0)
                 hist = hist.dropna(subset=['Close'])
                 if not hist.empty:
                     last_row = hist.iloc[-1]
@@ -471,8 +389,11 @@ class DataFetcher:
                         date_str = f"{y}-{m}-{d}"
 
                     val = valuation_map.get(sid, {"pe": config.PE_RATIO_DEFAULT, "yield": config.YIELD_DEFAULT})
+                    name = item.get('Name', str(sid)).strip()
+                    self._stock_id_map[str(sid)] = name
+                    self._stock_name_map[name] = str(sid)
                     self._official_cache[sid] = {
-                        "date": date_str, "name": item.get('Name', sid).strip(), 
+                        "date": date_str, "name": name, 
                         "open": pd.to_numeric(item['OpeningPrice'].replace(',', ''), errors='coerce'),
                         "high": pd.to_numeric(item['HighestPrice'].replace(',', ''), errors='coerce'),
                         "low": pd.to_numeric(item['LowestPrice'].replace(',', ''), errors='coerce'),
@@ -500,14 +421,19 @@ class DataFetcher:
                     
                     prev_close = close - change
                     cpct = round((change / prev_close) * 100, 2) if prev_close != 0 else 0
+                    
                     # 轉換民國日期
                     date_str = item.get('Date', "")
                     if len(date_str) == 7:
                         y, m, d = int(date_str[:3]) + 1911, date_str[3:5], date_str[5:]
                         date_str = f"{y}-{m}-{d}"
+
                     val = valuation_map.get(sid, {"pe": config.PE_RATIO_DEFAULT, "yield": config.YIELD_DEFAULT})
+                    name = str(item.get('CompanyName', item.get('Name', sid))).strip()
+                    self._stock_id_map[str(sid)] = name
+                    self._stock_name_map[name] = str(sid)
                     self._official_cache[sid] = {
-                        "date": date_str, "name": item.get('SecuritiesCompanyName', sid).strip(), 
+                        "date": date_str, "name": name, 
                         "open": pd.to_numeric(clean_val(item.get('Open')), errors='coerce'),
                         "high": pd.to_numeric(clean_val(item.get('High')), errors='coerce'),
                         "low": pd.to_numeric(clean_val(item.get('Low')), errors='coerce'),
@@ -528,7 +454,6 @@ class DataFetcher:
         return pd.DataFrame()
 
     def get_intraday_data(self, stock_id: str):
-        self.sync_if_needed()
         with self._lock:
             if stock_id in self._intraday_cache:
                 cache_time, data = self._intraday_cache[stock_id]
@@ -536,137 +461,71 @@ class DataFetcher:
                 if (datetime.now(pytz.timezone("Asia/Taipei")) - cache_time.astimezone(pytz.timezone("Asia/Taipei"))).seconds < config.INTRADAY_CACHE_EXPIRY:
                     return data
         
-        now = datetime.now(pytz.timezone("Asia/Taipei"))
-        is_weekend = now.weekday() >= 5
-        market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
-        market_close = now.replace(hour=13, minute=30, second=0, microsecond=0)
-        is_market_hours = (not is_weekend) and (market_open <= now < now.replace(hour=14, minute=0))
-        
-        # 輔助函式：從日K歷史快取中模擬即時快取
-        def get_simulated_snapshot():
-            price_df = self.get_price_data(stock_id, days=5)
-            if price_df is not None and len(price_df) >= 2:
-                # 優先檢查官方快取是否有今日數據
-                official_data = self._official_cache.get(stock_id)
-                last_row = price_df.iloc[-1]
-                prev_row = price_df.iloc[-2]
-                
-                # 確保 00:00~08:59 是昨收數據，開盤後 (09:00+) 才是當天數據
-                is_before_open = now.hour < 9
-                is_after_close = (now.hour == 13 and now.minute >= 30) or now.hour >= 14
-                
-                if last_row.name.date() == now.date():
-                    # 已經是今天
-                    if is_after_close:
-                        # 收盤後，預覽明日CDP，使用今日資料作為基準
-                        y_row = last_row
-                    else:
-                        # 09:00~13:30，今日CDP，使用昨日資料作為基準
-                        y_row = prev_row
-                    curr_price = float(last_row['Close'])
-                else:
-                    # 沒拿到今天數據，表示在盤前或者資料還沒更新
-                    # 所以最後一筆就是昨日的數據
-                    y_row = last_row
-                    curr_price = float(last_row['Close']) # 這裡是昨收
-
-                cdp_base = y_row.name.strftime("%Y-%m-%d")
-
-                if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") and not is_before_open:
-                    curr_price = float(official_data['price'])
-
-                yesterday_avg = (float(y_row['High']) + float(y_row['Low']) + float(y_row['Close'])) / 3
-                
-                # 如果在 00:00~08:59，我們要讓 open, high, low, close 都回傳昨收的狀態
-                if is_before_open:
-                    sim_open = float(last_row['Open']) # 不再強制改為昨收，保留實際走勢
-                    sim_high = float(last_row['High'])
-                    sim_low = float(last_row['Low'])
-                    sim_vol = int(last_row['Volume'])
-                else:
-                    sim_open = float(official_data['open']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['Open'])
-                    sim_high = float(official_data['high']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['High'])
-                    sim_low = float(official_data['low']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['Low'])
-                    sim_vol = int(official_data['volume']*1000) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else int(last_row['Volume'])
-
-                simulated_snapshot = {
-                    "stock_id": stock_id,
-                    "date": last_row.name.strftime("%Y-%m-%d") if is_before_open else now.strftime("%Y-%m-%d"),
-                    "is_before_open": is_before_open,
-                    "price": curr_price,
-                    "open": sim_open,
-                    "high": sim_high,
-                    "low": sim_low,
-                    "volume": sim_vol,
-                    "yesterday_high": float(y_row['High']),
-                    "yesterday_low": float(y_row['Low']),
-                    "yesterday_close": float(y_row['Close']),
-                    "yesterday_avg": round(yesterday_avg, 2),
-                    "cdp_base_date": cdp_base,
-                    "price_1325": curr_price,
-                    "max_vol_after_1300": 0,
-                    "auction_jump": 0.0,
-                    "df_1m": pd.DataFrame(),
-                    "df_5m": pd.DataFrame()
-                }
-                with self._lock:
-                    self._intraday_cache[stock_id] = (datetime.now(pytz.timezone("Asia/Taipei")), simulated_snapshot)
-                return simulated_snapshot
-            return None
-
-        # 1. 如果非盤中時間，直接從日K歷史資料建立模擬的 snapshot
-        # 盤後 14:00 後，OpenAPI 的收盤價通常已就緒，simulated 模式速度快很多
-        if not is_market_hours or now.hour >= 14:
-            return get_simulated_snapshot()
-            
-        # 2. 盤中時間，嘗試抓取 live 1m 數據
-        # 如果是 00:00~08:59，一律回傳模擬的昨收快照，不抓取即時數據
-        if now.hour < 9:
-            return get_simulated_snapshot()
-
         try:
             sym_map = self.get_symbol_map(); symbol = sym_map.get(stock_id, f"{stock_id}.TW")
-            df = yf.download(symbol, period="3d", interval="1m", progress=False, auto_adjust=False)
-            if df.empty:
-                return get_simulated_snapshot()
-                
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
+            t = yf.Ticker(symbol)
+            # 獲取分K數據
+            df = t.history(period="5d", interval="1m", auto_adjust=False)
+            if df.empty: return None
             df.index = df.index.tz_convert("Asia/Taipei")
+            # 確保價格精確度
             for col in ['Open', 'High', 'Low', 'Close']:
                 df[col] = df[col].round(2)
             
             all_dates = sorted(df.index.normalize().unique())
+            now = datetime.now(pytz.timezone("Asia/Taipei"))
+            market_close = now.replace(hour=13, minute=31, second=0, microsecond=0)
+            
+            # 判斷時間區間
             is_early_morning = now.hour < 9
+            is_weekend = now.weekday() >= 5
+            
             last_date = all_dates[-1]
             is_last_data_today = (last_date.date() == now.date())
+            
+            # 展示的資料永遠是最新的一天
             price_df = df[df.index.normalize() == last_date]
             
-            # 核心：獲取最即時現價
+            # 核心邏輯：如何取得「最即時」的現價
+            # 1. 初始現價來自分K最後一筆
             last_price = float(price_df['Close'].iloc[-1])
             
-            # 修正：13:30 後的收盤價處理
-            official_data = self._official_cache.get(stock_id)
-            if now >= market_close:
-                # 優先採用官方 OpenAPI 收盤價
-                if official_data and official_data.get('date') == now.strftime("%Y-%m-%d"):
-                    last_price = float(official_data['price'])
-                else:
-                    # 如果 OpenAPI 還沒更新，嘗試下載 1d 資料獲取最新收盤
-                    quick_df = yf.download(symbol, period="1d", interval="1d", progress=False, auto_adjust=False)
-                    if not quick_df.empty:
-                        if isinstance(quick_df.columns, pd.MultiIndex): quick_df.columns = quick_df.columns.get_level_values(0)
-                        last_price = float(quick_df['Close'].iloc[-1])
+            # 2. 如果已經過了 13:30，yfinance 分K 可能沒有 13:30 的資料，嘗試抓 1d 日K來取得確切收盤價
+            if now.hour > 13 or (now.hour == 13 and now.minute >= 30):
+                try:
+                    day_df = t.history(period="1d", interval="1d", auto_adjust=False)
+                    if not day_df.empty and not pd.isna(day_df['Close'].iloc[-1]):
+                        last_price = round(float(day_df['Close'].iloc[-1]), 2)
+                except: pass
+                
+            # 3. 嘗試獲取 yfinance 的 "fast info" 或 "current price" (通常比分K快)
+            try:
+                fast_price = t.info.get('regularMarketPrice')
+                if fast_price: last_price = round(float(fast_price), 2)
+            except: pass
 
-            is_during_market = (market_open <= now < market_close) and is_last_data_today
+            # 3. 如果是盤中或剛收盤，且官方快取有更即時的，則採用官方快取
+            official_data = self._official_cache.get(stock_id)
+            if official_data:
+                off_date = official_data.get('date', "")
+                if off_date == now.strftime("%Y-%m-%d"):
+                    # 如果官方快取的日期是今天，且價格有效，則覆蓋 (官方 OpenAPI 通常比 yf 快且準)
+                    if not pd.isna(official_data.get('price')):
+                        last_price = float(official_data['price'])
+
+            # 判斷是否為「有效的盤中狀態」 
+            is_market_hours = (not is_weekend) and (not is_early_morning) and (now < market_close)
+            is_during_market = is_market_hours and is_last_data_today
             
             if is_during_market:
                 ref_for_cdp = df[df.index.normalize() == all_dates[-2]] if len(all_dates) >= 2 else price_df
             else:
                 ref_for_cdp = price_df
 
+            # 決定 CDP 基準資料
             ref_date_str = ref_for_cdp.index[-1].strftime("%Y-%m-%d")
             
+            # CDP 基準優先從歷史數據抓取 (確保 H, L, C 準確)
             if official_data and official_data.get('date') == ref_date_str:
                 yesterday_high = float(official_data['high'])
                 yesterday_low = float(official_data['low'])
@@ -676,6 +535,7 @@ class DataFetcher:
                 yesterday_low = float(ref_for_cdp['Low'].min())
                 yesterday_close = float(ref_for_cdp['Close'].iloc[-1])
 
+            # 計算均價
             try:
                 yesterday_avg = (ref_for_cdp['Close'] * ref_for_cdp['Volume']).sum() / (ref_for_cdp['Volume'].sum() + 1e-9)
             except:
@@ -686,6 +546,7 @@ class DataFetcher:
             price_1325_df = price_df.between_time("13:24", "13:25")
             price_1325 = float(price_1325_df['Close'].iloc[-1]) if not price_1325_df.empty else last_price
             
+            # 計算今日總成交量 (股)
             daily_volume = int(price_df['Volume'].sum())
             
             res = {
@@ -705,47 +566,33 @@ class DataFetcher:
             return res
         except Exception as e:
             if self.logger: self.logger.error(f"Intraday fetch error for {stock_id}: {e}")
-            return get_simulated_snapshot()
+        return None
 
     def get_price_data(self, stock_id: str, days: int = 60):
         expected_date = self.get_last_expected_trading_date()
+        
         with self._lock:
             if stock_id in self._history_cache:
                 df = self._history_cache[stock_id]
-                if not df.empty:
-                    if 'MA5' not in df.columns:
-                        df = self._add_indicators(df)
-                        self._history_cache[stock_id] = df
-                    last_sync = self._last_history_sync_time.get(stock_id)
-                    if (last_sync and (datetime.now() - last_sync).total_seconds() < 900) or (df.index[-1].date() >= expected_date):
-                        return df.tail(days).ffill()
+                if not df.empty and df.index[-1].date() >= expected_date:
+                    return df.tail(days)
         
         try:
             symbol = "^TWII" if stock_id == "TAIEX" else self.get_symbol_map().get(stock_id, f"{stock_id}.TW")
-            # 即使之後失敗，也記錄同步時間以防 15 分鐘內重試
-            with self._lock:
-                self._last_history_sync_time[stock_id] = datetime.now()
-            
-            # 使用更快速的 yf.download
-            df = yf.download(symbol, period="1y", interval="1d", progress=False, auto_adjust=False)
+            t = yf.Ticker(symbol); df = t.history(period="1y", interval="1d", auto_adjust=False)
             if df is None or df.empty:
                 # 如果 yf 沒抓到，嘗試回傳舊的 (如果有)
                 with self._lock:
-                    if stock_id in self._history_cache: return self._history_cache[stock_id].tail(days).ffill()
+                    if stock_id in self._history_cache: return self._history_cache[stock_id].tail(days)
                 return pd.DataFrame()
-            
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
             
             # 確保價格精確度
             for col in ['Open', 'High', 'Low', 'Close']:
                 df[col] = df[col].round(2)
 
             if pd.isna(df['Close'].iloc[-1]):
-                intraday = yf.download(symbol, period="1d", interval="1m", progress=False, auto_adjust=False)
+                intraday = t.history(period="1d", interval="1m", auto_adjust=False)
                 if not intraday.empty: 
-                    if isinstance(intraday.columns, pd.MultiIndex):
-                        intraday.columns = intraday.columns.get_level_values(0)
                     df.loc[df.index[-1], ['Open', 'High', 'Low', 'Close']] = intraday['Close'].iloc[-1].round(2)
             
             # 修正當日收盤價 (14:00 後使用官方數據確保準確)
@@ -764,16 +611,14 @@ class DataFetcher:
             df = df.rename(columns={"Date": "Date", "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"})
             df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
             df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
-            df = self._add_indicators(df)
             
             with self._lock: 
                 self._history_cache[stock_id] = df
-                self._last_history_sync_time[stock_id] = datetime.now()
             return df.tail(days).ffill()
         except Exception as e:
             if self.logger: self.logger.error(f"Price data fetch error for {stock_id}: {e}")
             with self._lock:
-                if stock_id in self._history_cache: return self._history_cache[stock_id].tail(days).ffill()
+                if stock_id in self._history_cache: return self._history_cache[stock_id].tail(days)
             return pd.DataFrame()
 
     def get_taiex_data(self, days: int = 60):
@@ -785,12 +630,10 @@ class DataFetcher:
             return df
         return pd.DataFrame()
 
-    def get_chip_data(self, stock_id: str, days: int = 15, fetch_live: bool = True):
+    def get_chip_data(self, stock_id: str, days: int = 15):
         """籌碼資料 (使用 SDK 方法並相容新舊欄位)"""
         with self._lock:
             if stock_id in self._chip_cache: return self._chip_cache[stock_id].tail(days)
-        if not fetch_live:
-            return pd.DataFrame()
         try:
             start = (datetime.now() - timedelta(days=45)).strftime("%Y-%m-%d")
             df = self.fm_loader.taiwan_stock_institutional_investors(stock_id=stock_id, start_date=start)
@@ -807,7 +650,6 @@ class DataFetcher:
                     else: res = pd.DataFrame()
                 if not res.empty and 'net_buy' in res.columns:
                     with self._lock: self._chip_cache[stock_id] = res
-                    self._save_persistent_cache("chip")
                     return res.tail(days)
         except: pass
         return pd.DataFrame()
@@ -823,7 +665,6 @@ class DataFetcher:
                 df = df.sort_values('date'); last = df.iloc[-1]
                 res = {"revenue_month": last['date'][:7], "rev_yoy": round(float(last.get('revenue_year_growth_rate', 0)), 2), "rev_mom": round(float(last.get('revenue_month_growth_rate', 0)), 2)}
                 with self._lock: self._revenue_cache[stock_id] = res
-                self._save_persistent_cache("revenue")
                 return res
         except: pass
         return None
@@ -896,7 +737,6 @@ class DataFetcher:
         else: return "盤後 (今日收盤)"
 
     def get_hot_battlefield_ids(self, exclude_bank=False):
-        self.sync_if_needed()
         with self._lock:
             if self._hot_ids_cache: 
                 ids = self._hot_ids_cache
@@ -915,7 +755,6 @@ class DataFetcher:
 
     def get_top_gainer_ids(self, limit=50):
         """從官方快取獲取漲幅前幾名"""
-        self.sync_if_needed()
         with self._lock:
             if not self._official_cache: return []
             data = []
@@ -1030,7 +869,6 @@ class DataFetcher:
     def prefetch_intraday_data(self, sids):
         """批次下載 1m 即時行情數據 (優化分批)"""
         if not sids: return
-        self.sync_if_needed()
         
         # 排除鮮活的快取
         needed_sids = []
@@ -1047,20 +885,13 @@ class DataFetcher:
             print(f"[系統] {len(sids)} 檔標的之即時快取已就緒。")
             return
 
-        is_weekend = now.weekday() >= 5
-        market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
-        market_close = now.replace(hour=13, minute=30, second=0, microsecond=0)
-        is_market_hours = (not is_weekend) and (market_open <= now < now.replace(hour=14, minute=0))
-
-        # 盤後或週末優化：不呼叫 1m API，直接平行呼叫 get_intraday_data (會走 simulated 快路徑)
-        if not is_market_hours or now.hour >= 14:
-            print(f"[系統] 非盤中時間，正在快速建立 {len(needed_sids)} 檔標的之模擬快取...")
-            with ThreadPoolExecutor(max_workers=30) as executor:
-                list(executor.map(self.get_intraday_data, needed_sids))
-            return
-
-        print(f"[系統] 正在盤中批次同步 {len(needed_sids)} 檔標的之即時 1m 數據...")
+        print(f"[系統] 正在批次同步 {len(needed_sids)} 檔標的之即時 1m 數據...")
         sym_map = self.get_symbol_map()
+        
+        # 判斷目前市場狀態
+        market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        market_close = now.replace(hour=13, minute=35, second=0, microsecond=0)
+        is_during_market = market_open <= now <= market_close
 
         # 分批下載，每批 50 檔，避免 yfinance 超時或失敗
         batch_size = 50
@@ -1070,7 +901,7 @@ class DataFetcher:
             print(f"   即時同步進度: {min(i+batch_size, len(needed_sids))}/{len(needed_sids)}", end="\r")
             
             try:
-                data = yf.download(tickers, period="3d", interval="1m", group_by='ticker', threads=True, progress=False, auto_adjust=False)
+                data = yf.download(tickers, period="5d", interval="1m", group_by='ticker', threads=True, progress=False, auto_adjust=False)
                 for sid in batch_sids:
                     ticker = sym_map.get(sid, f"{sid}.TW")
                     try:
@@ -1159,27 +990,20 @@ class DataFetcher:
             
             # 1. 優先獲取 TWSE/TPEx 當日行情作為「活躍標的」基準
             active_ids = set()
-            openapi_names = {}
             try:
                 # TWSE 活躍列表
                 res = self._session.get(config.TWSE_DAY_ALL_URL, timeout=10)
                 if res.status_code == 200:
                     data = res.json()
-                    items = data.get('value', data) if isinstance(data, dict) else data
-                    for item in items:
-                        sid = str(item['Code'])
-                        active_ids.add(sid)
-                        openapi_names[sid] = item.get('Name', '').strip()
+                    items = data.get('value', data)
+                    for item in items: active_ids.add(str(item['Code']))
                 
                 # TPEx 活躍列表
                 res = self._session.get(config.TPEX_DAY_ALL_URL, timeout=10)
                 if res.status_code == 200:
                     data = res.json()
-                    items = data.get('value', data) if isinstance(data, dict) else data
-                    for item in items:
-                        sid = str(item['SecuritiesCompanyCode'])
-                        active_ids.add(sid)
-                        openapi_names[sid] = item.get('SecuritiesCompanyName', '').strip()
+                    items = data.get('value', data)
+                    for item in items: active_ids.add(str(item['SecuritiesCompanyCode']))
             except: pass
 
             # 2. 獲取基本資訊 (產業、型態)
@@ -1187,18 +1011,6 @@ class DataFetcher:
                 df = self.fm_loader.taiwan_stock_info()
             except:
                 df = self._stock_info_df if self._stock_info_df is not None else pd.DataFrame()
-
-            # 備援機制：如果 FinMind 與本地快取都失敗，使用 OpenAPI 名稱動態建立 DataFrame
-            if (df is None or df.empty) and openapi_names:
-                fallback_data = []
-                for sid, name in openapi_names.items():
-                    fallback_data.append({
-                        'stock_id': sid,
-                        'stock_name': name,
-                        'industry': '未知',
-                        'type': 'tpex' if len(sid) == 4 and sid[0] in ['3', '4', '5', '6', '8'] else 'twse'
-                    })
-                df = pd.DataFrame(fallback_data)
 
             if df is not None and not df.empty:
                 df['stock_id'] = df['stock_id'].astype(str)
@@ -1282,11 +1094,7 @@ class DataFetcher:
         return df[mask]['stock_id'].tolist()[:30]
 
     def get_comprehensive_news(self):
-        """獲取台股公告與市場新聞 (含 30 分鐘快取)"""
-        now = datetime.now().timestamp()
-        if (now - self._news_cache[0]) < 1800:
-            return self._news_cache[1]
-
+        """獲取台股公告與市場新聞"""
         items = []
         # 1. TWSE 官方公告
         try:
@@ -1295,25 +1103,44 @@ class DataFetcher:
                 for item in res.json()[:8]:
                     title = item.get("Title")
                     url_link = item.get("Url")
-                    if title: items.append((f"[公告] {title}", url_link if url_link else ""))
+                    if title: 
+                        items.append({
+                            "title": f"[公告] {title}", 
+                            "url": url_link if url_link else "",
+                            "source": "證交所",
+                            "time": datetime.now().strftime("%Y-%m-%d")
+                        })
         except: pass
 
         # 2. Yahoo Finance 台股市場新聞 (針對 ^TWII)
         try:
             t = yf.Ticker("^TWII")
-            yf_news = t.news[:8]
+            yf_news = t.news[:12]
             for item in yf_news:
-                # 兼容不同版本的 yfinance 新聞結構
                 content = item.get("content", {})
                 title = content.get("title") or item.get("title")
                 link = content.get("canonicalUrl", {}).get("url") or item.get("link")
+                pubDate = content.get("pubDate") or item.get("providerPublishTime")
+                publisher = content.get("provider", {}).get("displayName") or item.get("publisher", "Yahoo")
+                
+                time_str = ""
+                if pubDate:
+                    try:
+                        time_str = datetime.fromisoformat(str(pubDate).replace("Z", "+00:00")).strftime("%m-%d %H:%M")
+                    except:
+                        try: time_str = datetime.fromtimestamp(pubDate).strftime("%m-%d %H:%M")
+                        except: pass
+                        
                 if title:
-                    items.append((f"[市場] {title}", link if link else ""))
+                    items.append({
+                        "title": f"[市場] {title}", 
+                        "url": link if link else "",
+                        "source": publisher,
+                        "time": time_str
+                    })
         except: pass
 
-        res = (items, [])
-        self._news_cache = (now, res)
-        return res
+        return items, []
 
     def get_ptt_sentiment(self):
         """爬取 PTT Stock 版標題並計算情緒分數"""
@@ -1389,12 +1216,30 @@ class DataFetcher:
         except: pass
         return None
 
-    def get_global_markets(self):
-        """獲取全球主要指數行情 (含 10 分鐘快取)"""
-        now = datetime.now().timestamp()
-        if (now - self._global_market_cache[0]) < 600:
-            return self._global_market_cache[1]
+    def get_realtime_wtx(self):
+        """抓取 Yahoo Finance TW 即時台指期 (WTX& / WTXP&)"""
+        try:
+            import requests
+            import re
+            res = requests.get('https://tw.stock.yahoo.com/quote/WTX%26', headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+            price_match = re.search(r'"regularMarketPrice":(\d+(?:\.\d+)?)', res.text)
+            prev_match = re.search(r'"regularMarketPreviousClose":(\d+(?:\.\d+)?)', res.text)
+            
+            if price_match and prev_match:
+                price = float(price_match.group(1))
+                prev = float(prev_match.group(1))
+                change_pct = round(((price - prev) / (prev + 1e-9)) * 100, 2)
+                return {
+                    "price": price,
+                    "change_pct": change_pct,
+                    "session": "即時",
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                }
+        except: pass
+        return None
 
+    def get_global_markets(self):
+        """獲取全球主要指數行情 - 強化即時性與對位準確度"""
         indices = {
             "標普500": "^GSPC", "那斯達克": "^IXIC", "費半指數": "^SOX", "道瓊工業": "^DJI",
             "輝達": "NVDA", "台積電ADR": "TSM", "美元/台幣": "TWD=X",
@@ -1452,8 +1297,7 @@ class DataFetcher:
                         "change_pct": off["change_pct"],
                         "symbol": "^TWII"
                     }
-            
-            self._global_market_cache = (now, results)
+                
         except Exception as e:
             if self.logger: self.logger.error(f"Global markets fetch error: {e}")
         return results
@@ -1469,8 +1313,23 @@ class DataFetcher:
                 content = item.get("content", {})
                 title = content.get("title") or item.get("title")
                 link = content.get("canonicalUrl", {}).get("url") or item.get("link")
+                pubDate = content.get("pubDate") or item.get("providerPublishTime")
+                publisher = content.get("provider", {}).get("displayName") or item.get("publisher", "Yahoo")
+                
+                time_str = ""
+                if pubDate:
+                    try:
+                        time_str = datetime.fromisoformat(str(pubDate).replace("Z", "+00:00")).strftime("%m-%d %H:%M")
+                    except:
+                        try: time_str = datetime.fromtimestamp(pubDate).strftime("%m-%d %H:%M")
+                        except: pass
                 if title:
-                    items.append((title, link if link else ""))
+                    items.append({
+                        "title": title, 
+                        "url": link if link else "",
+                        "source": publisher,
+                        "time": time_str
+                    })
             return items
         except:
             return []
