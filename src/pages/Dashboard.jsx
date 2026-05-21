@@ -66,15 +66,21 @@ const Dashboard = () => {
                   <h3 className="text-sm font-medium pr-4">{item.title}</h3>
                   <ExternalLink size={14} className="text-gray-500 shrink-0" />
                 </div>
-                {item.related_stocks?.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {item.related_stocks.map(sid => (
-                      <span key={sid} className="text-[10px] bg-blue-900 text-blue-200 px-2 py-0.5 rounded">
-                        {sid}
-                      </span>
-                    ))}
+                <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center space-x-2 text-[10px] text-gray-500">
+                    <span className="font-semibold text-gray-400">{item.source}</span>
+                    {item.time && <span>• {item.time}</span>}
                   </div>
-                )}
+                  {item.related_stocks?.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {item.related_stocks.map(sid => (
+                        <span key={sid} className="text-[10px] bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded border border-blue-800">
+                          {sid}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </a>
             ))}
           </div>
@@ -97,6 +103,10 @@ const Dashboard = () => {
                 <div className="flex justify-between items-start">
                   <h3 className="text-sm font-medium pr-4">{item.title}</h3>
                   <ExternalLink size={14} className="text-gray-500 shrink-0" />
+                </div>
+                <div className="mt-2 flex items-center space-x-2 text-[10px] text-gray-500">
+                  <span className="font-semibold text-gray-400">{item.source}</span>
+                  {item.time && <span>• {item.time}</span>}
                 </div>
               </a>
             ))}

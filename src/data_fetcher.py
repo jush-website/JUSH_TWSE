@@ -1103,20 +1103,41 @@ class DataFetcher:
                 for item in res.json()[:8]:
                     title = item.get("Title")
                     url_link = item.get("Url")
-                    if title: items.append((f"[公告] {title}", url_link if url_link else ""))
+                    if title: 
+                        items.append({
+                            "title": f"[公告] {title}", 
+                            "url": url_link if url_link else "",
+                            "source": "證交所",
+                            "time": datetime.now().strftime("%Y-%m-%d")
+                        })
         except: pass
 
         # 2. Yahoo Finance 台股市場新聞 (針對 ^TWII)
         try:
             t = yf.Ticker("^TWII")
-            yf_news = t.news[:8]
+            yf_news = t.news[:12]
             for item in yf_news:
-                # 兼容不同版本的 yfinance 新聞結構
                 content = item.get("content", {})
                 title = content.get("title") or item.get("title")
                 link = content.get("canonicalUrl", {}).get("url") or item.get("link")
+                pubDate = content.get("pubDate") or item.get("providerPublishTime")
+                publisher = content.get("provider", {}).get("displayName") or item.get("publisher", "Yahoo")
+                
+                time_str = ""
+                if pubDate:
+                    try:
+                        time_str = datetime.fromisoformat(str(pubDate).replace("Z", "+00:00")).strftime("%m-%d %H:%M")
+                    except:
+                        try: time_str = datetime.fromtimestamp(pubDate).strftime("%m-%d %H:%M")
+                        except: pass
+                        
                 if title:
-                    items.append((f"[市場] {title}", link if link else ""))
+                    items.append({
+                        "title": f"[市場] {title}", 
+                        "url": link if link else "",
+                        "source": publisher,
+                        "time": time_str
+                    })
         except: pass
 
         return items, []
@@ -1191,6 +1212,28 @@ class DataFetcher:
                     "change_pct": change_pct,
                     "session": "夜盤" if latest_session['trading_session'] == 'after_market' else "一般盤",
                     "date": latest_session['date']
+                }
+        except: pass
+        return None
+
+    def get_realtime_wtx(self):
+        """抓取 Yahoo Finance TW 即時台指期 (WTX& / WTXP&)"""
+        try:
+            import requests
+            import re
+            res = requests.get('https://tw.stock.yahoo.com/quote/WTX%26', headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+            price_match = re.search(r'"regularMarketPrice":(\d+(?:\.\d+)?)', res.text)
+            prev_match = re.search(r'"regularMarketPreviousClose":(\d+(?:\.\d+)?)', res.text)
+            
+            if price_match and prev_match:
+                price = float(price_match.group(1))
+                prev = float(prev_match.group(1))
+                change_pct = round(((price - prev) / (prev + 1e-9)) * 100, 2)
+                return {
+                    "price": price,
+                    "change_pct": change_pct,
+                    "session": "即時",
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
                 }
         except: pass
         return None
@@ -1270,8 +1313,23 @@ class DataFetcher:
                 content = item.get("content", {})
                 title = content.get("title") or item.get("title")
                 link = content.get("canonicalUrl", {}).get("url") or item.get("link")
+                pubDate = content.get("pubDate") or item.get("providerPublishTime")
+                publisher = content.get("provider", {}).get("displayName") or item.get("publisher", "Yahoo")
+                
+                time_str = ""
+                if pubDate:
+                    try:
+                        time_str = datetime.fromisoformat(str(pubDate).replace("Z", "+00:00")).strftime("%m-%d %H:%M")
+                    except:
+                        try: time_str = datetime.fromtimestamp(pubDate).strftime("%m-%d %H:%M")
+                        except: pass
                 if title:
-                    items.append((title, link if link else ""))
+                    items.append({
+                        "title": title, 
+                        "url": link if link else "",
+                        "source": publisher,
+                        "time": time_str
+                    })
             return items
         except:
             return []
