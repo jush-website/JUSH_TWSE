@@ -93,9 +93,14 @@ async def run_sync():
         await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
         logging.info("Prefetch done. Analyzing...")
 
+        # 先取 intraday snapshot，再帶入 analyze 確保 overnight/CDP 有數據
+        def analyze_with_snapshot(sid):
+            snap = fetcher.get_intraday_data(sid)
+            return analyzer.analyze(sid, intraday_snapshot=snap)
+
         tasks = []
         for sid in sids:
-            tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+            tasks.append(loop.run_in_executor(executor, analyze_with_snapshot, sid))
         all_res = await asyncio.gather(*tasks)
         results = [res for res in all_res if res and "error" not in res]
         logging.info(f"Analyzed {len(results)} stocks successfully.")
@@ -119,20 +124,19 @@ async def run_sync():
             {"data": sanitize_data([r for r in stb_results if r["short_term_burst_rec"]["score"] >= 60][:20]), "updated_at": time.time()})
         logging.info("short_term_burst synced.")
 
-        # d) Overnight (隔日沖) mode 1
+        # d) Overnight (隔日沖)
         # 盤前/盤後時段 score 通常較低，直接取前30，不設門檻，讓前端顯示數據
-        ov_1 = sorted(results, key=lambda x: x['overnight']['score'], reverse=True)
-        ov_1_filtered = [r for r in ov_1 if not r['is_limit_up'] and r['price'] < 1000]
-        # 有門檻則先取，若不足20筆則降低門檻取全部
-        ov_1_high = [r for r in ov_1_filtered if r['overnight']['score'] >= 40][:30]
+        ov_all = [r for r in results if not r.get('is_etf') and not r['is_limit_up'] and r['price'] < 1000]
+        ov_1 = sorted(ov_all, key=lambda x: x['overnight']['score'], reverse=True)
+        # 有門檻則先取，若不足15筆則無門檻取前30
+        ov_1_high = [r for r in ov_1 if r['overnight']['score'] >= 30][:30]
         db.collection('recommendations').document('overnight_1').set(
-            {"data": sanitize_data(ov_1_high if ov_1_high else ov_1_filtered[:30]), "updated_at": time.time()})
-        # mode 2
-        ov_2 = sorted(results, key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
+            {"data": sanitize_data(ov_1_high if len(ov_1_high) >= 5 else ov_1[:30]), "updated_at": time.time()})
+        # mode 2 (隔日沖佔比)
+        ov_2 = sorted(ov_all, key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
         top_ov_2 = [r for r in ov_2 if r['overnight'].get('broker_ratio', 0) > 3][:30]
         if not top_ov_2:
-            # fallback: 依評分取前30
-            top_ov_2 = sorted(results, key=lambda x: x['overnight']['score'], reverse=True)[:30]
+            top_ov_2 = ov_1[:30]
         db.collection('recommendations').document('overnight_2').set(
             {"data": sanitize_data(top_ov_2), "updated_at": time.time()})
         logging.info("overnight synced.")
@@ -161,13 +165,18 @@ async def run_sync():
         # h) ETF 佈局
         etf_sids = await loop.run_in_executor(executor, fetcher.get_popular_etf_ids)
         await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(etf_sids))
-        etf_tasks = [loop.run_in_executor(executor, analyzer.analyze, sid) for sid in etf_sids]
+        await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(etf_sids))
+        def analyze_etf_with_snapshot(sid):
+            snap = fetcher.get_intraday_data(sid)
+            return analyzer.analyze(sid, intraday_snapshot=snap)
+        etf_tasks = [loop.run_in_executor(executor, analyze_etf_with_snapshot, sid) for sid in etf_sids]
         etf_res = await asyncio.gather(*etf_tasks)
         etf_results = [r for r in etf_res if r and "error" not in r]
         etf_results.sort(key=lambda x: x['etf_rec']['score'], reverse=True)
+        # 始終回傳全部 ETF，不設最低分門檻
         db.collection('recommendations').document('etf').set(
             {"data": sanitize_data(etf_results), "updated_at": time.time()})
-        logging.info("etf synced.")
+        logging.info(f"etf synced. ({len(etf_results)} ETFs)")
 
         logging.info("✅ All data synced to Firebase successfully!")
     except Exception as e:

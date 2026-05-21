@@ -1,13 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Activity, Home, TrendingUp, BarChart2, Menu, X, ChevronDown, ChevronRight } from 'lucide-react';
+
+// 前端即時計算市場狀態（不依賴 Firebase）
+const getLocalMarketStatus = () => {
+  const now = new Date();
+  const day = now.getDay(); // 0=日, 6=六
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const totalMin = h * 60 + m;
+  if (day === 0 || day === 6) return { label: '週末休市', color: 'text-gray-400', dot: 'bg-gray-500' };
+  if (totalMin < 9 * 60) return { label: '盤前 (昨收數據)', color: 'text-yellow-400', dot: 'bg-yellow-500' };
+  if (totalMin < 13 * 60 + 30) return { label: '盤中 (即時行情)', color: 'text-green-400', dot: 'bg-green-500' };
+  if (totalMin < 14 * 60) return { label: '盤後 (收盤穩衝中)', color: 'text-orange-400', dot: 'bg-orange-500' };
+  return { label: '盤後 (今日收盤)', color: 'text-blue-400', dot: 'bg-blue-500' };
+};
 
 const Navbar = ({ status }) => {
   const [query, setQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileStrategiesOpen, setIsMobileStrategiesOpen] = useState(false);
+  const [marketStatus, setMarketStatus] = useState(getLocalMarketStatus());
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 每分鐘更新市場狀態
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMarketStatus(getLocalMarketStatus());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -101,17 +124,17 @@ const Navbar = ({ status }) => {
               <Search className="absolute left-4 top-2.5 text-gray-400 group-focus-within:text-cyan-400 transition-colors" size={16} />
             </form>
 
-            {status && (
+            {(
               <div className="flex flex-col border-l border-white/10 pl-5">
                 <div className="flex items-center space-x-2">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${marketStatus.dot} opacity-75`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus.dot}`}></span>
                   </span>
-                  <span className="text-xs font-semibold text-green-400 tracking-wide">{status.market_status}</span>
+                  <span className={`text-xs font-semibold tracking-wide ${marketStatus.color}`}>{marketStatus.label}</span>
                 </div>
                 <span className="text-[10px] text-gray-500 font-mono mt-0.5">
-                  更新: {status.last_sync || status.data_date}
+                  {status?.last_sync ? `更新: ${status.last_sync}` : '同步中...'}
                 </span>
               </div>
             )}
