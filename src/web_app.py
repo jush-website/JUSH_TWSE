@@ -6,6 +6,7 @@ from typing import List, Optional
 import asyncio
 import time
 import os
+from datetime import datetime
 import config
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
@@ -78,9 +79,16 @@ async def get_status():
         sample_df = await loop.run_in_executor(None, lambda: fetcher.get_taiex_data(days=1))
         data_date = sample_df.index[-1].strftime("%Y-%m-%d") if not sample_df.empty else "確認中..."
     
+    last_sync = fetcher._last_sync_time
+    if last_sync:
+        sync_time_str = datetime.fromtimestamp(last_sync).strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        sync_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     return {
         "market_status": current_status,
         "data_date": data_date,
+        "sync_time": sync_time_str,
         "server_time": time.time()
     }
 

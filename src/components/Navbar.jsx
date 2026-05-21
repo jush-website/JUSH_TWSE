@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Activity, Home, TrendingUp, BarChart2 } from 'lucide-react';
+import { Search, Activity, Home, TrendingUp, BarChart2, Clock } from 'lucide-react';
 
 const Navbar = ({ status }) => {
   const [query, setQuery] = useState('');
@@ -57,12 +57,15 @@ const Navbar = ({ status }) => {
           </form>
 
           {status && (
-            <div className="hidden lg:flex flex-col text-xs text-gray-400 border-l border-gray-700 pl-4">
+            <div className="hidden lg:flex flex-col text-[11px] sm:text-xs text-gray-400 border-l border-gray-700 pl-4 space-y-0.5 sm:space-y-1 justify-center">
               <div className="flex items-center space-x-1">
                 <Activity size={12} className="text-green-500" />
-                <span>{status.market_status}</span>
+                <span className="font-medium text-gray-300">{status.market_status}</span>
               </div>
-              <span>數據日期: {status.data_date}</span>
+              <div className="flex items-center space-x-1" title="資料庫更新時間">
+                <Clock size={12} className="text-blue-400" />
+                <span>{status.sync_time ? status.sync_time : `數據日期: ${status.data_date}`}</span>
+              </div>
             </div>
           )}
         </div>

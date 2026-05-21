@@ -543,6 +543,18 @@ class StockAnalyzer:
         if df_raw.empty or len(df_raw) < 35: return {"error": "數據不足"}
         price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(stock_id, "未知"); is_etf = self.fetcher.is_etf(stock_id)
         
+        # 修正：如果還是沒有名稱，或是名稱就是代碼本身，嘗試從 yfinance 抓取
+        if stock_name in ["未知", stock_id, str(stock_id)]:
+            try:
+                symbol = self.fetcher.get_symbol_map().get(stock_id, f"{stock_id}.TW")
+                t = yf.Ticker(symbol)
+                yf_name = t.info.get('shortName') or t.info.get('longName')
+                if yf_name:
+                    stock_name = str(yf_name).replace(" ", "")
+                    self.fetcher._stock_id_map[stock_id] = stock_name
+                    self.fetcher._stock_name_map[stock_name] = stock_id
+            except: pass
+        
         # 合併最新數據至歷史 DataFrame
         latest_history_date = price_df.index[-1].date()
         merged_new_data = False

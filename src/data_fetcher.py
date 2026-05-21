@@ -490,7 +490,15 @@ class DataFetcher:
             # 1. 初始現價來自分K最後一筆
             last_price = float(price_df['Close'].iloc[-1])
             
-            # 2. 嘗試獲取 yfinance 的 "fast info" 或 "current price" (通常比分K快)
+            # 2. 如果已經過了 13:30，yfinance 分K 可能沒有 13:30 的資料，嘗試抓 1d 日K來取得確切收盤價
+            if now.hour > 13 or (now.hour == 13 and now.minute >= 30):
+                try:
+                    day_df = t.history(period="1d", interval="1d", auto_adjust=False)
+                    if not day_df.empty and not pd.isna(day_df['Close'].iloc[-1]):
+                        last_price = round(float(day_df['Close'].iloc[-1]), 2)
+                except: pass
+                
+            # 3. 嘗試獲取 yfinance 的 "fast info" 或 "current price" (通常比分K快)
             try:
                 fast_price = t.info.get('regularMarketPrice')
                 if fast_price: last_price = round(float(fast_price), 2)
