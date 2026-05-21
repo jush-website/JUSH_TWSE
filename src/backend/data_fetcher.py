@@ -10,7 +10,7 @@ import pytz
 from FinMind.data import DataLoader
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
-import config
+from src.backend import config
 
 # 停用 SSL 警告 (針對 verify=False)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
