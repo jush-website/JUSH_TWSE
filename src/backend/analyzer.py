@@ -561,7 +561,11 @@ class StockAnalyzer:
     def analyze(self, stock_id: str, intraday_snapshot=None, fetch_live_chip=False):
         df_raw = self.fetcher.get_price_data(stock_id, days=250)
         if df_raw.empty or len(df_raw) < 35: return {"error": "數據不足"}
-        price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(stock_id, "未知"); is_etf = self.fetcher.is_etf(stock_id)
+        stock_name = self.fetcher._stock_id_map.get(stock_id)
+        if not stock_name:
+            off = self.fetcher._official_cache.get(stock_id, {})
+            stock_name = off.get('name', "未知")
+        price_df = df_raw.copy(); is_etf = self.fetcher.is_etf(stock_id)
         
         # 合併最新數據至歷史 DataFrame
         latest_history_date = price_df.index[-1].date()

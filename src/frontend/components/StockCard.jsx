@@ -23,7 +23,14 @@ const StockCard = ({ stock, type }) => {
   } else if (type === 'short-term') {
     score = stock.short_term_rec?.score || 0;
     status = stock.short_term_rec?.status || 'N/A';
+  } else if (type === 'cdp') {
+    // CDP 不以評分為主，顯示關注重點
+    score = stock.total_score || 0;
+    status = stock.cdp?.is_preview ? '明日預覽' : '今日即時';
   }
+
+  const cdp = stock.cdp;
+  const showCdp = cdp && cdp.CDP;
 
   const isPositive = stock.change_percent >= 0;
 
@@ -60,22 +67,48 @@ const StockCard = ({ stock, type }) => {
       </div>
 
       <div className="space-y-2 pt-3 border-t border-gray-700">
-        <div className="flex justify-between text-xs">
-          <span className="text-gray-400">成交量比</span>
-          <span className={stock.vol_ratio > 1.5 ? 'text-orange-400 font-bold' : 'text-gray-200'}>
-            {stock.vol_ratio}
-          </span>
-        </div>
-        {subText && (
+        {!showCdp && (
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-400">成交量比</span>
+            <span className={stock.vol_ratio > 1.5 ? 'text-orange-400 font-bold' : 'text-gray-200'}>
+              {stock.vol_ratio}
+            </span>
+          </div>
+        )}
+        {subText && !showCdp && (
           <div className="flex justify-between text-xs">
             <span className="text-gray-400">關鍵數據</span>
             <span className="text-blue-300 font-medium">{subText}</span>
           </div>
         )}
-        <div className="flex justify-between text-xs">
-          <span className="text-gray-400">策略建議</span>
-          <span className="text-gray-200 truncate ml-2">{stock.strategy_name}</span>
-        </div>
+        {!showCdp && (
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-400">策略建議</span>
+            <span className="text-gray-200 truncate ml-2">{stock.strategy_name}</span>
+          </div>
+        )}
+        
+        {/* CDP 專屬數據展示 */}
+        {showCdp && (
+          <div className="mt-2 space-y-1.5 bg-gray-900/50 p-2 rounded-lg border border-gray-700/50">
+            <div className="flex justify-between text-xs items-center">
+              <span className="text-red-400 font-medium w-8">AH</span>
+              <span className="text-gray-200">{cdp.AH}</span>
+              <span className="text-blue-400 font-medium w-8 ml-4">NL</span>
+              <span className="text-gray-200">{cdp.NL}</span>
+            </div>
+            <div className="flex justify-between text-xs items-center">
+              <span className="text-red-300 font-medium w-8">NH</span>
+              <span className="text-gray-200">{cdp.NH}</span>
+              <span className="text-blue-500 font-medium w-8 ml-4">AL</span>
+              <span className="text-gray-200">{cdp.AL}</span>
+            </div>
+            <div className="flex justify-center text-xs items-center pt-1 border-t border-gray-700/50 mt-1">
+              <span className="text-purple-400 font-bold mr-2">CDP</span>
+              <span className="text-white font-bold">{cdp.CDP}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex items-center text-[10px] text-gray-500 italic">
