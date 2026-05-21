@@ -389,8 +389,11 @@ class DataFetcher:
                         date_str = f"{y}-{m}-{d}"
 
                     val = valuation_map.get(sid, {"pe": config.PE_RATIO_DEFAULT, "yield": config.YIELD_DEFAULT})
+                    name = item.get('Name', str(sid)).strip()
+                    self._stock_id_map[str(sid)] = name
+                    self._stock_name_map[name] = str(sid)
                     self._official_cache[sid] = {
-                        "date": date_str, "name": sid, 
+                        "date": date_str, "name": name, 
                         "open": pd.to_numeric(item['OpeningPrice'].replace(',', ''), errors='coerce'),
                         "high": pd.to_numeric(item['HighestPrice'].replace(',', ''), errors='coerce'),
                         "low": pd.to_numeric(item['LowestPrice'].replace(',', ''), errors='coerce'),
@@ -426,8 +429,11 @@ class DataFetcher:
                         date_str = f"{y}-{m}-{d}"
 
                     val = valuation_map.get(sid, {"pe": config.PE_RATIO_DEFAULT, "yield": config.YIELD_DEFAULT})
+                    name = str(item.get('CompanyName', item.get('Name', sid))).strip()
+                    self._stock_id_map[str(sid)] = name
+                    self._stock_name_map[name] = str(sid)
                     self._official_cache[sid] = {
-                        "date": date_str, "name": sid, 
+                        "date": date_str, "name": name, 
                         "open": pd.to_numeric(clean_val(item.get('Open')), errors='coerce'),
                         "high": pd.to_numeric(clean_val(item.get('High')), errors='coerce'),
                         "low": pd.to_numeric(clean_val(item.get('Low')), errors='coerce'),
