@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Activity, Home, TrendingUp, BarChart2, Clock } from 'lucide-react';
 
-const Navbar = ({ status }) => {
+const Navbar = ({ status, lastUpdated }) => {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
 
@@ -62,9 +62,9 @@ const Navbar = ({ status }) => {
                 <Activity size={12} className="text-green-500" />
                 <span className="font-medium text-gray-300">{status.market_status}</span>
               </div>
-              <div className="flex items-center space-x-1" title="資料庫更新時間">
+              <div className="flex items-center space-x-1" title="資料庫最後更新時間">
                 <Clock size={12} className="text-blue-400" />
-                <span>{status.sync_time ? status.sync_time : `數據日期: ${status.data_date}`}</span>
+                <span>更新: {lastUpdated ?? '讀取中...'}</span>
               </div>
             </div>
           )}
