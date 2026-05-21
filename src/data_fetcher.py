@@ -476,47 +476,59 @@ class DataFetcher:
             now = datetime.now(pytz.timezone("Asia/Taipei"))
             market_close = now.replace(hour=13, minute=31, second=0, microsecond=0)
             
+            expected_date = self.get_last_expected_trading_date()
+            expected_date_str = expected_date.strftime("%Y-%m-%d")
+            
             # 判斷時間區間
             is_early_morning = now.hour < 9
             is_weekend = now.weekday() >= 5
+            is_market_hours = (not is_weekend) and (not is_early_morning) and (now < market_close)
             
-            last_date = all_dates[-1]
-            is_last_data_today = (last_date.date() == now.date())
+            expected_date_ts = pd.Timestamp(expected_date, tz="Asia/Taipei")
             
-            # 展示的資料永遠是最新的一天
-            price_df = df[df.index.normalize() == last_date]
+            if expected_date_ts in all_dates:
+                price_df = df[df.index.normalize() == expected_date_ts]
+            else:
+                price_df = df[df.index.normalize() == all_dates[-1]]
+                
+            is_last_data_today = (price_df.index[-1].date() == now.date())
+            is_during_market = is_market_hours and is_last_data_today
             
-            # 核心邏輯：如何取得「最即時」的現價
-            # 1. 初始現價來自分K最後一筆
+            # 核心邏輯：如何取得「最即時/正確」的現價
             last_price = float(price_df['Close'].iloc[-1])
             
-            # 2. 如果已經過了 13:30，yfinance 分K 可能沒有 13:30 的資料，嘗試抓 1d 日K來取得確切收盤價
-            if now.hour > 13 or (now.hour == 13 and now.minute >= 30):
-                try:
-                    day_df = t.history(period="1d", interval="1d", auto_adjust=False)
-                    if not day_df.empty and not pd.isna(day_df['Close'].iloc[-1]):
-                        last_price = round(float(day_df['Close'].iloc[-1]), 2)
-                except: pass
-                
-            # 3. 嘗試獲取 yfinance 的 "fast info" 或 "current price" (通常比分K快)
             try:
-                fast_price = t.info.get('regularMarketPrice')
-                if fast_price: last_price = round(float(fast_price), 2)
-            except: pass
+                fast_price = t.fast_info.last_price
+                if fast_price and not pd.isna(fast_price):
+                    last_price = round(float(fast_price), 2)
+            except:
+                try:
+                    fast_price = t.info.get('regularMarketPrice')
+                    if fast_price and not pd.isna(fast_price):
+                        last_price = round(float(fast_price), 2)
+                except: pass
 
-            # 3. 如果是盤中或剛收盤，且官方快取有更即時的，則採用官方快取
             official_data = self._official_cache.get(stock_id)
-            if official_data:
-                off_date = official_data.get('date', "")
-                if off_date == now.strftime("%Y-%m-%d"):
-                    # 如果官方快取的日期是今天，且價格有效，則覆蓋 (官方 OpenAPI 通常比 yf 快且準)
+            if not is_market_hours:
+                # 非盤中，確保收盤價精準
+                if official_data and official_data.get('date') == expected_date_str:
+                    if not pd.isna(official_data.get('price')):
+                        last_price = float(official_data['price'])
+                else:
+                    try:
+                        day_df = t.history(period="5d", interval="1d", auto_adjust=False)
+                        day_df.index = day_df.index.tz_convert("Asia/Taipei")
+                        if expected_date_ts in day_df.index:
+                            cp = day_df.loc[expected_date_ts, 'Close']
+                            if not pd.isna(cp):
+                                last_price = round(float(cp), 2)
+                    except: pass
+            else:
+                # 盤中，如果官方快取提早更新為今日
+                if official_data and official_data.get('date') == now.strftime("%Y-%m-%d"):
                     if not pd.isna(official_data.get('price')):
                         last_price = float(official_data['price'])
 
-            # 判斷是否為「有效的盤中狀態」 
-            is_market_hours = (not is_weekend) and (not is_early_morning) and (now < market_close)
-            is_during_market = is_market_hours and is_last_data_today
-            
             if is_during_market:
                 ref_for_cdp = df[df.index.normalize() == all_dates[-2]] if len(all_dates) >= 2 else price_df
             else:
