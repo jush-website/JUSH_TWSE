@@ -45,24 +45,24 @@ const StockAnalysis = () => {
   const isPositive = data?.change_percent >= 0;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
       {/* Search Section */}
-      <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl">
-        <form onSubmit={handleSubmit} className="flex gap-4">
+      <div className="bg-gray-800 p-4 sm:p-6 rounded-2xl border border-gray-700 shadow-xl">
+        <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-4">
           <div className="relative flex-1">
             <input
               type="text"
               placeholder="輸入股票代號或名稱 (例如: 2330 或 台積電)"
-              className="w-full bg-gray-900 border-gray-600 rounded-xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-blue-500 text-lg"
+              className="w-full bg-gray-900 border-gray-600 rounded-xl py-2.5 sm:py-3 pl-10 sm:pl-12 pr-4 focus:ring-2 focus:ring-blue-500 text-sm sm:text-lg"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <Search className="absolute left-4 top-3.5 text-gray-400" size={24} />
+            <Search className="absolute left-3 sm:left-4 top-3 sm:top-3.5 text-gray-400 w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <button 
             type="submit"
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-xl font-bold transition disabled:bg-gray-700"
+            className="bg-blue-600 hover:bg-blue-700 px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl font-bold transition disabled:bg-gray-700 text-sm sm:text-base whitespace-nowrap"
           >
             {loading ? '分析中...' : '開始診斷'}
           </button>
@@ -84,62 +84,64 @@ const StockAnalysis = () => {
       )}
 
       {data && !loading && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Header Summary */}
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl flex flex-wrap justify-between items-center gap-6">
-            <div className="flex items-center space-x-4">
-              <div className={`p-4 rounded-2xl ${isPositive ? 'bg-red-900/40 text-red-400' : 'bg-green-900/40 text-green-400'}`}>
-                {isPositive ? <TrendingUp size={48} /> : <TrendingDown size={48} />}
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <div className={`p-3 sm:p-4 rounded-2xl ${isPositive ? 'bg-red-900/40 text-red-400' : 'bg-green-900/40 text-green-400'}`}>
+                {isPositive ? <TrendingUp size={36} className="sm:w-12 sm:h-12" /> : <TrendingDown size={36} className="sm:w-12 sm:h-12" />}
               </div>
               <div>
-                <div className="flex items-center space-x-3">
-                  <h1 className="text-3xl font-bold">{data.stock_name}</h1>
-                  <span className="text-xl text-gray-400">{data.stock_id}</span>
-                  <span className="bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded">{data.category}</span>
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <h1 className="text-xl sm:text-3xl font-bold">{data.stock_name}</h1>
+                  <span className="text-base sm:text-xl text-gray-400">{data.stock_id}</span>
+                  <span className="bg-gray-700 text-gray-300 text-[10px] sm:text-xs px-2 py-1 rounded">{data.category}</span>
                 </div>
-                <div className="flex items-center space-x-4 mt-1">
-                  <span className="text-4xl font-black">{data.price}</span>
-                  <span className={`text-xl font-bold ${isPositive ? 'text-red-400' : 'text-green-400'}`}>
+                <div className="flex items-center space-x-2 sm:space-x-4 mt-1">
+                  <span className="text-2xl sm:text-4xl font-black">{data.price}</span>
+                  <span className={`text-base sm:text-xl font-bold ${isPositive ? 'text-red-400' : 'text-green-400'}`}>
                     {isPositive ? '+' : ''}{data.change_percent}%
                   </span>
-                  <span className="text-gray-500">昨收: {data.yesterday_close}</span>
+                  <span className="text-xs sm:text-sm text-gray-500 hidden sm:inline">昨收: {data.yesterday_close}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-center justify-center bg-gray-900/50 p-6 rounded-2xl border border-gray-700 min-w-[160px]">
-              <div className="text-gray-400 text-sm mb-1">系統綜合評分</div>
-              <div className={`text-5xl font-black ${
-                data.total_score >= 70 ? 'text-red-500' : 
-                data.total_score >= 50 ? 'text-orange-500' : 'text-gray-400'
-              }`}>
-                {data.total_score}
+            <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-center bg-gray-900/50 p-3 sm:p-6 rounded-2xl border border-gray-700 w-full sm:w-auto sm:min-w-[160px]">
+              <div className="flex sm:block flex-col sm:text-center">
+                <div className="text-gray-400 text-xs sm:text-sm mb-0 sm:mb-1">系統綜合評分</div>
+                <div className={`text-3xl sm:text-5xl font-black ${
+                  data.total_score >= 70 ? 'text-red-500' : 
+                  data.total_score >= 50 ? 'text-orange-500' : 'text-gray-400'
+                }`}>
+                  {data.total_score}
+                </div>
               </div>
-              <div className="text-sm font-bold text-blue-400 mt-2">{data.recommend_status}</div>
+              <div className="text-sm font-bold text-blue-400 sm:mt-2 text-right sm:text-center">{data.recommend_status}</div>
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Strategy & Target Section */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               {/* Strategy Card */}
-              <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-2xl border border-blue-800/50 p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-4 text-blue-300">
-                  <Target size={24} />
-                  <h2 className="text-xl font-bold">進場策略建議</h2>
+              <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-2xl border border-blue-800/50 p-4 sm:p-6 shadow-xl">
+                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-blue-300">
+                  <Target size={20} className="sm:w-6 sm:h-6" />
+                  <h2 className="text-lg sm:text-xl font-bold">進場策略建議</h2>
                 </div>
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <div className="bg-gray-900/60 p-4 rounded-xl">
-                    <div className="text-gray-400 text-xs mb-1">建議策略</div>
-                    <div className="text-lg font-bold text-white">{data.strategy_name}</div>
+                <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
+                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">建議策略</div>
+                    <div className="text-base sm:text-lg font-bold text-white">{data.strategy_name}</div>
                   </div>
-                  <div className="bg-gray-900/60 p-4 rounded-xl">
-                    <div className="text-gray-400 text-xs mb-1">理想區間</div>
-                    <div className="text-lg font-bold text-green-400">{data.entry_range}</div>
+                  <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
+                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">理想區間</div>
+                    <div className="text-base sm:text-lg font-bold text-green-400">{data.entry_range}</div>
                   </div>
-                  <div className="bg-gray-900/60 p-4 rounded-xl">
-                    <div className="text-gray-400 text-xs mb-1">停損點位</div>
-                    <div className="text-lg font-bold text-red-400">{data.stop_loss}</div>
+                  <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
+                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">停損點位</div>
+                    <div className="text-base sm:text-lg font-bold text-red-400">{data.stop_loss}</div>
                   </div>
                 </div>
                 {data.exit_rule && (
@@ -151,20 +153,20 @@ const StockAnalysis = () => {
               </div>
 
               {/* Diagnosis Details */}
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-4 text-gray-300">
-                  <Activity size={24} />
-                  <h2 className="text-xl font-bold">專業診斷報告</h2>
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
+                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
+                  <Activity size={20} className="sm:w-6 sm:h-6" />
+                  <h2 className="text-lg sm:text-xl font-bold">專業診斷報告</h2>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {data.diagnosis.map((line, idx) => (
-                    <div key={idx} className="flex items-start space-x-3 p-3 bg-gray-900/40 rounded-xl hover:bg-gray-900/60 transition">
-                      <div className="mt-1">
-                        {line.includes('!!!') || line.includes('警告') ? <ShieldAlert className="text-red-500" size={18} /> : 
-                         line.includes('看多') || line.includes('強勢') ? <TrendingUp className="text-red-400" size={18} /> :
-                         <CheckCircle className="text-blue-400" size={18} />}
+                    <div key={idx} className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-3 bg-gray-900/40 rounded-xl hover:bg-gray-900/60 transition">
+                      <div className="mt-0.5 sm:mt-1">
+                        {line.includes('!!!') || line.includes('警告') ? <ShieldAlert className="text-red-500 w-4 h-4 sm:w-5 sm:h-5" /> : 
+                         line.includes('看多') || line.includes('強勢') ? <TrendingUp className="text-red-400 w-4 h-4 sm:w-5 sm:h-5" /> :
+                         <CheckCircle className="text-blue-400 w-4 h-4 sm:w-5 sm:h-5" />}
                       </div>
-                      <p className="text-gray-200 leading-relaxed">{line}</p>
+                      <p className="text-gray-200 text-sm sm:text-base leading-relaxed">{line}</p>
                     </div>
                   ))}
                 </div>
@@ -172,11 +174,11 @@ const StockAnalysis = () => {
             </div>
 
             {/* Technical Indicators Sidebar */}
-            <div className="space-y-6">
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-4 text-gray-300">
-                  <BarChart size={24} />
-                  <h2 className="text-xl font-bold">關鍵技術指標</h2>
+            <div className="space-y-4 sm:space-y-6">
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
+                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
+                  <BarChart size={20} className="sm:w-6 sm:h-6" />
+                  <h2 className="text-lg sm:text-xl font-bold">關鍵技術指標</h2>
                 </div>
                 <div className="space-y-4">
                   {[
@@ -198,10 +200,10 @@ const StockAnalysis = () => {
               </div>
 
               {/* Fundamentals Card */}
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-4 text-gray-300">
-                  <PieChart size={24} />
-                  <h2 className="text-xl font-bold">基本面評估</h2>
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
+                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
+                  <PieChart size={20} className="sm:w-6 sm:h-6" />
+                  <h2 className="text-lg sm:text-xl font-bold">基本面評估</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-900/60 p-3 rounded-xl text-center">

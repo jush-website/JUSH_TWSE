@@ -25,19 +25,19 @@ const Dashboard = () => {
   if (loading) return <div className="text-center py-20 text-gray-400">載入中...</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 sm:space-y-8">
       {/* Global Markets */}
       <section>
-        <div className="flex items-center space-x-2 mb-4 text-blue-400">
-          <Globe size={24} />
-          <h2 className="text-xl font-bold">全球市場概況</h2>
+        <div className="flex items-center space-x-2 mb-2 sm:mb-4 text-blue-400">
+          <Globe size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
+          <h2 className="text-lg sm:text-xl font-bold">全球市場概況</h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
           {Object.entries(markets).map(([name, data]) => (
-            <div key={name} className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-              <div className="text-gray-400 text-sm">{name}</div>
-              <div className="text-lg font-bold my-1">{data.price}</div>
-              <div className={`flex items-center text-sm ${data.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+            <div key={name} className="bg-gray-800 p-3 sm:p-4 rounded-lg border border-gray-700">
+              <div className="text-gray-400 text-xs sm:text-sm">{name}</div>
+              <div className="text-base sm:text-lg font-bold my-1">{data.price}</div>
+              <div className={`flex items-center text-xs sm:text-sm ${data.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
                 {data.change_pct >= 0 ? <TrendingUp size={14} className="mr-1" /> : <TrendingDown size={14} className="mr-1" />}
                 {data.change_pct}%
               </div>
@@ -47,11 +47,11 @@ const Dashboard = () => {
       </section>
 
       {/* News */}
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid md:grid-cols-2 gap-5 sm:gap-8">
         <section>
-          <div className="flex items-center space-x-2 mb-4 text-orange-400">
-            <Newspaper size={24} />
-            <h2 className="text-xl font-bold">台股要聞</h2>
+          <div className="flex items-center space-x-2 mb-2 sm:mb-4 text-orange-400">
+            <Newspaper size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
+            <h2 className="text-lg sm:text-xl font-bold">台股要聞</h2>
           </div>
           <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700">
             {news.taiwan.map((item, idx) => (
@@ -60,7 +60,7 @@ const Dashboard = () => {
                 href={item.url} 
                 target="_blank" 
                 rel="noreferrer" 
-                className="block p-4 hover:bg-gray-700 transition"
+                className="block p-3 sm:p-4 hover:bg-gray-700 transition"
               >
                 <div className="flex justify-between items-start">
                   <h3 className="text-sm font-medium pr-4">{item.title}</h3>
@@ -81,9 +81,9 @@ const Dashboard = () => {
         </section>
 
         <section>
-          <div className="flex items-center space-x-2 mb-4 text-purple-400">
-            <Globe size={24} />
-            <h2 className="text-xl font-bold">國際財經</h2>
+          <div className="flex items-center space-x-2 mb-2 sm:mb-4 text-purple-400">
+            <Globe size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
+            <h2 className="text-lg sm:text-xl font-bold">國際財經</h2>
           </div>
           <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700">
             {news.global.map((item, idx) => (
@@ -92,7 +92,7 @@ const Dashboard = () => {
                 href={item.url} 
                 target="_blank" 
                 rel="noreferrer" 
-                className="block p-4 hover:bg-gray-700 transition"
+                className="block p-3 sm:p-4 hover:bg-gray-700 transition"
               >
                 <div className="flex justify-between items-start">
                   <h3 className="text-sm font-medium pr-4">{item.title}</h3>

@@ -62,11 +62,11 @@ const RecommendationPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{titles[type] || '股票推薦'}</h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">{titles[type] || '股票推薦'}</h1>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">
             系統根據專業演算法篩選，每日自動更新核心指標。
           </p>
         </div>
@@ -86,7 +86,7 @@ const RecommendationPage = () => {
           <p className="text-gray-400">正在計算分析中，請稍候...</p>
         </div>
       ) : stocks.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {stocks.map(stock => (
             <StockCard key={stock.stock_id} stock={stock} type={type} />
           ))}

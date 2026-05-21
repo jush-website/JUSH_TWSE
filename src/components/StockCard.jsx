@@ -30,12 +30,12 @@ const StockCard = ({ stock, type }) => {
   return (
     <div 
       onClick={() => navigate(`/analyze/${stock.stock_id}`)}
-      className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-blue-500 transition cursor-pointer group"
+      className="bg-gray-800 rounded-xl border border-gray-700 p-3 sm:p-4 hover:border-blue-500 transition cursor-pointer group"
     >
-      <div className="flex justify-between items-start mb-3">
+      <div className="flex justify-between items-start mb-2 sm:mb-3">
         <div>
-          <h3 className="font-bold text-lg text-white group-hover:text-blue-400">{stock.stock_name}</h3>
-          <span className="text-gray-400 text-sm">{stock.stock_id}</span>
+          <h3 className="font-bold text-base sm:text-lg text-white group-hover:text-blue-400">{stock.stock_name}</h3>
+          <span className="text-gray-400 text-xs sm:text-sm">{stock.stock_id}</span>
         </div>
         <div className={`px-2 py-1 rounded text-xs font-bold ${
           score >= 70 ? 'bg-red-900 text-red-200' : 
@@ -45,10 +45,10 @@ const StockCard = ({ stock, type }) => {
         </div>
       </div>
 
-      <div className="flex items-end justify-between mb-4">
+      <div className="flex items-end justify-between mb-3 sm:mb-4">
         <div>
-          <div className="text-2xl font-bold">{stock.price}</div>
-          <div className={`flex items-center text-sm font-medium ${isPositive ? 'text-red-400' : 'text-green-400'}`}>
+          <div className="text-xl sm:text-2xl font-bold">{stock.price}</div>
+          <div className={`flex items-center text-xs sm:text-sm font-medium ${isPositive ? 'text-red-400' : 'text-green-400'}`}>
             {isPositive ? <TrendingUp size={14} className="mr-1" /> : <TrendingDown size={14} className="mr-1" />}
             {isPositive ? '+' : ''}{stock.change_percent}%
           </div>
@@ -59,20 +59,20 @@ const StockCard = ({ stock, type }) => {
         </div>
       </div>
 
-      <div className="space-y-2 pt-3 border-t border-gray-700">
-        <div className="flex justify-between text-xs">
+      <div className="space-y-1.5 sm:space-y-2 pt-2 sm:pt-3 border-t border-gray-700">
+        <div className="flex justify-between text-[11px] sm:text-xs">
           <span className="text-gray-400">成交量比</span>
           <span className={stock.vol_ratio > 1.5 ? 'text-orange-400 font-bold' : 'text-gray-200'}>
             {stock.vol_ratio}
           </span>
         </div>
         {subText && (
-          <div className="flex justify-between text-xs">
+          <div className="flex justify-between text-[11px] sm:text-xs">
             <span className="text-gray-400">關鍵數據</span>
             <span className="text-blue-300 font-medium">{subText}</span>
           </div>
         )}
-        <div className="flex justify-between text-xs">
+        <div className="flex justify-between text-[11px] sm:text-xs">
           <span className="text-gray-400">策略建議</span>
           <span className="text-gray-200 truncate ml-2">{stock.strategy_name}</span>
         </div>

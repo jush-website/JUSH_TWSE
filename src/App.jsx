@@ -27,7 +27,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-900 text-white font-sans">
         <Navbar status={status} />
-        <main className="container mx-auto px-4 py-6">
+        <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/recommendations/:type" element={<RecommendationPage />} />
