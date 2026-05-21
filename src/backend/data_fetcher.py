@@ -553,17 +553,24 @@ class DataFetcher:
                 
                 # 確保 00:00~08:59 是昨收數據，開盤後 (09:00+) 才是當天數據
                 is_before_open = now.hour < 9
+                is_after_close = (now.hour == 13 and now.minute >= 30) or now.hour >= 14
                 
-                if last_row.name.date() == now.date() and not is_before_open:
-                    # 已經是今天且已過 09:00，使用今日即時數據
-                    y_row = prev_row
-                    cdp_base = y_row.name.strftime("%Y-%m-%d")
+                if last_row.name.date() == now.date():
+                    # 已經是今天
+                    if is_after_close:
+                        # 收盤後，預覽明日CDP，使用今日資料作為基準
+                        y_row = last_row
+                    else:
+                        # 09:00~13:30，今日CDP，使用昨日資料作為基準
+                        y_row = prev_row
                     curr_price = float(last_row['Close'])
                 else:
-                    # 00:00~08:59，或者今日數據還沒進來，一律當作是「昨日」數據
+                    # 沒拿到今天數據，表示在盤前或者資料還沒更新
+                    # 所以最後一筆就是昨日的數據
                     y_row = last_row
-                    cdp_base = y_row.name.strftime("%Y-%m-%d")
                     curr_price = float(last_row['Close']) # 這裡是昨收
+
+                cdp_base = y_row.name.strftime("%Y-%m-%d")
 
                 if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") and not is_before_open:
                     curr_price = float(official_data['price'])
@@ -572,10 +579,10 @@ class DataFetcher:
                 
                 # 如果在 00:00~08:59，我們要讓 open, high, low, close 都回傳昨收的狀態
                 if is_before_open:
-                    sim_open = float(last_row['Close']) # 用昨收作為平盤基準
-                    sim_high = float(last_row['Close'])
-                    sim_low = float(last_row['Close'])
-                    sim_vol = 0
+                    sim_open = float(last_row['Open']) # 不再強制改為昨收，保留實際走勢
+                    sim_high = float(last_row['High'])
+                    sim_low = float(last_row['Low'])
+                    sim_vol = int(last_row['Volume'])
                 else:
                     sim_open = float(official_data['open']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['Open'])
                     sim_high = float(official_data['high']) if official_data and official_data.get('date') == now.strftime("%Y-%m-%d") else float(last_row['High'])
@@ -584,6 +591,8 @@ class DataFetcher:
 
                 simulated_snapshot = {
                     "stock_id": stock_id,
+                    "date": last_row.name.strftime("%Y-%m-%d") if is_before_open else now.strftime("%Y-%m-%d"),
+                    "is_before_open": is_before_open,
                     "price": curr_price,
                     "open": sim_open,
                     "high": sim_high,

@@ -110,7 +110,9 @@ const Navbar = ({ status }) => {
                   </span>
                   <span className="text-xs font-semibold text-green-400 tracking-wide">{status.market_status}</span>
                 </div>
-                <span className="text-[10px] text-gray-500 font-mono mt-0.5">{status.data_date}</span>
+                <span className="text-[10px] text-gray-500 font-mono mt-0.5">
+                  更新: {status.last_sync || status.data_date}
+                </span>
               </div>
             )}
           </div>

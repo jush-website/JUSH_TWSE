@@ -573,7 +573,11 @@ class StockAnalyzer:
             if 'df_1m' in intraday_snapshot and not intraday_snapshot['df_1m'].empty:
                 snap_date = intraday_snapshot['df_1m'].index[-1].date()
             else:
-                snap_date = datetime.now(pytz.timezone("Asia/Taipei")).date()
+                snap_date_str = intraday_snapshot.get('date')
+                if snap_date_str:
+                    snap_date = datetime.strptime(snap_date_str, "%Y-%m-%d").date()
+                else:
+                    snap_date = datetime.now(pytz.timezone("Asia/Taipei")).date()
 
             if snap_date >= latest_history_date:
                 new_row = {

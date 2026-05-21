@@ -66,16 +66,22 @@ async def run_sync():
 
         # 1. Update Status
         market_status = fetcher.get_market_status()
+        # 使用最後一個交易日的日期
         if fetcher._official_cache:
             data_date = list(fetcher._official_cache.values())[0].get('date', 'N/A')
         else:
             data_date = 'N/A'
+        # 顯示上次同步時間給右上角 (台北時間)
+        import pytz
+        from datetime import datetime as dt
+        tw_now = dt.now(pytz.timezone('Asia/Taipei'))
+        last_sync_str = tw_now.strftime('%Y-%m-%d %H:%M')
 
         status = {
             "market_status": market_status,
             "data_date": data_date,
-            "server_time": time.time(),
-            "last_sync": time.strftime("%Y-%m-%d %H:%M:%S")
+            "last_sync": last_sync_str,
+            "server_time": time.time()
         }
         db.collection('system').document('status').set(sanitize_data(status))
         logging.info(f"Status synced: {market_status} / {data_date}")
@@ -114,14 +120,19 @@ async def run_sync():
         logging.info("short_term_burst synced.")
 
         # d) Overnight (隔日沖) mode 1
+        # 盤前/盤後時段 score 通常較低，直接取前30，不設門檻，讓前端顯示數據
         ov_1 = sorted(results, key=lambda x: x['overnight']['score'], reverse=True)
+        ov_1_filtered = [r for r in ov_1 if not r['is_limit_up'] and r['price'] < 1000]
+        # 有門檻則先取，若不足20筆則降低門檻取全部
+        ov_1_high = [r for r in ov_1_filtered if r['overnight']['score'] >= 40][:30]
         db.collection('recommendations').document('overnight_1').set(
-            {"data": sanitize_data([r for r in ov_1 if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30]), "updated_at": time.time()})
+            {"data": sanitize_data(ov_1_high if ov_1_high else ov_1_filtered[:30]), "updated_at": time.time()})
         # mode 2
         ov_2 = sorted(results, key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
         top_ov_2 = [r for r in ov_2 if r['overnight'].get('broker_ratio', 0) > 3][:30]
         if not top_ov_2:
-            top_ov_2 = [r for r in ov_2 if r['overnight']['score'] >= 50][:30]
+            # fallback: 依評分取前30
+            top_ov_2 = sorted(results, key=lambda x: x['overnight']['score'], reverse=True)[:30]
         db.collection('recommendations').document('overnight_2').set(
             {"data": sanitize_data(top_ov_2), "updated_at": time.time()})
         logging.info("overnight synced.")
@@ -146,6 +157,17 @@ async def run_sync():
         db.collection('recommendations').document('long_term').set(
             {"data": sanitize_data([r for r in lt_res if r and "error" not in r]), "updated_at": time.time()})
         logging.info("long_term synced.")
+
+        # h) ETF 佈局
+        etf_sids = await loop.run_in_executor(executor, fetcher.get_popular_etf_ids)
+        await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(etf_sids))
+        etf_tasks = [loop.run_in_executor(executor, analyzer.analyze, sid) for sid in etf_sids]
+        etf_res = await asyncio.gather(*etf_tasks)
+        etf_results = [r for r in etf_res if r and "error" not in r]
+        etf_results.sort(key=lambda x: x['etf_rec']['score'], reverse=True)
+        db.collection('recommendations').document('etf').set(
+            {"data": sanitize_data(etf_results), "updated_at": time.time()})
+        logging.info("etf synced.")
 
         logging.info("✅ All data synced to Firebase successfully!")
     except Exception as e:
