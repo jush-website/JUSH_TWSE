@@ -49,6 +49,7 @@ class DataFetcher:
         self._taiex_cache = None 
         self._revenue_cache = {} 
         self._history_cache = {}
+        self._history_cache_ts = {}
         self._chip_cache = {}
         self._broker_cache = {}
         self._intraday_cache = {} 
@@ -589,6 +590,7 @@ class DataFetcher:
             return res
         except Exception as e:
             if self.logger: self.logger.error(f"Intraday fetch error for {stock_id}: {e}")
+            with self._lock: self._intraday_cache[stock_id] = (datetime.now(pytz.timezone("Asia/Taipei")), None)
         return None
 
     def get_price_data(self, stock_id: str, days: int = 60):
@@ -597,7 +599,8 @@ class DataFetcher:
         with self._lock:
             if stock_id in self._history_cache:
                 df = self._history_cache[stock_id]
-                if not df.empty and df.index[-1].date() >= expected_date:
+                last_fetch_time = self._history_cache_ts.get(stock_id, 0)
+                if not df.empty and (df.index[-1].date() >= expected_date or time.time() - last_fetch_time < 300):
                     return df.tail(days)
         
         try:
@@ -637,8 +640,11 @@ class DataFetcher:
             
             with self._lock: 
                 self._history_cache[stock_id] = df
+                self._history_cache_ts[stock_id] = time.time()
             return df.tail(days).ffill()
         except Exception as e:
+            with self._lock:
+                self._history_cache_ts[stock_id] = time.time() # 記錄失敗時間，5分鐘內不重試
             if self.logger: self.logger.error(f"Price data fetch error for {stock_id}: {e}")
             with self._lock:
                 if stock_id in self._history_cache: return self._history_cache[stock_id].tail(days)
