@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
     if not os.environ.get("VERCEL"):
         print("[系統] 正在啟動背景數據同步...")
         asyncio.create_task(background_sync())
+        asyncio.create_task(background_strategies_sync())
     yield
 
 async def background_sync():
@@ -53,6 +54,27 @@ async def background_sync():
         except Exception as e:
             print(f"[系統] 背景同步發生錯誤: {e}")
         await asyncio.sleep(60)
+
+async def background_strategies_sync():
+    # 等待初始資料同步完成
+    await asyncio.sleep(15)
+    while True:
+        try:
+            print("[系統] 開始執行每 3 分鐘背景深度策略分析...")
+            await get_long_term_recommendations(force=True)
+            await get_hot_stocks(force=True)
+            await get_short_term_recommendations(force=True)
+            await get_bottom_fishing_recommendations(force=True)
+            await get_short_term_burst_recommendations(force=True)
+            await get_overnight_recommendations(mode="1", force=True)
+            await get_overnight_recommendations(mode="2", force=True)
+            await get_cdp_recommendations(force=True)
+            await get_etf_recommendations(force=True)
+            print("[系統] 背景深度策略分析完成，已快取至記憶體！")
+        except Exception as e:
+            print(f"[系統] 背景策略分析錯誤: {e}")
+        await asyncio.sleep(180)
+
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -130,15 +152,16 @@ async def get_news():
 # 簡單的 API 快取機制，避免頻繁計算導致超時
 API_CACHE = {}
 
-def get_cached_response(key, expiry=300):
+def set_cached_response(key, data, expiry=None):
+    # 如果未指定 expiry，預設給予極長時間，由背景程式負責更新
+    API_CACHE[key] = (time.time() + (expiry or 86400), data)
+
+def get_cached_response(key):
     if key in API_CACHE:
-        ts, data = API_CACHE[key]
-        if time.time() - ts < expiry:
+        expire_ts, data = API_CACHE[key]
+        if time.time() < expire_ts:
             return data
     return None
-
-def set_cached_response(key, data):
-    API_CACHE[key] = (time.time(), data)
 
 executor = ThreadPoolExecutor(max_workers=30)
 
@@ -149,9 +172,10 @@ def analyze_wrap(sid):
 
 
 @app.get("/api/long-term-recommendations")
-async def get_long_term_recommendations():
-    cached = get_cached_response("long_term")
-    if cached: return cached
+async def get_long_term_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("long_term")
+        if cached: return cached
     
     loop = asyncio.get_event_loop()
     sids = config.LONG_TERM_STOCK_IDS
@@ -169,9 +193,10 @@ async def get_long_term_recommendations():
     return final_res
 
 @app.get("/api/hot-stocks")
-async def get_hot_stocks():
-    cached = get_cached_response("hot_stocks")
-    if cached: return cached
+async def get_hot_stocks(force: bool = False):
+    if not force:
+        cached = get_cached_response("hot_stocks")
+        if cached: return cached
     
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
@@ -187,9 +212,10 @@ async def get_hot_stocks():
     return final_res
 
 @app.get("/api/short-term-recommendations")
-async def get_short_term_recommendations():
-    cached = get_cached_response("short_term")
-    if cached: return cached
+async def get_short_term_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("short_term")
+        if cached: return cached
     
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
@@ -207,9 +233,10 @@ async def get_short_term_recommendations():
     return final_res
 
 @app.get("/api/bottom-fishing-recommendations")
-async def get_bottom_fishing_recommendations():
-    cached = get_cached_response("bottom_fishing")
-    if cached: return cached
+async def get_bottom_fishing_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("bottom_fishing")
+        if cached: return cached
     
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
@@ -227,9 +254,10 @@ async def get_bottom_fishing_recommendations():
     return final_res
 
 @app.get("/api/short-term-burst-recommendations")
-async def get_short_term_burst_recommendations():
-    cached = get_cached_response("short_term_burst")
-    if cached: return cached
+async def get_short_term_burst_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("short_term_burst")
+        if cached: return cached
     
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
@@ -247,9 +275,10 @@ async def get_short_term_burst_recommendations():
     return final_res
 
 @app.get("/api/overnight-recommendations")
-async def get_overnight_recommendations(mode: str = "1"):
-    cached = get_cached_response(f"overnight_{mode}")
-    if cached: return cached
+async def get_overnight_recommendations(mode: str = "1", force: bool = False):
+    if not force:
+        cached = get_cached_response(f"overnight_{mode}")
+        if cached: return cached
     
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
@@ -285,9 +314,10 @@ async def get_overnight_recommendations(mode: str = "1"):
     return final_res
 
 @app.get("/api/cdp-recommendations")
-async def get_cdp_recommendations():
-    cached = get_cached_response("cdp")
-    if cached: return cached
+async def get_cdp_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("cdp")
+        if cached: return cached
     
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
@@ -312,7 +342,11 @@ async def get_cdp_recommendations():
     return final_res
 
 @app.get("/api/etf-recommendations")
-async def get_etf_recommendations():
+async def get_etf_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("etf")
+        if cached: return cached
+    
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, fetcher.get_popular_etf_ids)
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
