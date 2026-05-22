@@ -6,13 +6,31 @@ from typing import List, Optional
 import asyncio
 import time
 import os
-from datetime import datetime
-import config
+import numpy as np
+from src.backend import config
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 
-from analyzer import StockAnalyzer
-from data_fetcher import DataFetcher
+from src.backend.analyzer import StockAnalyzer
+from src.backend.data_fetcher import DataFetcher
+
+import math
+
+def sanitize_data(data):
+    if isinstance(data, dict):
+        return {k: sanitize_data(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_data(v) for v in data]
+    elif isinstance(data, (np.bool_, bool)):
+        return bool(data)
+    elif isinstance(data, (np.integer, int)):
+        return int(data)
+    elif isinstance(data, (np.floating, float)):
+        val = float(data)
+        if math.isnan(val) or math.isinf(val):
+            return 0.0
+        return val
+    return data
 
 # 初始化服務
 config.seed_cache()
@@ -43,7 +61,7 @@ app = FastAPI(title="台股偵測系統 Web 版 (Optimized)", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # 生產環境建議設定為您的 Vercel 網址
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -57,41 +75,27 @@ frontend_path = os.path.join(root_dir, "frontend", "dist")
 if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
 
-@app.get("/{full_path:path}")
-async def serve_react_app(full_path: str):
-    # 如果路徑包含 api，則不處理 (交給其他 route)
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404)
-        
-    index_path = os.path.join(frontend_path, "index.html")
-    if os.path.exists(index_path):
-        with open(index_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>台股偵測系統</h1><p>請先執行 frontend 編譯 (npm run build)。</p>")
+
 
 @app.get("/api/status")
 async def get_status():
     current_status = fetcher.get_market_status()
-    if fetcher._official_cache:
-        data_date = list(fetcher._official_cache.values())[0]['date']
-    else:
-        loop = asyncio.get_event_loop()
-        sample_df = await loop.run_in_executor(None, lambda: fetcher.get_taiex_data(days=1))
-        data_date = sample_df.index[-1].strftime("%Y-%m-%d") if not sample_df.empty else "確認中..."
+    loop = asyncio.get_event_loop()
     
-    latest_sync = fetcher._last_sync_time or time.time()
-    if fetcher._intraday_cache:
-        try:
-            latest_intraday = max(v[0].timestamp() for v in fetcher._intraday_cache.values())
-            latest_sync = max(latest_sync, latest_intraday)
-        except: pass
-
-    sync_time_str = datetime.fromtimestamp(latest_sync).strftime("%Y-%m-%d %H:%M:%S")
-
+    try:
+        sample_df = await loop.run_in_executor(None, lambda: fetcher.get_taiex_data(days=1))
+        if not sample_df.empty:
+            data_date = sample_df.index[-1].strftime("%Y-%m-%d")
+        elif fetcher._official_cache:
+            data_date = list(fetcher._official_cache.values())[0].get('date', "確認中...")
+        else:
+            data_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    except:
+        data_date = "確認中..."
+    
     return {
         "market_status": current_status,
         "data_date": data_date,
-        "sync_time": sync_time_str,
         "server_time": time.time()
     }
 
@@ -114,7 +118,7 @@ async def get_news():
     tw_result = []
     for item in tw_news_items:
         import re
-        found_ids = [sid for sid in re.findall(r'\d{4}', item["title"]) if sid in valid_ids]
+        found_ids = [sid for sid in re.findall(r'\d{4}', item.get("title", "")) if sid in valid_ids]
         item["related_stocks"] = found_ids
         tw_result.append(item)
     
@@ -122,10 +126,26 @@ async def get_news():
         
     return {"taiwan": tw_result, "global": gl_result}
 
-executor = ThreadPoolExecutor(max_workers=10)
+# 簡單的 API 快取機制，避免頻繁計算導致超時
+API_CACHE = {}
+
+def get_cached_response(key, expiry=300):
+    if key in API_CACHE:
+        ts, data = API_CACHE[key]
+        if time.time() - ts < expiry:
+            return data
+    return None
+
+def set_cached_response(key, data):
+    API_CACHE[key] = (time.time(), data)
+
+executor = ThreadPoolExecutor(max_workers=30)
 
 @app.get("/api/long-term-recommendations")
 async def get_long_term_recommendations():
+    cached = get_cached_response("long_term")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
     sids = config.LONG_TERM_STOCK_IDS
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
@@ -137,12 +157,17 @@ async def get_long_term_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     # 長期股通常不特別依照短線分數排序，保持原始精選順序或依照 PE 排序
-    return results
+    final_res = sanitize_data(results)
+    set_cached_response("long_term", final_res)
+    return final_res
 
 @app.get("/api/hot-stocks")
 async def get_hot_stocks():
+    cached = get_cached_response("hot_stocks")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -150,12 +175,17 @@ async def get_hot_stocks():
         tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
     
     results = await asyncio.gather(*tasks)
-    return [res for res in results if res and "error" not in res]
+    final_res = sanitize_data([res for res in results if res and "error" not in res])
+    set_cached_response("hot_stocks", final_res)
+    return final_res
 
 @app.get("/api/short-term-recommendations")
 async def get_short_term_recommendations():
+    cached = get_cached_response("short_term")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -165,12 +195,17 @@ async def get_short_term_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res and res['price'] <= config.MAX_STOCK_PRICE_FOR_ST_REC]
     results.sort(key=lambda x: x["short_term_rec"]["score"], reverse=True)
-    return results[:10]
+    final_res = sanitize_data(results[:10])
+    set_cached_response("short_term", final_res)
+    return final_res
 
 @app.get("/api/bottom-fishing-recommendations")
 async def get_bottom_fishing_recommendations():
+    cached = get_cached_response("bottom_fishing")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:60])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -180,12 +215,17 @@ async def get_bottom_fishing_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["bottom_fishing_rec"]["score"], reverse=True)
-    return [r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20]
+    final_res = sanitize_data([r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20])
+    set_cached_response("bottom_fishing", final_res)
+    return final_res
 
 @app.get("/api/short-term-burst-recommendations")
 async def get_short_term_burst_recommendations():
+    cached = get_cached_response("short_term_burst")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:80])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     tasks = []
@@ -195,12 +235,17 @@ async def get_short_term_burst_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["short_term_burst_rec"]["score"], reverse=True)
-    return [r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20]
+    final_res = sanitize_data([r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20])
+    set_cached_response("short_term_burst", final_res)
+    return final_res
 
 @app.get("/api/overnight-recommendations")
 async def get_overnight_recommendations(mode: str = "1"):
+    cached = get_cached_response(f"overnight_{mode}")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, fetcher.get_hot_battlefield_ids)
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     def analyze_overnight(sid):
@@ -217,7 +262,7 @@ async def get_overnight_recommendations(mode: str = "1"):
             
     if mode == "1": # 盤中強勢
         results.sort(key=lambda x: x['overnight']['score'], reverse=True)
-        return [r for r in results if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30]
+        final_res = sanitize_data([r for r in results if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30])
     else: # 盤後籌碼
         # 優先依照 broker_ratio 排序
         results.sort(key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
@@ -227,12 +272,18 @@ async def get_overnight_recommendations(mode: str = "1"):
         if not top:
             results.sort(key=lambda x: x['overnight']['score'], reverse=True)
             top = [r for r in results if r['overnight']['score'] >= 50][:30]
-        return top
+        final_res = sanitize_data(top)
+        
+    set_cached_response(f"overnight_{mode}", final_res)
+    return final_res
 
 @app.get("/api/cdp-recommendations")
 async def get_cdp_recommendations():
+    cached = get_cached_response("cdp")
+    if cached: return cached
+    
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:100])
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
@@ -249,7 +300,9 @@ async def get_cdp_recommendations():
     results = [res for res in all_res if res and "error" not in res]
     
     hit_results = [r for r in results if r['cdp'].get('signals')]
-    return hit_results if hit_results else results[:20]
+    final_res = sanitize_data(hit_results if hit_results else results[:20])
+    set_cached_response("cdp", final_res)
+    return final_res
 
 @app.get("/api/etf-recommendations")
 async def get_etf_recommendations():
@@ -264,7 +317,9 @@ async def get_etf_recommendations():
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x['etf_rec']['score'], reverse=True)
-    return results
+    final_res = sanitize_data(results)
+    set_cached_response("etf", final_res)
+    return final_res
 
 @app.get("/api/industries")
 async def get_industries():
@@ -281,7 +336,7 @@ async def get_industry_stocks(name: str):
         tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
     
     all_res = await asyncio.gather(*tasks)
-    return [res for res in all_res if res and "error" not in res]
+    return sanitize_data([res for res in all_res if res and "error" not in res])
 
 @app.get("/api/analyze/{query}")
 async def analyze_stock(query: str):
@@ -293,18 +348,30 @@ async def analyze_stock(query: str):
     def analyze_wrap(sid):
         snapshot = fetcher.get_intraday_data(sid)
         if snapshot: snapshot['stock_id'] = sid
-        return analyzer.analyze(sid, intraday_snapshot=snapshot)
+        return analyzer.analyze(sid, intraday_snapshot=snapshot, fetch_live_chip=True)
         
     res = await loop.run_in_executor(executor, analyze_wrap, sid)
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
-    return res
+    return sanitize_data(res)
 
 @app.post("/api/sync")
 async def sync_data(mode: str = "1"):
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
     return {"status": "success"}
+
+@app.get("/{full_path:path}")
+async def serve_react_app(full_path: str):
+    # 如果路徑包含 api，則不處理 (交給其他 route)
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404)
+        
+    index_path = os.path.join(frontend_path, "index.html")
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>台股偵測系統</h1><p>請先執行 frontend 編譯 (npm run build)。</p>")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

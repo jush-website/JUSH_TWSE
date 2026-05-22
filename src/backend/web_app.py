@@ -80,12 +80,18 @@ if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
 @app.get("/api/status")
 async def get_status():
     current_status = fetcher.get_market_status()
-    if fetcher._official_cache:
-        data_date = list(fetcher._official_cache.values())[0]['date']
-    else:
-        loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
+    
+    try:
         sample_df = await loop.run_in_executor(None, lambda: fetcher.get_taiex_data(days=1))
-        data_date = sample_df.index[-1].strftime("%Y-%m-%d") if not sample_df.empty else "確認中..."
+        if not sample_df.empty:
+            data_date = sample_df.index[-1].strftime("%Y-%m-%d")
+        elif fetcher._official_cache:
+            data_date = list(fetcher._official_cache.values())[0].get('date', "確認中...")
+        else:
+            data_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    except:
+        data_date = "確認中..."
     
     return {
         "market_status": current_status,
