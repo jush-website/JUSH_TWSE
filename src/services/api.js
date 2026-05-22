@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '', // 在 Vercel 上前後端同網域，直接使用相對路徑
+  baseURL: import.meta.env.VITE_API_URL || 'https://jush-twse.onrender.com', // 使用環境變數或 Render 的 API 網址
 });
 
 export const getStatus = () => api.get('/api/status');
