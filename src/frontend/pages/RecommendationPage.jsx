@@ -27,6 +27,9 @@ const RecommendationPage = () => {
     'cdp': 'CDP 逆勢分析 (當沖與隔日點位實戰)'
   };
 
+  const [sortBy, setSortBy] = useState('score');
+  const [sortOrder, setSortOrder] = useState('desc');
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -41,7 +44,7 @@ const RecommendationPage = () => {
         case 'cdp': res = await getCdpRecommendations(); break;
         default: res = { data: [] };
       }
-      setStocks(res.data);
+      setStocks(res.data || []);
     } catch (err) {
       console.error('Fetch recommendations failed', err);
     } finally {
@@ -53,6 +56,20 @@ const RecommendationPage = () => {
     fetchData();
   }, [type]);
 
+  const getScore = (stock) => {
+    if (type === 'overnight') return stock.overnight?.score || 0;
+    if (type === 'bottom') return stock.bottom_fishing_rec?.score || 0;
+    if (type === 'burst') return stock.short_term_burst_rec?.score || 0;
+    if (type === 'short-term') return stock.short_term_rec?.score || 0;
+    return stock.total_score || 0;
+  };
+
+  const sortedStocks = [...stocks].sort((a, b) => {
+    let valA = sortBy === 'price' ? a.price : getScore(a);
+    let valB = sortBy === 'price' ? b.price : getScore(b);
+    return sortOrder === 'desc' ? valB - valA : valA - valB;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -62,6 +79,28 @@ const RecommendationPage = () => {
             系統每3分鐘自動更新指標，由雲端資料庫直接提供。
           </p>
         </div>
+        
+        {/* 排序控制區 */}
+        {!loading && stocks.length > 0 && (
+          <div className="flex items-center space-x-2 bg-gray-800 p-1.5 rounded-lg border border-gray-700">
+            <select 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-gray-900 text-sm text-gray-200 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="score">依分數</option>
+              <option value="price">依股價</option>
+            </select>
+            <select 
+              value={sortOrder} 
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="bg-gray-900 text-sm text-gray-200 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="desc">由高到低</option>
+              <option value="asc">由低到高</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -69,10 +108,10 @@ const RecommendationPage = () => {
           <RefreshCw size={40} className="animate-spin mx-auto text-gray-600 mb-4" />
           <p className="text-gray-400">正在計算分析中，請稍候...</p>
         </div>
-      ) : stocks.length > 0 ? (
+      ) : sortedStocks.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {stocks.map(stock => (
-            <StockCard key={stock.stock_id} stock={stock} type={type} />
+          {sortedStocks.map((stock, index) => (
+            <StockCard key={stock.stock_id || index} stock={stock} type={type} />
           ))}
         </div>
       ) : (

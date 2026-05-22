@@ -21,16 +21,24 @@ api.interceptors.response.use(
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
-// 輔助函式：從 Firestore 獲取數據，並模擬 Axios 的 { data: ... } 結構
 const fetchFromFirestore = async (collectionName, docId) => {
   const docRef = doc(db, collectionName, docId);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
     const firestoreData = docSnap.data();
-    // 假設後端將清單存放在 { data: [...] }，或是直接存放
-    return { data: firestoreData.data || firestoreData };
+    let updatedAtStr = null;
+    if (firestoreData.updated_at) {
+      const dateObj = typeof firestoreData.updated_at.toDate === 'function' 
+        ? firestoreData.updated_at.toDate() 
+        : new Date(firestoreData.updated_at);
+      updatedAtStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    }
+    return { 
+      data: firestoreData.data || firestoreData,
+      updated_at: updatedAtStr
+    };
   } else {
-    return { data: [] };
+    return { data: [], updated_at: null };
   }
 };
 

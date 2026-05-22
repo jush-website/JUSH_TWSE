@@ -80,6 +80,10 @@ async def lifespan(app: FastAPI):
     # 啟動時執行初步數據同步 (非阻塞方式)
     if not os.environ.get("VERCEL"):
         print("[系統] 正在啟動背景數據同步...")
+        loop = asyncio.get_event_loop()
+        # 強制啟動時抓取一次台股代號列表，確保 _stock_id_map 完整，避免個股名稱顯示為「未知」
+        await loop.run_in_executor(None, fetcher.get_stock_info)
+        
         asyncio.create_task(background_sync())
         asyncio.create_task(background_strategies_sync())
     yield
@@ -97,17 +101,18 @@ async def background_strategies_sync():
     # 等待初始資料同步完成
     await asyncio.sleep(15)
     last_final_sync_date = None
+    last_1330_sync_date = None
     
     while True:
         try:
             now = datetime.now(pytz.timezone("Asia/Taipei"))
             is_weekend = now.weekday() >= 5
             
-            # 開盤活躍時段 (08:50 ~ 13:40)
+            # 開盤活躍時段 (08:50 ~ 13:30)
             is_market_hours = not is_weekend and (
                 (now.hour == 8 and now.minute >= 50) or 
                 (9 <= now.hour < 13) or 
-                (now.hour == 13 and now.minute <= 40)
+                (now.hour == 13 and now.minute <= 30)
             )
             
             today_str = now.strftime("%Y-%m-%d")
@@ -117,8 +122,13 @@ async def background_strategies_sync():
                 should_sync = True
                 print(f"[系統] 目前為開盤時段 ({now.strftime('%H:%M')})，執行 3 分鐘持續更新...")
             else:
+                # 確保 13:30 後的最新收盤資料 (大約 13:33~13:35) 有被更新一次，避免只更新到 13:28
+                if not is_weekend and now.hour == 13 and now.minute > 30 and last_1330_sync_date != today_str:
+                    should_sync = True
+                    last_1330_sync_date = today_str
+                    print(f"[系統] 盤後確認機制啟動 ({now.strftime('%H:%M')})，確保 13:30 確切收盤數據...")
                 # 收盤後防呆：確保在官方收盤資訊與籌碼 (14:30後) 進行一次最終更新，確保是確切的最終收盤數據
-                if last_final_sync_date != today_str:
+                elif last_final_sync_date != today_str:
                     # 若現在已經過了 14:30 (或者是假日的伺服器重啟)，就執行一次最終更新
                     if now.hour > 14 or (now.hour == 14 and now.minute >= 30) or is_weekend:
                         should_sync = True
@@ -344,7 +354,10 @@ async def get_bottom_fishing_recommendations(force: bool = False):
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["bottom_fishing_rec"]["score"], reverse=True)
-    final_res = sanitize_data([r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20])
+    top = [r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20]
+    if not top and results:
+        top = [r for r in results if r["bottom_fishing_rec"]["score"] > 0][:10]
+    final_res = sanitize_data(top)
     set_cached_response("bottom_fishing", final_res)
     return final_res
 
@@ -365,7 +378,10 @@ async def get_short_term_burst_recommendations(force: bool = False):
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
     results.sort(key=lambda x: x["short_term_burst_rec"]["score"], reverse=True)
-    final_res = sanitize_data([r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20])
+    top = [r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20]
+    if not top and results:
+        top = [r for r in results if r["short_term_burst_rec"]["score"] > 0][:10]
+    final_res = sanitize_data(top)
     set_cached_response("short_term_burst", final_res)
     return final_res
 
@@ -393,7 +409,11 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
             
     if mode == "1": # 盤中強勢
         results.sort(key=lambda x: x['overnight']['score'], reverse=True)
-        final_res = sanitize_data([r for r in results if r['overnight']['score'] >= 45 and not r['is_limit_up']][:30])
+        filtered = [r for r in results if not r['is_limit_up']]
+        top = [r for r in filtered if r['overnight']['score'] >= 45][:30]
+        if not top and filtered:
+            top = [r for r in filtered if r['overnight']['score'] > 0][:10]
+        final_res = sanitize_data(top)
     else: # 盤後籌碼
         # 優先依照 broker_ratio 排序
         results.sort(key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
@@ -403,6 +423,8 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
         if not top:
             results.sort(key=lambda x: x['overnight']['score'], reverse=True)
             top = [r for r in results if r['overnight']['score'] >= 50][:30]
+            if not top and results:
+                top = [r for r in results if r['overnight']['score'] > 0][:10]
         final_res = sanitize_data(top)
         
     set_cached_response(f"overnight_{mode}", final_res)

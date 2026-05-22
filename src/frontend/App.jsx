@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import RecommendationPage from './pages/RecommendationPage';
 import StockAnalysis from './pages/StockAnalysis';
-import { getStatus } from './services/api';
+import { getShortTermRecommendations } from './services/api';
 
 // 簡易錯誤邊界組件
 class ErrorBoundary extends React.Component {
@@ -38,8 +38,10 @@ function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await getStatus();
-        setStatus(res.data);
+        const res = await getShortTermRecommendations();
+        if (res.updated_at) {
+          setStatus({ last_sync: res.updated_at });
+        }
       } catch (err) {
         console.error('Failed to fetch status', err);
       }
