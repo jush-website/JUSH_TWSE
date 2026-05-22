@@ -997,26 +997,28 @@ class DataFetcher:
         try:
             with self._lock:
                 if self._stock_info_df is not None and not self._stock_info_df.empty:
-                    # 如果已經有資料，且是最近過濾過的，直接回傳
                     return self._stock_info_df['stock_id'].tolist()
             
             # 1. 優先獲取 TWSE/TPEx 當日行情作為「活躍標的」基準
-            active_ids = set()
+            twse_ids = set()
+            tpex_ids = set()
             try:
                 # TWSE 活躍列表
                 res = self._session.get(config.TWSE_DAY_ALL_URL, timeout=10)
                 if res.status_code == 200:
                     data = res.json()
-                    items = data.get('value', data)
-                    for item in items: active_ids.add(str(item['Code']))
+                    items = data.get('value', data) if isinstance(data, dict) else data
+                    for item in items: twse_ids.add(str(item.get('Code', '')))
                 
                 # TPEx 活躍列表
                 res = self._session.get(config.TPEX_DAY_ALL_URL, timeout=10)
                 if res.status_code == 200:
                     data = res.json()
-                    items = data.get('value', data)
-                    for item in items: active_ids.add(str(item['SecuritiesCompanyCode']))
+                    items = data.get('value', data) if isinstance(data, dict) else data
+                    for item in items: tpex_ids.add(str(item.get('SecuritiesCompanyCode', '')))
             except: pass
+
+            active_ids = twse_ids.union(tpex_ids)
 
             # 2. 獲取基本資訊 (產業、型態)
             try:
@@ -1029,6 +1031,13 @@ class DataFetcher:
                 # 關鍵：若能獲取活躍列表，則嚴格過濾掉下市標的
                 if active_ids:
                     df = df[df['stock_id'].isin(active_ids)]
+                    
+                    # 覆蓋型態標記，使用最準確的 OpenAPI 分類
+                    def assign_type(sid):
+                        if sid in twse_ids: return 'twse'
+                        if sid in tpex_ids: return 'tpex'
+                        return None
+                    df['type'] = df['stock_id'].apply(assign_type).combine_first(df['type'])
                 
                 # 去重 (保留最新日期的紀錄)
                 if 'date' in df.columns:
