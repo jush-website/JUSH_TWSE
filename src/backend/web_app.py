@@ -46,12 +46,13 @@ async def lifespan(app: FastAPI):
     yield
 
 async def background_sync():
-    try:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, fetcher.fetch_twse_openapi)
-        print("[系統] 背景數據同步完成。")
-    except Exception as e:
-        print(f"[系統] 背景同步發生錯誤: {e}")
+    loop = asyncio.get_event_loop()
+    while True:
+        try:
+            await loop.run_in_executor(None, fetcher.sync_if_needed)
+        except Exception as e:
+            print(f"[系統] 背景同步發生錯誤: {e}")
+        await asyncio.sleep(60)
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -141,6 +142,12 @@ def set_cached_response(key, data):
 
 executor = ThreadPoolExecutor(max_workers=30)
 
+def analyze_wrap(sid):
+    snapshot = fetcher.get_intraday_data(sid)
+    if snapshot: snapshot['stock_id'] = sid
+    return analyzer.analyze(sid, intraday_snapshot=snapshot)
+
+
 @app.get("/api/long-term-recommendations")
 async def get_long_term_recommendations():
     cached = get_cached_response("long_term")
@@ -152,7 +159,7 @@ async def get_long_term_recommendations():
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -172,7 +179,7 @@ async def get_hot_stocks():
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
     
     results = await asyncio.gather(*tasks)
     final_res = sanitize_data([res for res in results if res and "error" not in res])
@@ -190,7 +197,7 @@ async def get_short_term_recommendations():
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res and res['price'] <= config.MAX_STOCK_PRICE_FOR_ST_REC]
@@ -210,7 +217,7 @@ async def get_bottom_fishing_recommendations():
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -230,7 +237,7 @@ async def get_short_term_burst_recommendations():
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -312,7 +319,7 @@ async def get_etf_recommendations():
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -333,7 +340,7 @@ async def get_industry_stocks(name: str):
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyzer.analyze, sid))
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     return sanitize_data([res for res in all_res if res and "error" not in res])
@@ -345,10 +352,6 @@ async def analyze_stock(query: str):
     if not sid:
         raise HTTPException(status_code=404, detail="找不到標的")
     
-    def analyze_wrap(sid):
-        snapshot = fetcher.get_intraday_data(sid)
-        if snapshot: snapshot['stock_id'] = sid
-        return analyzer.analyze(sid, intraday_snapshot=snapshot)
         
     res = await loop.run_in_executor(executor, analyze_wrap, sid)
     if "error" in res:

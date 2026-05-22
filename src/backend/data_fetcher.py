@@ -318,7 +318,18 @@ class DataFetcher:
     def fetch_twse_openapi(self, fetch_all=False):
         print(f"\n[系統] 正在同步行情與財務估值數據 (OpenAPI 模式)...")
         # self._official_cache.clear() # 不要完全清除，改用更新的方式
-        self._taiex_cache = None 
+        self._taiex_cache = None
+        self._hot_ids_cache = None
+        
+        # 定期清空歷史相關快取，強制重新抓取確保資料推進
+        # 為了避免被 Yahoo Finance rate limit，只有在換日時才清空這些大型快取
+        now_date_str = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
+        with self._lock:
+            if not hasattr(self, '_last_clear_date') or self._last_clear_date != now_date_str:
+                self._history_cache.clear()
+                self._chip_cache.clear()
+                self._revenue_cache.clear()
+                self._last_clear_date = now_date_str
         
         # 1. 獲取大盤指數 (yfinance)
         try:
