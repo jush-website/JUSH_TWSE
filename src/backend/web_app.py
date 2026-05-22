@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI):
         print("[系統] 正在啟動背景數據同步...")
         loop = asyncio.get_event_loop()
         # 強制啟動時抓取一次台股代號列表，確保 _stock_id_map 完整，避免個股名稱顯示為「未知」
-        await loop.run_in_executor(None, fetcher.get_stock_info)
+        await loop.run_in_executor(None, fetcher.get_all_stock_ids)
         
         asyncio.create_task(background_sync())
         asyncio.create_task(background_strategies_sync())
