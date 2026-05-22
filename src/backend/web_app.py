@@ -348,7 +348,7 @@ async def analyze_stock(query: str):
     def analyze_wrap(sid):
         snapshot = fetcher.get_intraday_data(sid)
         if snapshot: snapshot['stock_id'] = sid
-        return analyzer.analyze(sid, intraday_snapshot=snapshot, fetch_live_chip=True)
+        return analyzer.analyze(sid, intraday_snapshot=snapshot)
         
     res = await loop.run_in_executor(executor, analyze_wrap, sid)
     if "error" in res:

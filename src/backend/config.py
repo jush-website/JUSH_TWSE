@@ -70,7 +70,7 @@ def seed_cache():
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR, exist_ok=True)
 
-INTRADAY_CACHE_EXPIRY = 900 # 15 minutes
+INTRADAY_CACHE_EXPIRY = 60 # 1 minute
 HISTORY_CACHE_EXPIRY = 3600 * 4 # 4 hours for history metadata
 
 # Long-term Investment Target Stocks
