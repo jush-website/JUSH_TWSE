@@ -7,6 +7,7 @@ import requests
 import yfinance as yf
 import urllib3
 import pytz
+import time
 from FinMind.data import DataLoader
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
