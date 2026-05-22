@@ -1070,7 +1070,7 @@ class DataFetcher:
         return []
 
     def resolve_stock_id(self, query: str):
-        if not self._stock_id_map: self.get_all_stock_ids()
+        if not self._stock_id_map: self.fetch_twse_openapi(fetch_all=False)
         query = str(query).strip()
         if query in self._stock_id_map: return query
         if query in self._stock_name_map: return self._stock_name_map[query]

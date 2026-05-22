@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI):
         print("[系統] 正在啟動背景數據同步...")
         loop = asyncio.get_event_loop()
         # 強制啟動時抓取一次台股代號列表，確保 _stock_id_map 完整，避免個股名稱顯示為「未知」
-        await loop.run_in_executor(None, fetcher.get_all_stock_ids)
+        await loop.run_in_executor(None, lambda: fetcher.fetch_twse_openapi(fetch_all=False))
         
         asyncio.create_task(background_sync())
         asyncio.create_task(background_strategies_sync())
@@ -240,7 +240,7 @@ async def get_news():
     # 獲取全球新聞
     gl_news_items = await loop.run_in_executor(None, fetcher.get_global_news)
     
-    valid_ids = await loop.run_in_executor(None, fetcher.get_all_stock_ids)
+    valid_ids = list(fetcher._stock_id_map.keys()) if fetcher._stock_id_map else []
     valid_ids = set(valid_ids)
     
     tw_result = []
