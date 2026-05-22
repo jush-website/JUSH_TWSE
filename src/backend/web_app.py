@@ -37,6 +37,41 @@ config.seed_cache()
 fetcher = DataFetcher()
 analyzer = StockAnalyzer(fetcher=fetcher)
 
+import json
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# Initialize Firebase Admin securely via environment variable or local file
+firebase_db = None
+cred_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+if cred_json:
+    try:
+        cred_dict = json.loads(cred_json)
+        cred = credentials.Certificate(cred_dict)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        firebase_db = firestore.client()
+        print("[系統] 已成功透過環境變數初始化 Firebase Admin")
+    except Exception as e:
+        print(f"[系統] Firebase 初始化失敗 (環境變數): {e}")
+else:
+    try:
+        import os.path
+        # current_dir -> src/backend, so root is two levels up
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Actually in this file root_dir is defined later, let's just use relative path
+        key_path = "serviceAccountKey.json"
+        if os.path.exists(key_path):
+            cred = credentials.Certificate(key_path)
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app(cred)
+            firebase_db = firestore.client()
+            print("[系統] 已成功從本機檔案初始化 Firebase Admin")
+        else:
+            print("[系統] 警告：找不到 Firebase 憑證 (FIREBASE_SERVICE_ACCOUNT 變數或 serviceAccountKey.json)，將無法同步至資料庫")
+    except Exception as e:
+        print(f"[系統] Firebase 初始化失敗 (本機檔案): {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 啟動時執行初步數據同步 (非阻塞方式)
@@ -60,19 +95,42 @@ async def background_strategies_sync():
     await asyncio.sleep(15)
     while True:
         try:
-            print("[系統] 開始執行每 3 分鐘背景深度策略分析...")
-            await get_long_term_recommendations(force=True)
-            await get_hot_stocks(force=True)
-            await get_short_term_recommendations(force=True)
-            await get_bottom_fishing_recommendations(force=True)
-            await get_short_term_burst_recommendations(force=True)
-            await get_overnight_recommendations(mode="1", force=True)
-            await get_overnight_recommendations(mode="2", force=True)
-            await get_cdp_recommendations(force=True)
-            await get_etf_recommendations(force=True)
-            print("[系統] 背景深度策略分析完成，已快取至記憶體！")
+            print("[系統] 開始執行每 3 分鐘背景深度策略分析與 Firebase 同步...")
+            long_term = await get_long_term_recommendations(force=True)
+            hot_stocks = await get_hot_stocks(force=True)
+            short_term = await get_short_term_recommendations(force=True)
+            bottom_fishing = await get_bottom_fishing_recommendations(force=True)
+            short_term_burst = await get_short_term_burst_recommendations(force=True)
+            overnight_1 = await get_overnight_recommendations(mode="1", force=True)
+            overnight_2 = await get_overnight_recommendations(mode="2", force=True)
+            cdp = await get_cdp_recommendations(force=True)
+            etf = await get_etf_recommendations(force=True)
+            
+            if firebase_db:
+                base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+                def update_doc(doc_id, data_list):
+                    doc_ref = firebase_db.collection('recommendations').document(doc_id)
+                    doc_ref.set({
+                        'data': data_list,
+                        'base_date': base_date,
+                        'updated_at': firestore.SERVER_TIMESTAMP
+                    })
+                
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, update_doc, 'long_term', long_term)
+                await loop.run_in_executor(None, update_doc, 'hot_stocks', hot_stocks)
+                await loop.run_in_executor(None, update_doc, 'short_term', short_term)
+                await loop.run_in_executor(None, update_doc, 'bottom_fishing', bottom_fishing)
+                await loop.run_in_executor(None, update_doc, 'short_term_burst', short_term_burst)
+                await loop.run_in_executor(None, update_doc, 'overnight_1', overnight_1)
+                await loop.run_in_executor(None, update_doc, 'overnight_2', overnight_2)
+                await loop.run_in_executor(None, update_doc, 'cdp', cdp)
+                await loop.run_in_executor(None, update_doc, 'etf', etf)
+                print("[系統] 背景深度策略分析完成，已同步寫入 Firebase Firestore！")
+            else:
+                print("[系統] 背景深度策略分析完成 (已快取)，但未同步至 Firebase (無金鑰)")
         except Exception as e:
-            print(f"[系統] 背景策略分析錯誤: {e}")
+            print(f"[系統] 背景策略分析與同步錯誤: {e}")
         await asyncio.sleep(180)
 
 
