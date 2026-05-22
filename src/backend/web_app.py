@@ -7,7 +7,7 @@ import asyncio
 import time
 import os
 import numpy as np
-from src.backend import os
+from src.backend import config
 import asyncio
 from datetime import datetime
 import pytz
