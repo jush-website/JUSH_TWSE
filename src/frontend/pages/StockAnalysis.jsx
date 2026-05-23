@@ -250,30 +250,49 @@ const StockAnalysis = () => {
                 </div>
               </div>
 
-              {/* Fundamentals Card */}
+              {/* Volume & Chip Assessment Card */}
               <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
                 <div className="flex items-center space-x-2 mb-4 text-gray-300">
                   <PieChart size={24} />
-                  <h2 className="text-xl font-bold">基本面評估</h2>
+                  <h2 className="text-xl font-bold">量價與籌碼評估</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">本益比 PE</div>
-                    <div className="text-lg font-bold">{data.pe}</div>
+                    <div className="text-gray-500 text-[10px] uppercase">三大法人近3日買賣超</div>
+                    <div className={`text-lg font-bold ${data.net_buy_3d > 0 ? 'text-red-400' : data.net_buy_3d < 0 ? 'text-green-400' : 'text-gray-300'}`}>
+                      {data.net_buy_3d > 0 ? '+' : ''}{data.net_buy_3d ? data.net_buy_3d.toLocaleString() : 0} 張
+                    </div>
                   </div>
                   <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">殖利率 %</div>
-                    <div className="text-lg font-bold">{data.yield}%</div>
+                    <div className="text-gray-500 text-[10px] uppercase">量價形態解析</div>
+                    <div className="text-lg font-bold text-blue-400">
+                      {data.volume_patterns && data.volume_patterns.length > 0 
+                        ? data.volume_patterns[0].pattern 
+                        : '平量整理'}
+                    </div>
                   </div>
                   <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">ROE %</div>
-                    <div className="text-lg font-bold">{data.roe}%</div>
+                    <div className="text-gray-500 text-[10px] uppercase">成交量動能比 (爆發力)</div>
+                    <div className={`text-lg font-bold ${data.vol_ratio > 1.5 ? 'text-orange-400' : 'text-gray-300'}`}>
+                      {data.vol_ratio}x
+                    </div>
                   </div>
                   <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">負債比 %</div>
-                    <div className="text-lg font-bold">{data.debt_ratio}%</div>
+                    <div className="text-gray-500 text-[10px] uppercase">嚴格防守線 (停損)</div>
+                    <div className="text-lg font-bold text-gray-300">
+                      {data.stop_loss ? data.stop_loss.toFixed(2) : '-'}
+                    </div>
                   </div>
                 </div>
+                
+                {data.volume_patterns && data.volume_patterns.length > 0 && (
+                  <div className="mt-4 bg-gray-900/40 p-3 rounded-xl border border-gray-700/50">
+                    <p className="text-xs text-gray-400">
+                      <span className="font-bold text-gray-300">主力邏輯：</span>
+                      {data.volume_patterns[0].desc}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
