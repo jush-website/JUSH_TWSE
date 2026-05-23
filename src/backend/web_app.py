@@ -580,10 +580,10 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
             
     if mode == "1": # 盤中強勢
         results.sort(key=lambda x: x['overnight']['score'], reverse=True)
-        filtered = [r for r in results if not r['is_limit_up']]
-        top = [r for r in filtered if r['overnight']['score'] >= 45][:30]
-        if not top and filtered:
-            top = [r for r in filtered if r['overnight']['score'] > 0][:10]
+        # 移除不可為漲停的限制，因為新的隔日沖策略明確追求漲停鎖死或極度強勢標的
+        top = [r for r in results if r['overnight']['score'] >= 40][:30]
+        if not top and results:
+            top = [r for r in results if r['overnight']['score'] > 0][:10]
         final_res = sanitize_data(top)
     else: # 盤後籌碼
         # 優先依照 broker_ratio 排序
