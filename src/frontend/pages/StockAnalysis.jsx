@@ -5,6 +5,7 @@ import {
   TrendingUp, TrendingDown, AlertCircle, CheckCircle, 
   Target, ShieldAlert, BarChart, PieChart, Info, Search
 } from 'lucide-react';
+import ProgressLoader from '../components/ProgressLoader';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -77,10 +78,7 @@ const StockAnalysis = () => {
       )}
 
       {loading && (
-        <div className="text-center py-20">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
-          <p className="text-gray-400 text-lg">正在讀取雲端數據並計算技術指標...</p>
-        </div>
+        <ProgressLoader text="正在從雲端讀取資料並計算即時技術指標..." />
       )}
 
       {data && !loading && (

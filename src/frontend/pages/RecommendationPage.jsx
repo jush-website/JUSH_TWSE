@@ -10,6 +10,7 @@ import {
   getCdpRecommendations
 } from '../services/api';
 import StockCard from '../components/StockCard';
+import ProgressLoader from '../components/ProgressLoader';
 import { RefreshCw, LayoutGrid, List } from 'lucide-react';
 
 const RecommendationPage = () => {
@@ -104,10 +105,7 @@ const RecommendationPage = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-20">
-          <RefreshCw size={40} className="animate-spin mx-auto text-gray-600 mb-4" />
-          <p className="text-gray-400">正在計算分析中，請稍候...</p>
-        </div>
+        <ProgressLoader text="正在從資料庫同步最新推薦策略..." />
       ) : sortedStocks.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {sortedStocks.map((stock, index) => (

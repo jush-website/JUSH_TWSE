@@ -643,7 +643,7 @@ class StockAnalyzer:
     def analyze(self, stock_id: str, intraday_snapshot=None):
         df_raw = self.fetcher.get_price_data(stock_id, days=250)
         if df_raw.empty or len(df_raw) < 35: return {"error": "數據不足"}
-        price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(stock_id, "未知"); is_etf = self.fetcher.is_etf(stock_id)
+        price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(str(stock_id), "未知"); is_etf = self.fetcher.is_etf(stock_id)
         
         # 修正：如果還是沒有名稱，或是名稱就是代碼本身，嘗試從 yfinance 抓取
         # 修正：如果還是沒有名稱，或是名稱就是代碼本身 (全數字)，嘗試從 yfinance 抓取

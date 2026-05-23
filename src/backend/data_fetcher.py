@@ -270,7 +270,7 @@ class DataFetcher:
                 for i in range(0, len(tickers), batch_size):
                     batch = tickers[i:i+batch_size]
                     current_batch_sids = needed_sids[i:i+batch_size]
-                    data = yf.download(batch, period="2y", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False, show_errors=False)
+                    data = yf.download(batch, period="2y", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
                     for sid in current_batch_sids:
                         ticker = sym_map.get(sid, f"{sid}.TW")
                         try:
@@ -950,7 +950,7 @@ class DataFetcher:
             print(f"   即時同步進度: {min(i+batch_size, len(needed_sids))}/{len(needed_sids)}", end="\r")
             
             try:
-                data = yf.download(tickers, period="5d", interval="1m", group_by='ticker', threads=True, progress=False, auto_adjust=False, show_errors=False)
+                data = yf.download(tickers, period="5d", interval="1m", group_by='ticker', threads=True, progress=False, auto_adjust=False)
                 for sid in batch_sids:
                     ticker = sym_map.get(sid, f"{sid}.TW")
                     try:
@@ -1336,7 +1336,7 @@ class DataFetcher:
             # 使用較短天數但包含最新價格的 download
             tickers = list(indices.values())
             # 取 3 天數據，確保能抓到昨天收盤與今天即時
-            data = yf.download(tickers, period="3d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False, show_errors=False)
+            data = yf.download(tickers, period="3d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
             
             for name, symbol in indices.items():
                 try:
