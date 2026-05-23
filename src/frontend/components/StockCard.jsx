@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, TrendingDown, Info, ShieldAlert } from 'lucide-react';
+import { TrendingUp, TrendingDown, Info, ShieldAlert, Zap } from 'lucide-react';
 
 const StockCard = ({ stock, type }) => {
   const navigate = useNavigate();
@@ -10,21 +10,28 @@ const StockCard = ({ stock, type }) => {
   let status = stock.recommend_status || 'N/A';
   let subText = '';
 
+  let signals = [];
+
   if (type === 'overnight') {
     score = stock.overnight?.score || 0;
     status = stock.overnight?.status || 'N/A';
+    signals = stock.overnight?.signals || [];
     subText = `隔日沖佔比: ${stock.overnight?.broker_ratio}%`;
   } else if (type === 'bottom') {
     score = stock.bottom_fishing_rec?.score || 0;
     status = stock.bottom_fishing_rec?.status || 'N/A';
+    signals = stock.bottom_fishing_rec?.signals || [];
   } else if (type === 'burst') {
     score = stock.short_term_burst_rec?.score || 0;
     status = stock.short_term_burst_rec?.status || 'N/A';
+    signals = stock.short_term_burst_rec?.signals || [];
   } else if (type === 'short-term') {
     score = stock.short_term_rec?.score || 0;
     status = stock.short_term_rec?.status || 'N/A';
+    signals = stock.short_term_rec?.signals || [];
+  } else if (type === 'long-term') {
+    signals = stock.low_pe_rec?.signals || [];
   } else if (type === 'cdp') {
-    // CDP 不以評分為主，顯示關注重點
     score = stock.total_score || 0;
     status = stock.cdp?.is_preview ? '明日預覽' : '今日即時';
   }
@@ -66,7 +73,42 @@ const StockCard = ({ stock, type }) => {
         </div>
       </div>
 
-      <div className="space-y-2 pt-3 border-t border-gray-700">
+      <div className="space-y-1.5 pt-3 border-t border-gray-700">
+        {/* 量能形態專區 */}
+        {stock.volume_patterns && stock.volume_patterns.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-1">
+            {stock.volume_patterns.map((vp, idx) => {
+              const bg = vp.status === 'positive' ? 'bg-red-900/40 text-red-300 border-red-800' 
+                       : vp.status === 'negative' ? 'bg-green-900/40 text-green-300 border-green-800' 
+                       : 'bg-gray-700/50 text-gray-300 border-gray-600';
+              return (
+                <div key={idx} className={`px-1.5 py-0.5 rounded border text-[10px] sm:text-xs font-medium ${bg}`} title={vp.desc}>
+                  {vp.pattern}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 分析原因專區 - 為什麼選出這檔 */}
+        {signals.length > 0 && (
+          <div className="space-y-1 mb-1">
+            <div className="flex items-center space-x-1 text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
+              <Zap size={10} />
+              <span>分析原因</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {signals.slice(0, 4).map((sig, idx) => (
+                <span key={idx} className="text-[10px] sm:text-[11px] bg-blue-900/30 text-blue-200 px-1.5 py-0.5 rounded border border-blue-800/50">
+                  {sig}
+                </span>
+              ))}
+              {signals.length > 4 && (
+                <span className="text-[10px] text-gray-500">+{signals.length - 4} 更多</span>
+              )}
+            </div>
+          </div>
+        )}
         {!showCdp && (
           <div className="flex justify-between text-xs">
             <span className="text-gray-400">成交量比</span>

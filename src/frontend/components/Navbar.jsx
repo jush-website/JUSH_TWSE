@@ -67,48 +67,32 @@ const Navbar = ({ status }) => {
           </Link>
           
           {/* Desktop Menu */}
-          <div className="hidden lg:flex items-center space-x-8">
+          <div className="hidden lg:flex items-center space-x-4 xl:space-x-6">
             <Link 
               to="/" 
-              className={`flex items-center space-x-2 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname === '/' ? 'text-cyan-400' : 'text-gray-300'}`}
+              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname === '/' ? 'text-cyan-400' : 'text-gray-300'}`}
             >
-              <Home size={18} />
-              <span>首頁</span>
+              <Home size={16} />
+              <span className="text-sm">首頁</span>
             </Link>
             
-            <div className="group relative">
-              <Link 
-                to="/analyze" 
-                className={`flex items-center space-x-2 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname.includes('/analyze') ? 'text-cyan-400' : 'text-gray-300'}`}
-              >
-                <Search size={18} />
-                <span>個股分析</span>
-              </Link>
-            </div>
+            <div className="h-4 w-px bg-white/20 mx-1"></div>
+            
+            <Link 
+              to="/analyze" 
+              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname.includes('/analyze') ? 'text-cyan-400' : 'text-gray-300'}`}
+            >
+              <Search size={16} />
+              <span className="text-sm">個股分析</span>
+            </Link>
 
-            <div className="group relative">
-              <button className={`flex items-center space-x-2 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname.includes('/recommendations') ? 'text-cyan-400' : 'text-gray-300'}`}>
-                <BarChart2 size={18} />
-                <span>精選策略</span>
-                <ChevronDown size={16} className="group-hover:rotate-180 transition-transform duration-300" />
-              </button>
-              
-              {/* Dropdown Menu */}
-              <div className="absolute top-full left-0 mt-4 w-64 opacity-0 translate-y-2 invisible group-hover:opacity-100 group-hover:translate-y-0 group-hover:visible transition-all duration-300 ease-out">
-                <div className="bg-gray-800/95 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-2">
-                  {strategies.map((item, idx) => (
-                    <Link 
-                      key={idx}
-                      to={item.path} 
-                      className="flex items-center justify-between px-5 py-3 hover:bg-white/5 text-gray-300 hover:text-cyan-300 transition-colors group/item"
-                    >
-                      <span className="text-sm font-medium">{item.label}</span>
-                      <ChevronRight size={14} className="opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-200 text-cyan-400" />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <div className="h-4 w-px bg-white/20 mx-1"></div>
+
+            <Link to="/recommendations/short-term" className={`text-sm font-medium transition-colors hover:text-blue-400 ${location.pathname.includes('short-term') ? 'text-blue-400' : 'text-gray-300'}`}>短線</Link>
+            <Link to="/recommendations/overnight" className={`text-sm font-medium transition-colors hover:text-purple-400 ${location.pathname.includes('overnight') ? 'text-purple-400' : 'text-gray-300'}`}>隔日沖</Link>
+            <Link to="/recommendations/burst" className={`text-sm font-medium transition-colors hover:text-orange-400 ${location.pathname.includes('burst') ? 'text-orange-400' : 'text-gray-300'}`}>爆發</Link>
+            <Link to="/recommendations/bottom" className={`text-sm font-medium transition-colors hover:text-emerald-400 ${location.pathname.includes('bottom') ? 'text-emerald-400' : 'text-gray-300'}`}>抄底</Link>
+            <Link to="/recommendations/long-term" className={`text-sm font-medium transition-colors hover:text-indigo-400 ${location.pathname.includes('long-term') ? 'text-indigo-400' : 'text-gray-300'}`}>長期</Link>
           </div>
 
           {/* Right Section: Search & Status */}
@@ -171,26 +155,19 @@ const Navbar = ({ status }) => {
             <div className="flex items-center space-x-3"><Search size={18} /><span>個股分析</span></div>
           </Link>
           
-          <div className="rounded-xl overflow-hidden">
-            <button 
-              onClick={() => setIsMobileStrategiesOpen(!isMobileStrategiesOpen)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800 text-gray-300 font-medium transition-colors"
-            >
-              <div className="flex items-center space-x-3"><BarChart2 size={18} /><span>精選策略</span></div>
-              <ChevronDown size={18} className={`transition-transform duration-300 ${isMobileStrategiesOpen ? 'rotate-180 text-cyan-400' : ''}`} />
-            </button>
-            <div className={`transition-all duration-300 ${isMobileStrategiesOpen ? 'max-h-[400px]' : 'max-h-0'} overflow-hidden bg-gray-900/50`}>
-              {strategies.map((item, idx) => (
-                <Link 
-                  key={idx}
-                  to={item.path} 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="block px-12 py-3 text-sm text-gray-400 hover:text-cyan-400 hover:bg-gray-800/50 transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+          <div className="py-2">
+            <div className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-2">精選策略</div>
+            {strategies.map((item, idx) => (
+              <Link 
+                key={idx}
+                to={item.path} 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-sm text-gray-300 hover:text-cyan-400 hover:bg-gray-800 transition-colors"
+              >
+                <BarChart2 size={16} className="opacity-50" />
+                <span>{item.label}</span>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
