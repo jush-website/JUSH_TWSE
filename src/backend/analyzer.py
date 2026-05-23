@@ -183,6 +183,78 @@ class StockAnalyzer:
         
         return res
 
+    def evaluate_volume_patterns(self, price_df):
+        """
+        成交量六大核心形態：高量、低量、平量、倍量、縮量、梯量
+        """
+        if len(price_df) < 5:
+            return [{"pattern": "數據不足", "desc": "無法判斷量能形態", "status": "neutral"}]
+        
+        last = price_df.iloc[-1]
+        vol = last['Volume']
+        close = last['Close']
+        
+        # Calculate 3-day average volume for recent reference
+        vols = price_df['Volume'].iloc[-4:-1]
+        avg_vol_3 = vols.mean() if len(vols) >= 3 else vol
+        
+        # Calculate position context (high vs low)
+        recent_high_20 = price_df['High'].iloc[-21:-1].max()
+        recent_low_20 = price_df['Low'].iloc[-21:-1].min()
+        
+        is_high_pos = close > recent_high_20 * 0.95
+        is_low_pos = close < recent_low_20 * 1.05
+        
+        patterns = []
+        
+        # 4. 倍量柱 (優先判斷，因為是最強勢的攻擊訊號)
+        prev_vol = price_df['Volume'].iloc[-2]
+        if vol > prev_vol * 1.9: # 接近或大於兩倍
+            patterns.append({"pattern": "倍量柱", "desc": "主力真金白銀進攻信號", "status": "positive"})
+            
+        # 1. 高量柱 (若不是倍量，但也大於均量 50%)
+        elif vol > avg_vol_3 * 1.5:
+            if is_low_pos:
+                patterns.append({"pattern": "高量柱 (低位)", "desc": "主力可能在低位吸籌", "status": "positive"})
+            elif is_high_pos:
+                patterns.append({"pattern": "高量柱 (高位)", "desc": "高位爆量，提防主力出貨", "status": "negative"})
+            else:
+                patterns.append({"pattern": "高量柱", "desc": "資金活躍的信號", "status": "positive"})
+                
+        # 2. 低量柱 (五日內最低，且只有均量一半)
+        recent_vols_5 = price_df['Volume'].iloc[-5:]
+        if vol == recent_vols_5.min() and vol < price_df['Volume'].iloc[-10:-1].mean() * 0.6:
+            desc = "賣盤枯竭，變盤前夕" if is_low_pos else "買盤縮手觀望"
+            patterns.append({"pattern": "低量柱", "desc": desc, "status": "positive" if is_low_pos else "neutral"})
+            
+        # 3. 平量柱 (近三天變異數極低)
+        recent_vols_3 = price_df['Volume'].iloc[-3:]
+        if len(recent_vols_3) == 3 and (recent_vols_3.std() / recent_vols_3.mean()) < 0.15:
+            patterns.append({"pattern": "平量柱", "desc": "多空勢均力敵", "status": "neutral"})
+            
+        # 5. 縮量柱 (連三天遞減)
+        if len(price_df) >= 3:
+            v1, v2, v3 = price_df['Volume'].iloc[-3], price_df['Volume'].iloc[-2], price_df['Volume'].iloc[-1]
+            if v1 > v2 > v3:
+                if is_low_pos:
+                    patterns.append({"pattern": "縮量柱 (下跌中)", "desc": "拋盤減少，見底信號", "status": "positive"})
+                elif price_df['MA5'].iloc[-1] < close:
+                    patterns.append({"pattern": "縮量柱 (回調中)", "desc": "主力洗盤，耐心持有", "status": "positive"})
+                    
+        # 6. 梯量柱 (連三天遞增)
+        if len(price_df) >= 3:
+            v1, v2, v3 = price_df['Volume'].iloc[-3], price_df['Volume'].iloc[-2], price_df['Volume'].iloc[-1]
+            if v1 < v2 < v3:
+                if is_low_pos:
+                    patterns.append({"pattern": "梯量柱 (啟動)", "desc": "量價齊升，資金穩步進場", "status": "positive"})
+                elif is_high_pos and close <= price_df['Close'].iloc[-2] * 1.01:
+                    patterns.append({"pattern": "梯量柱 (高位滯漲)", "desc": "放量滯漲，主力邊拉邊撤", "status": "negative"})
+
+        if not patterns:
+            patterns.append({"pattern": "一般量能", "desc": "無明顯量價異常", "status": "neutral"})
+            
+        return patterns
+
     def evaluate_short_term_recommendation(self, price_df, chip_df, intraday_snapshot=None):
         score = 0; signals = []; last = price_df.iloc[-1]; close = last['Close']
         if close > config.MAX_STOCK_PRICE_FOR_ST_REC: return {"score": 0, "status": "不符條件", "signals": [f"價格超過{config.MAX_STOCK_PRICE_FOR_ST_REC}元"], "strategy": "不建議"}
@@ -228,6 +300,16 @@ class StockAnalyzer:
         strategy = "強勢突破追價" if close > recent_high_20 else "回檔支撐買入"
         stop_loss = round(min(last['Low'], close * 0.96), 2)
         
+        # 5. 成交量六大形態加成
+        vol_patterns = self.evaluate_volume_patterns(price_df)
+        for vp in vol_patterns:
+            if vp['pattern'] == "倍量柱":
+                score += 15; signals.append("倍量柱強力表態")
+            elif vp['pattern'] == "高量柱 (低位)":
+                score += 10; signals.append("低位高量吸籌")
+            elif vp['pattern'] == "高量柱 (高位)" or vp['pattern'] == "梯量柱 (高位滯漲)":
+                score -= 20; signals.append(f"⚠️ 短線風險: {vp['pattern']}")
+                
         status = "短線極佳" if score >= 70 else "具潛力" if score >= 45 else "觀察中"
         
         return {
@@ -354,6 +436,15 @@ class StockAnalyzer:
                 signals.append("註：成本採昨均參考")
             except:
                 broker_cost = curr_price
+        
+        # 6. 成交量六大形態檢核 (隔日沖特別怕高位高量或滯漲)
+        vol_patterns = self.evaluate_volume_patterns(price_df)
+        for vp in vol_patterns:
+            if vp['pattern'] in ["高量柱 (高位)", "梯量柱 (高位滯漲)"]:
+                if is_pure_overnight:
+                    score -= 15; signals.append(f"🔴 極度危險: {vp['pattern']} 且高度集中")
+                else:
+                    score -= 5; signals.append(f"量能風險: {vp['pattern']}")
 
         # 狀態判定優化
         if is_pure_overnight:
@@ -649,6 +740,8 @@ class StockAnalyzer:
         price_df.loc[:, 'BB_Upper'] = upper; price_df.loc[:, 'BB_Middle'] = middle; price_df.loc[:, 'BB_Lower'] = lower
         k, d = self.calculate_kd(price_df); price_df.loc[:, 'K'] = k; price_df.loc[:, 'D'] = d; price_df.loc[:, 'RSI'] = self.calculate_rsi(price_df)
         dif, dea, macd = self.calculate_macd(price_df); price_df.loc[:, 'MACD_Hist'] = macd
+        
+        vol_patterns = self.evaluate_volume_patterns(price_df)
         
         last, prev = price_df.iloc[-1], price_df.iloc[-2]
         chip_df = self.fetcher.get_chip_data(stock_id, days=10) if not is_etf else pd.DataFrame()

@@ -7,12 +7,12 @@ const api = axios.create({
 export const getStatus = () => api.get('/api/status');
 export const getGlobalMarket = () => api.get('/api/global-market');
 export const getNews = () => api.get('/api/news');
-export const getLongTermRecommendations = () => api.get('/api/long-term-recommendations');
+export const getLongTermRecommendations = (force = false) => api.get(`/api/long-term-recommendations?force=${force}`);
 export const getHotStocks = () => api.get('/api/hot-stocks');
-export const getShortTermRecommendations = () => api.get('/api/short-term-recommendations');
-export const getBottomFishingRecommendations = () => api.get('/api/bottom-fishing-recommendations');
-export const getShortTermBurstRecommendations = () => api.get('/api/short-term-burst-recommendations');
-export const getOvernightRecommendations = (mode = "1") => api.get(`/api/overnight-recommendations?mode=${mode}`);
+export const getShortTermRecommendations = (force = false) => api.get(`/api/short-term-recommendations?force=${force}`);
+export const getBottomFishingRecommendations = (force = false) => api.get(`/api/bottom-fishing-recommendations?force=${force}`);
+export const getShortTermBurstRecommendations = (force = false) => api.get(`/api/short-term-burst-recommendations?force=${force}`);
+export const getOvernightRecommendations = (force = false, mode = "1") => api.get(`/api/overnight-recommendations?force=${force}&mode=${mode}`);
 export const getCdpRecommendations = () => api.get('/api/cdp-recommendations');
 export const getEtfRecommendations = () => api.get('/api/etf-recommendations');
 export const getIndustries = () => api.get('/api/industries');

@@ -23,11 +23,17 @@ const Navbar = ({ status, lastUpdated }) => {
             <span>台股偵測系統</span>
           </Link>
           
-          <div className="hidden md:flex space-x-4">
+          <div className="hidden lg:flex space-x-4">
             <Link to="/" className="hover:text-blue-400 flex items-center space-x-1">
               <Home size={18} />
               <span>首頁</span>
             </Link>
+            <div className="h-6 w-px bg-gray-700 mx-2"></div>
+            <Link to="/recommendations/short-term" className="hover:text-blue-400 text-sm flex items-center">短線極佳</Link>
+            <Link to="/recommendations/overnight" className="hover:text-purple-400 text-sm flex items-center">隔日沖動能</Link>
+            <Link to="/recommendations/burst" className="hover:text-orange-400 text-sm flex items-center">強勢爆發</Link>
+            <Link to="/recommendations/bottom" className="hover:text-emerald-400 text-sm flex items-center">抄底絕佳</Link>
+            <Link to="/recommendations/long-term" className="hover:text-indigo-400 text-sm flex items-center">長期精選</Link>
           </div>
         </div>
 

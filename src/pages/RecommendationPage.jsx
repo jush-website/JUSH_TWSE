@@ -25,16 +25,16 @@ const RecommendationPage = () => {
     'long-term': '長期精選核心 (績優龍頭與穩定配息)'
   };
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoading(true);
     try {
       let res;
       switch (type) {
-        case 'short-term': res = await getShortTermRecommendations(); break;
-        case 'overnight': res = await getOvernightRecommendations(); break;
-        case 'bottom': res = await getBottomFishingRecommendations(); break;
-        case 'burst': res = await getShortTermBurstRecommendations(); break;
-        case 'long-term': res = await getLongTermRecommendations(); break;
+        case 'short-term': res = await getShortTermRecommendations(force); break;
+        case 'overnight': res = await getOvernightRecommendations(force); break;
+        case 'bottom': res = await getBottomFishingRecommendations(force); break;
+        case 'burst': res = await getShortTermBurstRecommendations(force); break;
+        case 'long-term': res = await getLongTermRecommendations(force); break;
         default: res = { data: [] };
       }
       setStocks(res.data);
@@ -53,7 +53,7 @@ const RecommendationPage = () => {
     setSyncing(true);
     try {
       await syncData();
-      await fetchData();
+      await fetchData(true); // Force re-fetch from backend without cache
     } catch (err) {
       alert('同步失敗');
     } finally {

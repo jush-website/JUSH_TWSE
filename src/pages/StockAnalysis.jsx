@@ -152,6 +152,29 @@ const StockAnalysis = () => {
                 )}
               </div>
 
+              {/* Volume Patterns Section */}
+              {data.volume_patterns && data.volume_patterns.length > 0 && (
+                <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
+                  <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
+                    <BarChart size={20} className="sm:w-6 sm:h-6" />
+                    <h2 className="text-lg sm:text-xl font-bold">成交量形態診斷</h2>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
+                    {data.volume_patterns.map((vp, idx) => {
+                      const bg = vp.status === 'positive' ? 'bg-red-900/20 border-red-800/50 text-red-300' 
+                               : vp.status === 'negative' ? 'bg-green-900/20 border-green-800/50 text-green-300' 
+                               : 'bg-gray-900/60 border-gray-700 text-gray-300';
+                      return (
+                        <div key={idx} className={`p-3 sm:p-4 rounded-xl border ${bg}`}>
+                          <div className="font-bold text-base sm:text-lg mb-1">{vp.pattern}</div>
+                          <div className="text-[11px] sm:text-xs opacity-80">{vp.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Diagnosis Details */}
               <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
                 <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">

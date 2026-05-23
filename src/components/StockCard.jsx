@@ -60,6 +60,22 @@ const StockCard = ({ stock, type }) => {
       </div>
 
       <div className="space-y-1.5 sm:space-y-2 pt-2 sm:pt-3 border-t border-gray-700">
+        {/* 量能形態專區 */}
+        {stock.volume_patterns && stock.volume_patterns.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {stock.volume_patterns.map((vp, idx) => {
+              const bg = vp.status === 'positive' ? 'bg-red-900/40 text-red-300 border-red-800' 
+                       : vp.status === 'negative' ? 'bg-green-900/40 text-green-300 border-green-800' 
+                       : 'bg-gray-700/50 text-gray-300 border-gray-600';
+              return (
+                <div key={idx} className={`px-1.5 py-0.5 rounded border text-[10px] sm:text-xs font-medium ${bg}`} title={vp.desc}>
+                  {vp.pattern}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
         <div className="flex justify-between text-[11px] sm:text-xs">
           <span className="text-gray-400">成交量比</span>
           <span className={stock.vol_ratio > 1.5 ? 'text-orange-400 font-bold' : 'text-gray-200'}>
@@ -78,9 +94,11 @@ const StockCard = ({ stock, type }) => {
         </div>
       </div>
 
-      <div className="mt-3 flex items-center text-[10px] text-gray-500 italic">
-        <Info size={12} className="mr-1" />
-        點擊查看詳細分析診斷
+      <div className="mt-3 flex items-center justify-between text-[10px] text-gray-500 italic">
+        <div className="flex items-center">
+          <Info size={12} className="mr-1" />
+          點擊查看詳細分析診斷
+        </div>
       </div>
     </div>
   );
