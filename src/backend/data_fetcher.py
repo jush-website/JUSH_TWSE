@@ -756,10 +756,13 @@ class DataFetcher:
                     overnight_brokers['cost'] = day_avg_price
 
                     total_vol = df[buy_col].sum()
+                    max_single_buy = summary['net_buy'].max() if not summary.empty else 0
+                    
                     res = {
                         "date": target_date, 
                         "brokers": overnight_brokers.to_dict('records'), 
                         "ratio": round((overnight_brokers['net_buy'].sum() / total_vol) * 100, 2) if total_vol > 0 else 0, 
+                        "max_single_broker_ratio": round((max_single_buy / total_vol) * 100, 2) if total_vol > 0 else 0,
                         "avg_cost": day_avg_price,
                         "restricted": False
                     }

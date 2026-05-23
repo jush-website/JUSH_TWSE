@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import StrategySubNav from './components/StrategySubNav';
 import Dashboard from './pages/Dashboard';
 import RecommendationPage from './pages/RecommendationPage';
 import StockAnalysis from './pages/StockAnalysis';
@@ -15,7 +16,6 @@ function App() {
       try {
         const res = await getStatus();
         setStatus(res.data);
-        // 記錄前端成功拿到資料的当下時間
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         setLastUpdated(
@@ -27,7 +27,6 @@ function App() {
       }
     };
     fetchStatus();
-    // 每 3 分鐘自動更新
     const interval = setInterval(fetchStatus, 3 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -36,6 +35,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-900 text-white font-sans">
         <Navbar status={status} lastUpdated={lastUpdated} />
+        <StrategySubNav />
         <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
           <Routes>
             <Route path="/" element={<Dashboard />} />

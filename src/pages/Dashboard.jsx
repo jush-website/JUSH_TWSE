@@ -26,6 +26,36 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-5 sm:space-y-8">
+      {/* Featured Strategies */}
+      <section>
+        <div className="flex items-center space-x-2 mb-3 sm:mb-5 text-indigo-400">
+          <TrendingUp size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
+          <h2 className="text-lg sm:text-xl font-bold">精選策略</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+          {[
+            { id: 'short-term', name: '短線極佳', desc: '動能強勢 適合短打', icon: '⚡', color: 'from-blue-500 to-cyan-500' },
+            { id: 'overnight', name: '隔日沖動能', desc: '主力鎖碼 隔日套利', icon: '🌙', color: 'from-purple-500 to-pink-500' },
+            { id: 'burst', name: '強勢爆發', desc: '突破區間 大量攻擊', icon: '🚀', color: 'from-orange-500 to-red-500' },
+            { id: 'bottom', name: '抄底絕佳', desc: '乖離過大 搶反彈', icon: '🎣', color: 'from-teal-500 to-emerald-500' },
+            { id: 'long-term', name: '長期精選', desc: '基本面優 價值投資', icon: '💎', color: 'from-indigo-500 to-blue-600' }
+          ].map(strat => (
+            <a 
+              key={strat.id}
+              href={`/recommendations/${strat.id}`}
+              className={`relative overflow-hidden rounded-xl p-4 sm:p-5 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 bg-gradient-to-br ${strat.color} shadow-md flex flex-col justify-between h-28 sm:h-32 border border-white/10`}
+            >
+              <div className="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 bg-white opacity-10 rounded-full blur-xl group-hover:opacity-20 transition-opacity"></div>
+              <div className="text-2xl sm:text-3xl mb-1 filter drop-shadow-sm">{strat.icon}</div>
+              <div className="relative z-10">
+                <h3 className="font-bold text-white text-sm sm:text-base tracking-wide drop-shadow-md">{strat.name}</h3>
+                <p className="text-white/80 text-[10px] sm:text-xs mt-0.5">{strat.desc}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
       {/* Global Markets */}
       <section>
         <div className="flex items-center space-x-2 mb-2 sm:mb-4 text-blue-400">

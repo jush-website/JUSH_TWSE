@@ -319,9 +319,20 @@ class StockAnalyzer:
             
             if ratio > 15 and inst_buy <= 0:
                 is_pure_overnight = True
-                signals.append("⚠️ 警惕：純隔日沖鎖定 (易開高走低)")
-            elif ratio > 8: 
-                score += 20; signals.append(f"隔日沖進駐({ratio}%)")
+                score -= 10; signals.append("⚠️ 警惕：純隔日沖籌碼 (缺乏法人長線買盤)")
+            
+            max_single_ratio = broker_data.get('max_single_broker_ratio', 0)
+            if max_single_ratio >= 20:
+                score += 30; signals.append(f"單一券商極度集中 ({round(max_single_ratio, 1)}%)")
+                is_pure_overnight = True
+            elif ratio >= 20:
+                score += 25; signals.append(f"隔日沖券商群聚 ({round(ratio, 1)}%)")
+                is_pure_overnight = True
+            elif ratio >= 10:
+                score += 15; signals.append(f"隔日沖券商進駐 ({round(ratio, 1)}%)")
+            
+            if is_pure_overnight and change_pct >= 9.7:
+                signals.append("注意：高集中度鎖漲停，隔日開盤易有倒貨風險")
 
             # 加入成本警告邏輯 (若高於成本 2.5% 則提醒，避免被騙上車)
             if broker_cost > 0:
@@ -811,12 +822,24 @@ class StockAnalyzer:
                 res["details"].append("進階：量縮盤堅結構 - 波段行情起手式")
                 res["signals"].append("量縮盤堅")
 
-        # 第三階段：風險控管 (跌破開盤價)
+        # 第三階段：風險控管 (跌破開盤價 或 隔日沖倒貨特徵)
         if curr_price < open_p:
             res["score"] = 0
             res["status"] = "立刻走人"
             res["signals"].append("觸發強制出場鐵律")
             res["details"].append("風險：已跌破今日開盤價，嚴禁進場或應立即止損")
+            
+        # 新增：隔日沖倒貨特徵 (開盤漲幅不到 4%，爆量但不漲)
+        open_change_pct = ((open_p - y_close) / y_close) * 100
+        if 0 < open_change_pct < 4.0:
+            if df_1m is not None and len(df_1m) >= 10:
+                vol_5m = df_1m['Volume'].head(5).sum()
+                price_10m_max = df_1m['High'].head(10).max()
+                if vol_score == 1 and price_10m_max <= open_p * 1.01:
+                    res["score"] -= 20
+                    res["status"] = "倒貨警戒"
+                    res["signals"].append("疑似隔日沖倒貨")
+                    res["details"].append("風險：開盤漲幅不到 4% 且爆量不漲，提防主力出貨")
 
         return res
 

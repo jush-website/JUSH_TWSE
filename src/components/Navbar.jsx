@@ -28,19 +28,6 @@ const Navbar = ({ status, lastUpdated }) => {
               <Home size={18} />
               <span>首頁</span>
             </Link>
-            <div className="group relative">
-              <button className="hover:text-blue-400 flex items-center space-x-1">
-                <BarChart2 size={18} />
-                <span>精選推薦</span>
-              </button>
-              <div className="absolute left-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded shadow-xl hidden group-hover:block overflow-hidden">
-                <Link to="/recommendations/short-term" className="block px-4 py-2 hover:bg-gray-700">短線極佳</Link>
-                <Link to="/recommendations/overnight" className="block px-4 py-2 hover:bg-gray-700">隔日沖動能</Link>
-                <Link to="/recommendations/burst" className="block px-4 py-2 hover:bg-gray-700">強勢爆發</Link>
-                <Link to="/recommendations/bottom" className="block px-4 py-2 hover:bg-gray-700">抄底絕佳</Link>
-                <Link to="/recommendations/long-term" className="block px-4 py-2 hover:bg-gray-700">長期精選</Link>
-              </div>
-            </div>
           </div>
         </div>
 
