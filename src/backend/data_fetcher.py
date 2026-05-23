@@ -1353,8 +1353,8 @@ class DataFetcher:
             import requests
             import re
             res = requests.get('https://tw.stock.yahoo.com/quote/WTX%26', headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-            price_match = re.search(r'"regularMarketPrice":(\d+(?:\.\d+)?)', res.text)
-            prev_match = re.search(r'"regularMarketPreviousClose":(\d+(?:\.\d+)?)', res.text)
+            price_match = re.search(r'"regularMarketPrice"\s*:\s*(?:\{.*?"raw"\s*:\s*"?|"?|)(\d+(?:\.\d+)?)', res.text)
+            prev_match = re.search(r'"regularMarketPreviousClose"\s*:\s*(?:\{.*?"raw"\s*:\s*"?|"?|)(\d+(?:\.\d+)?)', res.text)
             
             if price_match and prev_match:
                 price = float(price_match.group(1))

@@ -279,7 +279,8 @@ async def get_futures():
     if not result:
         result = await loop.run_in_executor(None, fetcher.get_taiwan_futures)
     res = result or {"price": None, "change_pct": None, "session": "N/A", "date": None}
-    set_cached_response("futures", res, expiry=60)
+    if res.get("price") is not None:
+        set_cached_response("futures", res, expiry=60)
     return res
 
 @app.get("/api/market-outlook")
@@ -541,7 +542,28 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
+    def get_custom_overnight_ids():
+        # 自定義抓取：不只是熱門榜，還要抓取 3%~5% 且成交量足夠的標的 (一夜持股法候選)
+        hot_ids = fetcher.get_hot_battlefield_ids()[:30] # 原本的熱門
+        
+        hold_ids = []
+        if fetcher._official_cache:
+            # 優先從成交量大的開始找
+            sorted_cache = sorted(fetcher._official_cache.items(), key=lambda x: x[1].get('volume', 0), reverse=True)
+            for sid, info in sorted_cache:
+                if sid == "TAIEX" or fetcher.is_etf(sid): continue
+                cp = info.get("change_pct", 0)
+                price = info.get("price", 0)
+                vol = info.get("volume", 0)
+                # 漲幅 2.5% ~ 5.5%，量能大於 5000 張，且價格符合短線設定
+                if 2.5 <= cp <= 5.5 and price <= config.MAX_STOCK_PRICE_FOR_ST_REC and vol >= 5000:
+                    hold_ids.append(sid)
+        
+        # 合併並去重，優先掃描一夜持股標的
+        combined = list(dict.fromkeys(hold_ids + hot_ids))
+        return combined[:60] # 最多分析 60 檔以控制效能
+        
+    sids = await loop.run_in_executor(executor, get_custom_overnight_ids)
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
     
     def analyze_overnight(sid):
