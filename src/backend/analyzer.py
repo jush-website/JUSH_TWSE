@@ -354,6 +354,11 @@ class StockAnalyzer:
         prev_close = intraday_data['yesterday_close']; curr_price = intraday_data['price']; change_pct = ((curr_price - prev_close) / prev_close) * 100
         stock_id = intraday_data.get('stock_id', ""); score = 0; signals = []
         
+        # 0. 基礎流動性過濾: 成交量不可低於 5000 張 (5,000,000 股)
+        curr_vol = price_df['Volume'].iloc[-1]
+        if curr_vol < 5000000:
+            return {"score": 0, "status": "流動性不足", "signals": ["成交量低於 5000 張"]}
+        
         # 1. 漲幅評分 (盤中更靈敏)
         if 3.0 <= change_pct < 5.0: score += 15; signals.append("穩定走強(3-5%)")
         elif 5.0 <= change_pct < 8.0: score += 25; signals.append("強勢領漲(5-8%)")

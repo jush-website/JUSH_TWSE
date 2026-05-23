@@ -224,7 +224,19 @@ frontend_path = os.path.join(root_dir, "frontend", "dist")
 if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
 
+# 簡單的 API 快取機制，避免頻繁計算導致超時
+API_CACHE = {}
 
+def set_cached_response(key, data, expiry=None):
+    # 如果未指定 expiry，預設給予極長時間，由背景程式負責更新
+    API_CACHE[key] = (time.time() + (expiry or 86400), data)
+
+def get_cached_response(key):
+    if key in API_CACHE:
+        expire_ts, data = API_CACHE[key]
+        if time.time() < expire_ts:
+            return data
+    return None
 
 @app.get("/api/status")
 async def get_status():
@@ -250,20 +262,30 @@ async def get_status():
 
 @app.get("/api/global-market")
 async def get_global_market():
+    cached = get_cached_response("global_market")
+    if cached: return cached
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, fetcher.get_global_markets)
+    res = await loop.run_in_executor(None, fetcher.get_global_markets)
+    set_cached_response("global_market", res, expiry=180)
+    return res
 
 @app.get("/api/futures")
 async def get_futures():
+    cached = get_cached_response("futures")
+    if cached: return cached
     loop = asyncio.get_event_loop()
     # Try realtime first, fallback to FinMind daily
     result = await loop.run_in_executor(None, fetcher.get_realtime_wtx)
     if not result:
         result = await loop.run_in_executor(None, fetcher.get_taiwan_futures)
-    return result or {"price": None, "change_pct": None, "session": "N/A", "date": None}
+    res = result or {"price": None, "change_pct": None, "session": "N/A", "date": None}
+    set_cached_response("futures", res, expiry=60)
+    return res
 
 @app.get("/api/market-outlook")
 async def get_market_outlook():
+    cached = get_cached_response("market_outlook")
+    if cached: return cached
     loop = asyncio.get_event_loop()
     markets = await loop.run_in_executor(None, fetcher.get_global_markets)
     futures = await loop.run_in_executor(None, fetcher.get_realtime_wtx) or await loop.run_in_executor(None, fetcher.get_taiwan_futures) or {}
@@ -327,15 +349,19 @@ async def get_market_outlook():
         trend = "中性"
         trend_desc = "全球市場變動不大，台股可能在平盤附近整理"
     
-    return {
+    res = {
         "trend": trend,
         "trend_desc": trend_desc,
         "outlook_score": outlook_score,
         "signals": signals
     }
+    set_cached_response("market_outlook", res, expiry=180)
+    return res
 
 @app.get("/api/news")
 async def get_news():
+    cached = get_cached_response("news")
+    if cached: return cached
     loop = asyncio.get_event_loop()
     # 獲取台股新聞
     tw_news_items, _ = await loop.run_in_executor(None, fetcher.get_comprehensive_news)
@@ -354,21 +380,11 @@ async def get_news():
     
     gl_result = gl_news_items
         
-    return {"taiwan": tw_result, "global": gl_result}
+    res = {"taiwan": tw_result, "global": gl_result}
+    set_cached_response("news", res, expiry=300)
+    return res
 
-# 簡單的 API 快取機制，避免頻繁計算導致超時
-API_CACHE = {}
 
-def set_cached_response(key, data, expiry=None):
-    # 如果未指定 expiry，預設給予極長時間，由背景程式負責更新
-    API_CACHE[key] = (time.time() + (expiry or 86400), data)
-
-def get_cached_response(key):
-    if key in API_CACHE:
-        expire_ts, data = API_CACHE[key]
-        if time.time() < expire_ts:
-            return data
-    return None
 
 executor = ThreadPoolExecutor(max_workers=30)
 
