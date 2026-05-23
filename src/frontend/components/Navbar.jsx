@@ -42,14 +42,12 @@ const Navbar = ({ status }) => {
   };
 
   const strategies = [
-    { path: '/recommendations/burst', label: '強勢爆發 (短線動能)' },
-    { path: '/recommendations/short-term', label: '短線衝刺 (技術指標)' },
-    { path: '/recommendations/overnight', label: '隔日沖偵測 (尾盤大戶)' },
-    { path: '/recommendations/day-trade-cdp', label: '當沖 CDP (區間實戰)' },
-    { path: '/recommendations/bottom', label: '抄底推薦 (超跌反彈)' },
-    { path: '/recommendations/long-term', label: '長期精選 (價值存股)' },
-    { path: '/recommendations/etf', label: 'ETF 佈局 (穩健配置)' },
-    { path: '/recommendations/cdp', label: 'CDP 逆勢 (當沖預覽)' }
+    { path: '/recommendations/short-term', label: '短線' },
+    { path: '/recommendations/overnight', label: '隔日沖' },
+    { path: '/recommendations/burst', label: '爆發' },
+    { path: '/recommendations/day-trade-cdp', label: '當沖' },
+    { path: '/recommendations/bottom', label: '抄底' },
+    { path: '/recommendations/long-term', label: '長期' }
   ];
 
   return (
