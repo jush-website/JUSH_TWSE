@@ -354,179 +354,108 @@ class StockAnalyzer:
         prev_close = intraday_data['yesterday_close']; curr_price = intraday_data['price']; change_pct = ((curr_price - prev_close) / prev_close) * 100
         stock_id = intraday_data.get('stock_id', ""); score = 0; signals = []
         
-        # 0. 基礎流動性過濾: 成交量不可低於 5000 張 (5,000,000 股)
+        # 1. 基礎流動性過濾: 成交量不可低於 10000 張 (10,000,000 股)
         curr_vol = price_df['Volume'].iloc[-1]
-        if curr_vol < 5000000:
-            return {"score": 0, "status": "流動性不足", "signals": ["成交量低於 5000 張"]}
+        if curr_vol < 10000000:
+            return {"score": 0, "status": "流動性不足", "signals": ["成交量低於 10000 張"]}
         
-        # 1. 漲幅評分 (盤中更靈敏)
-        if 3.0 <= change_pct < 5.0: score += 15; signals.append("穩定走強(3-5%)")
-        elif 5.0 <= change_pct < 8.0: score += 25; signals.append("強勢領漲(5-8%)")
-        elif 8.0 <= change_pct < 9.7: score += 35; signals.append("準備鎖板(打板)")
-        elif change_pct >= 9.7: score += 15; signals.append("已漲停(隔日溢價高)")
-        
-        # 2. 趨勢位階
-        recent_high_20 = price_df['High'].iloc[:-1].tail(20).max(); recent_high_60 = price_df['High'].iloc[:-1].tail(60).max()
-        if curr_price > recent_high_60: score += 20; signals.append("突破季線高點(無壓力)")
-        elif curr_price > recent_high_20: score += 10; signals.append("突破月線高點")
-        
-        # 3. 盤中即時狀態
+        # 2. 動能與漲幅 (極度強勢)
+        if change_pct >= 9.7:
+            score += 50; signals.append("🔥 強勢鎖漲停 (極高溢價)")
+        elif change_pct >= 8.0:
+            score += 35; signals.append("🚀 準備鎖板(8%以上)")
+        elif change_pct >= 5.0:
+            score += 20; signals.append("強勢領漲(5-8%)")
+        else:
+            score += 5; signals.append("動能一般")
+            
+        # 3. 技術面與趨勢位階 (上方無重壓)
+        recent_high_20 = price_df['High'].iloc[:-1].tail(20).max()
+        recent_high_60 = price_df['High'].iloc[:-1].tail(60).max()
+        if curr_price > recent_high_60: 
+            score += 20; signals.append("突破季線高點(無重壓)")
+        elif curr_price > recent_high_20: 
+            score += 10; signals.append("突破月線高點")
+            
+        # 均線多頭排列加分
+        last_row = price_df.iloc[-1]
+        if last_row['Close'] > last_row.get('MA5', 0) > last_row.get('MA10', 0) > last_row.get('MA20', 0):
+            score += 15; signals.append("均線完美多頭排列")
+            
+        # 4. 盤中即時狀態與進場時機
         high = intraday_data['high']
-        if curr_price >= high * 0.992: # 距離最高點不到 0.8%
-            score += 20; signals.append("維持高檔/收最高")
+        if curr_price >= high * 0.992: 
+            score += 10; signals.append("收最高/維持高檔")
+            
+        from datetime import datetime
+        import pytz
+        now = datetime.now(pytz.timezone("Asia/Taipei"))
+        is_market_hours = (9 <= now.hour < 13) or (now.hour == 13 and now.minute <= 30)
+        is_golden_time = (now.hour == 13 and 0 <= now.minute <= 25)
+        if is_market_hours and is_golden_time:
+            score += 10; signals.append("⏳ 尾盤黃金進場時機 (13:00-13:25)")
+            
+        # 5. 籌碼輔助與隔日沖主力陷阱偵測
+        broker_data = self.fetcher.get_broker_trades(stock_id); ratio = 0; broker_list = []
+        dangerous_brokers = ["凱基-台北", "元大-土城永寧", "富邦-建國", "凱基-松山", "美林", "摩根大通"]
+        is_trap = False
         
-        # 4. 盤中急拉與爆量偵測 (備援機制)
-        if 'df_1m' in intraday_data and not intraday_data['df_1m'].empty:
-            df_1m = intraday_data['df_1m']
-            if len(df_1m) > 20:
-                last_15m_vol = df_1m['Volume'].tail(15).sum()
-                avg_1m_vol = df_1m['Volume'].iloc[:-15].mean()
-                if last_15m_vol > (avg_1m_vol * 15 * 2.5): # 最近 15 分鐘量能是均量的 2.5 倍以上
-                    score += 30; signals.append("盤中突然爆量(主力介入)")
-                elif last_15m_vol > (avg_1m_vol * 15 * 1.5):
-                    score += 15; signals.append("量能緩步加溫")
-
-        # 5. 尾盤特徵 (如果是 13:00 後)
-        now = datetime.now()
-        if now.hour >= 13:
-            if intraday_data['auction_jump'] > 0.15: score += 15; signals.append("尾盤補量拉抬")
-        
-        # 5. 籌碼輔助
-        broker_data = self.fetcher.get_broker_trades(stock_id); ratio = 0; restricted = False; broker_cost = 0; broker_list = []
-        is_pure_overnight = False
         if broker_data and not broker_data.get('restricted'):
             ratio = broker_data['ratio']
-            broker_cost = broker_data.get('avg_cost', 0)
             broker_list = broker_data.get('brokers', [])
             
-            # 判斷是否為「純隔日沖陷阱」
-            # 若隔日沖佔比極高 (>15%) 且 漲幅已大，或是缺乏其他法人支撐
-            chip_df_short = self.fetcher.get_chip_data(stock_id, days=1)
-            inst_buy = chip_df_short['net_buy'].iloc[-1] if not chip_df_short.empty else 0
-            
-            if ratio > 15 and inst_buy <= 0:
-                is_pure_overnight = True
-                score -= 10; signals.append("⚠️ 警惕：純隔日沖籌碼 (缺乏法人長線買盤)")
-            
+            # 計算危險主力佔比
+            danger_ratio = 0
+            found_danger = []
+            for b in broker_list:
+                b_name = b.get('name', '')
+                if any(db in b_name for db in dangerous_brokers):
+                    danger_ratio += b.get('ratio', 0) # Assuming ratio exists, else we rely on max_single_ratio
+                    found_danger.append(b_name)
+                    
             max_single_ratio = broker_data.get('max_single_broker_ratio', 0)
-            if max_single_ratio >= 20:
-                score += 30; signals.append(f"單一券商極度集中 ({round(max_single_ratio, 1)}%)")
-                is_pure_overnight = True
-            elif ratio >= 20:
-                score += 25; signals.append(f"隔日沖券商群聚 ({round(ratio, 1)}%)")
-                is_pure_overnight = True
-            elif ratio >= 10:
-                score += 15; signals.append(f"隔日沖券商進駐 ({round(ratio, 1)}%)")
             
-            if is_pure_overnight and change_pct >= 9.7:
-                signals.append("注意：高集中度鎖漲停，隔日開盤易有倒貨風險")
-
-            # 加入成本警告邏輯 (若高於成本 2.5% 則提醒，避免被騙上車)
-            if broker_cost > 0:
-                if curr_price > broker_cost * 1.025:
-                    signals.append(f"成本警示：已偏離大戶成本({broker_cost})")
-                elif curr_price < broker_cost * 1.01:
-                    signals.append("機會：目前貼近大戶成本")
+            if found_danger:
+                signals.append(f"⚠️ 發現知名隔日沖主力: {', '.join(found_danger)}")
+                
+            if ratio >= 15 or max_single_ratio >= 15:
+                is_trap = True
+                score -= 40
+                max_r = max_single_ratio if max_single_ratio > 15 else ratio
+                signals.append(f"🛑 嚴重警告: 隔日沖籌碼極度集中 ({round(max_r, 1)}%)，小心早盤大舉倒貨！")
+            elif ratio >= 10:
+                score -= 10
+                signals.append(f"⚠️ 警惕: 籌碼有集中倒貨風險 ({round(ratio, 1)}%)")
+            else:
+                score += 10
+                signals.append("籌碼健康 (未見過度集中)")
         else:
-            restricted = True
             chip_df = self.fetcher.get_chip_data(stock_id, days=1)
             if not chip_df.empty and chip_df['net_buy'].iloc[-1] > 0:
-                score += 15; signals.append("法人主力買進(代用)")
-            
-            # Fallback: Always provide a reference cost if restricted to avoid "N/A"
-            try:
-                # Use yesterday's average as a reference for restricted mode
-                ref_data = price_df.iloc[-2] if len(price_df) >= 2 else price_df.iloc[-1]
-                broker_cost = round((ref_data['Open'] + ref_data['High'] + ref_data['Low'] + ref_data['Close']) / 4, 2)
-                signals.append("註：成本採昨均參考")
-            except:
-                broker_cost = curr_price
-        
-        # 6. 成交量六大形態檢核 (隔日沖特別怕高位高量或滯漲)
+                score += 10; signals.append("法人買進支撐")
+                
+        # 6. 成交量形態檢核
         vol_patterns = self.evaluate_volume_patterns(price_df)
         for vp in vol_patterns:
             if vp['pattern'] in ["高量柱 (高位)", "梯量柱 (高位滯漲)"]:
-                if is_pure_overnight:
-                    score -= 15; signals.append(f"🔴 極度危險: {vp['pattern']} 且高度集中")
+                if is_trap:
+                    score -= 20; signals.append(f"🔴 極度危險: {vp['pattern']} 且籌碼集中")
                 else:
                     score -= 5; signals.append(f"量能風險: {vp['pattern']}")
-
-        # 7. 一夜持股法 (嚴格標準)
-        is_hold_eligible = True
-        
-        # 1. 漲幅 3% ~ 5%
-        if not (3.0 <= change_pct <= 5.0):
-            is_hold_eligible = False
-            
-        # 2. 量比 >= 1
-        vol_avg_5 = price_df['Volume'].iloc[:-1].tail(5).mean()
-        curr_vol = price_df['Volume'].iloc[-1]
-        vol_ratio_5d = curr_vol / (vol_avg_5 + 1e-9)
-        if vol_ratio_5d < 1.0:
-            is_hold_eligible = False
-            
-        # 3. 換手率 5% ~ 10%
-        daily_volume = intraday_data.get('volume', 0)
-        shares = intraday_data.get('shares', 0)
-        turnover_rate = (daily_volume / shares * 100) if shares > 0 else 0
-        if shares > 0:
-            if not (5.0 <= turnover_rate <= 10.0):
-                is_hold_eligible = False
-                
-        # 4. 流通市值 50億 ~ 200億
-        market_cap = intraday_data.get('market_cap', 0)
-        if market_cap > 0:
-            if not (5e9 <= market_cap <= 20e9):
-                is_hold_eligible = False
-                
-        # 5. 成交量持續放大
-        has_good_vol_pattern = any(vp['pattern'] in ["梯量柱 (啟動)", "梯量柱", "高量柱", "高量柱 (低位)", "倍量柱"] for vp in vol_patterns)
-        if not (has_good_vol_pattern or vol_ratio_5d >= 1.2):
-            is_hold_eligible = False
-            
-        # 6. 均線多頭
-        last_row = price_df.iloc[-1]
-        if not (last_row['Close'] > last_row['MA5'] > last_row['MA10'] > last_row['MA20']):
-            is_hold_eligible = False
-            
-        # 7. 全天股價維持在分時均價線上
-        today_avg = intraday_data.get('today_avg', curr_price)
-        if curr_price < today_avg:
-            is_hold_eligible = False
-            
-        # 8. 創當天新高回踩均價線不破
-        if curr_price < high * 0.985 or curr_price < today_avg:
-            is_hold_eligible = False
-
-        # 時間限制：若在盤中，建議於 13:00~13:25 篩選
-        now = datetime.now(pytz.timezone("Asia/Taipei"))
-        is_market_hours = (9 <= now.hour < 13) or (now.hour == 13 and now.minute <= 30)
-        if is_market_hours:
-            if not (now.hour == 13 and 0 <= now.minute <= 25):
-                is_hold_eligible = False
-            
-        if is_hold_eligible:
-            score += 30
-            signals.insert(0, "⭐ 【一夜持股法】嚴選達標")
-
-        # 狀態判定優化
-        if is_pure_overnight:
-            status = "⚠️ 隔日沖陷阱疑慮"
-            score = min(score, 50) # 調降評分
-        elif is_hold_eligible:
-            status = "一夜持股首選"
+                    
+        # 7. 狀態判定
+        if is_trap:
+            status = "⚠️ 隔日沖主力出貨警戒"
+            score = min(score, 40)
+        elif change_pct >= 9.7 and score >= 80:
+            status = "⭐ 極度強勢 (尾盤首選)"
+        elif score >= 60:
+            status = "強勢隔日沖"
         else:
-            status = "極高勝率隔日沖" if score >= 80 else "強勢隔日沖" if score >= 60 else "具潛力" if score >= 40 else "一般"
-        
-        return {
-            "score": score, 
-            "status": status, 
-            "signals": signals, 
-            "broker_ratio": ratio, 
-            "broker_cost": broker_cost, 
-            "brokers": broker_list,
-            "restricted": restricted
-        }
+            status = "一般"
+            
+        return {"score": max(0, score), "status": status, "signals": signals}
+
     def evaluate_bottom_fishing(self, price_df, chip_df, pe_val):
         """
         抄底推薦策略 (專業修正版)

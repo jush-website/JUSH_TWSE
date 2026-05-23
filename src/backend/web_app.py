@@ -543,7 +543,7 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
     
     loop = asyncio.get_event_loop()
     def get_custom_overnight_ids():
-        # 自定義抓取：不只是熱門榜，還要抓取 3%~5% 且成交量足夠的標的 (一夜持股法候選)
+        # 尋找當日極度強勢（大漲或鎖漲停）、具備極高熱度與大成交量的標的
         hot_ids = fetcher.get_hot_battlefield_ids()[:30] # 原本的熱門
         
         hold_ids = []
@@ -555,11 +555,11 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
                 cp = info.get("change_pct", 0)
                 price = info.get("price", 0)
                 vol = info.get("volume", 0)
-                # 漲幅 2.5% ~ 5.5%，量能大於 5000 張，且價格符合短線設定
-                if 2.5 <= cp <= 5.5 and price <= config.MAX_STOCK_PRICE_FOR_ST_REC and vol >= 5000:
+                # 漲幅 >= 7.5%，量能大於 10000 張，且價格符合短線設定
+                if cp >= 7.5 and price <= config.MAX_STOCK_PRICE_FOR_ST_REC and vol >= 10000:
                     hold_ids.append(sid)
         
-        # 合併並去重，優先掃描一夜持股標的
+        # 合併並去重，優先掃描極度強勢標的
         combined = list(dict.fromkeys(hold_ids + hot_ids))
         return combined[:60] # 最多分析 60 檔以控制效能
         
