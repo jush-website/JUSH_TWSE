@@ -116,11 +116,21 @@ class DataFetcher:
                 if self.logger: self.logger.error(f"Error saving local stock info: {e}")
 
     def _build_id_maps(self):
+        # 建立本機強健備用對照表，避免 Render 伺服器因無法反序列化或 API 被擋導致名稱缺失
+        try:
+            from src.backend.stock_map import STOCK_MAP
+            for sid, name in STOCK_MAP.items():
+                self._stock_id_map[sid] = name
+                self._stock_name_map[name] = sid
+        except ImportError:
+            pass
+
         if self._stock_info_df is not None and not self._stock_info_df.empty:
-            df = self._stock_info_df
-            name_col = 'stock_name' if 'stock_name' in df.columns else 'name'
-            self._stock_id_map = dict(zip(df['stock_id'].astype(str), df[name_col]))
-            self._stock_name_map = dict(zip(df[name_col], df['stock_id'].astype(str)))
+            for _, row in self._stock_info_df.iterrows():
+                sid = str(row['stock_id'])
+                name = str(row['stock_name'])
+                self._stock_id_map[sid] = name
+                self._stock_name_map[name] = sid
 
     def get_financial_statements(self, stock_id: str):
         """獲取資產負債表與損益表核心指標 (ROE, 負債比, 毛利, 營益)"""
