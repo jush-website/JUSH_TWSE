@@ -1154,6 +1154,34 @@ class DataFetcher:
     def get_comprehensive_news(self):
         """獲取台股公告與市場新聞"""
         items = []
+        
+        # 0. Yahoo 奇摩股市新聞 (台股要聞)
+        try:
+            from bs4 import BeautifulSoup
+            res = self._session.get("https://tw.stock.yahoo.com/news/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            if res.status_code == 200:
+                soup = BeautifulSoup(res.text, 'html.parser')
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                seen = set()
+                for a in soup.find_all('a'):
+                    if 'href' in a.attrs and '/news/' in a['href']:
+                        title = a.text.strip()
+                        if len(title) > 10 and title not in seen:
+                            seen.add(title)
+                            link = a['href']
+                            if not link.startswith('http'):
+                                link = "https://tw.stock.yahoo.com" + link
+                            items.append({
+                                "title": f"[要聞] {title}",
+                                "url": link,
+                                "source": "Yahoo財經",
+                                "time": today_str
+                            })
+                            if len(items) >= 15:
+                                break
+        except Exception as e:
+            if self.logger: self.logger.warning(f"Failed to fetch Yahoo TW news: {e}")
+
         # 1. TWSE 官方公告
         try:
             res = self._session.get(config.TWSE_NEWS_URL, timeout=10)
