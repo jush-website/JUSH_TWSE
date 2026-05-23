@@ -103,11 +103,15 @@ const StockCard = ({ stock, type }) => {
               <span>分析原因</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {signals.slice(0, 4).map((sig, idx) => (
-                <span key={idx} className="text-[10px] sm:text-[11px] bg-blue-900/30 text-blue-200 px-1.5 py-0.5 rounded border border-blue-800/50">
-                  {sig}
-                </span>
-              ))}
+              {signals.slice(0, 4).map((sig, idx) => {
+                const isHold = sig.includes('一夜持股');
+                const bgClass = isHold ? 'bg-yellow-900/50 text-yellow-300 border-yellow-700 font-bold' : 'bg-blue-900/30 text-blue-200 border-blue-800/50';
+                return (
+                  <span key={idx} className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded border ${bgClass}`}>
+                    {sig}
+                  </span>
+                );
+              })}
               {signals.length > 4 && (
                 <span className="text-[10px] text-gray-500">+{signals.length - 4} 更多</span>
               )}

@@ -590,11 +590,28 @@ class DataFetcher:
             # 計算今日總成交量 (股)
             daily_volume = int(price_df['Volume'].sum())
             
+            # 計算流通市值與發行股數
+            market_cap = 0
+            shares = 0
+            try:
+                if hasattr(t.fast_info, 'market_cap') and t.fast_info.market_cap:
+                    market_cap = float(t.fast_info.market_cap)
+                if hasattr(t.fast_info, 'shares') and t.fast_info.shares:
+                    shares = float(t.fast_info.shares)
+            except: pass
+            
+            # 計算今日分時均價 (today_avg)
+            try:
+                today_avg = (price_df['Close'] * price_df['Volume']).sum() / (price_df['Volume'].sum() + 1e-9)
+            except:
+                today_avg = last_price
+            
             res = {
                 "stock_id": stock_id, "price": last_price, 
                 "open": float(price_df['Open'].iloc[0]) if (is_last_data_today and not is_early_morning) else last_price,
                 "high": float(price_df['High'].max()), "low": float(price_df['Low'].min()),
                 "volume": daily_volume,
+                "market_cap": market_cap, "shares": shares, "today_avg": round(today_avg, 2),
                 "yesterday_high": yesterday_high, "yesterday_low": yesterday_low, "yesterday_close": yesterday_close, 
                 "yesterday_avg": round(yesterday_avg, 2),
                 "cdp_base_date": cdp_base_date,

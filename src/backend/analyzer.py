@@ -446,10 +446,70 @@ class StockAnalyzer:
                 else:
                     score -= 5; signals.append(f"量能風險: {vp['pattern']}")
 
+        # 7. 一夜持股法 (嚴格標準)
+        is_hold_eligible = True
+        
+        # 1. 漲幅 3% ~ 5%
+        if not (3.0 <= change_pct <= 5.0):
+            is_hold_eligible = False
+            
+        # 2. 量比 >= 1
+        vol_avg_5 = price_df['Volume'].iloc[:-1].tail(5).mean()
+        curr_vol = price_df['Volume'].iloc[-1]
+        vol_ratio_5d = curr_vol / (vol_avg_5 + 1e-9)
+        if vol_ratio_5d < 1.0:
+            is_hold_eligible = False
+            
+        # 3. 換手率 5% ~ 10%
+        daily_volume = intraday_data.get('volume', 0)
+        shares = intraday_data.get('shares', 0)
+        turnover_rate = (daily_volume / shares * 100) if shares > 0 else 0
+        if shares > 0:
+            if not (5.0 <= turnover_rate <= 10.0):
+                is_hold_eligible = False
+                
+        # 4. 流通市值 50億 ~ 200億
+        market_cap = intraday_data.get('market_cap', 0)
+        if market_cap > 0:
+            if not (5e9 <= market_cap <= 20e9):
+                is_hold_eligible = False
+                
+        # 5. 成交量持續放大
+        has_good_vol_pattern = any(vp['pattern'] in ["梯量柱 (啟動)", "梯量柱", "高量柱", "高量柱 (低位)", "倍量柱"] for vp in vol_patterns)
+        if not (has_good_vol_pattern or vol_ratio_5d >= 1.2):
+            is_hold_eligible = False
+            
+        # 6. 均線多頭
+        last_row = price_df.iloc[-1]
+        if not (last_row['Close'] > last_row['MA5'] > last_row['MA10'] > last_row['MA20']):
+            is_hold_eligible = False
+            
+        # 7. 全天股價維持在分時均價線上
+        today_avg = intraday_data.get('today_avg', curr_price)
+        if curr_price < today_avg:
+            is_hold_eligible = False
+            
+        # 8. 創當天新高回踩均價線不破
+        if curr_price < high * 0.985 or curr_price < today_avg:
+            is_hold_eligible = False
+
+        # 時間限制：若在盤中，建議於 13:00~13:25 篩選
+        now = datetime.now(pytz.timezone("Asia/Taipei"))
+        is_market_hours = (9 <= now.hour < 13) or (now.hour == 13 and now.minute <= 30)
+        if is_market_hours:
+            if not (now.hour == 13 and 0 <= now.minute <= 25):
+                is_hold_eligible = False
+            
+        if is_hold_eligible:
+            score += 30
+            signals.insert(0, "⭐ 【一夜持股法】嚴選達標")
+
         # 狀態判定優化
         if is_pure_overnight:
             status = "⚠️ 隔日沖陷阱疑慮"
             score = min(score, 50) # 調降評分
+        elif is_hold_eligible:
+            status = "一夜持股首選"
         else:
             status = "極高勝率隔日沖" if score >= 80 else "強勢隔日沖" if score >= 60 else "具潛力" if score >= 40 else "一般"
         
