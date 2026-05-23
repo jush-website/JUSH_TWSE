@@ -555,8 +555,8 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
                 cp = info.get("change_pct", 0)
                 price = info.get("price", 0)
                 vol = info.get("volume", 0)
-                # 漲幅 >= 7.5%，量能大於 10000 張，且價格符合短線設定
-                if cp >= 7.5 and price <= config.MAX_STOCK_PRICE_FOR_ST_REC and vol >= 10000:
+                # 漲幅 >= 7.5%，量能大於 3000 張 (因漲停常導致成交量縮)
+                if cp >= 7.5 and price <= config.MAX_STOCK_PRICE_FOR_ST_REC and vol >= 3000:
                     hold_ids.append(sid)
         
         # 合併並去重，優先掃描極度強勢標的
