@@ -232,6 +232,87 @@ async def get_global_market():
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, fetcher.get_global_markets)
 
+@app.get("/api/futures")
+async def get_futures():
+    loop = asyncio.get_event_loop()
+    # Try realtime first, fallback to FinMind daily
+    result = await loop.run_in_executor(None, fetcher.get_realtime_wtx)
+    if not result:
+        result = await loop.run_in_executor(None, fetcher.get_taiwan_futures)
+    return result or {"price": None, "change_pct": None, "session": "N/A", "date": None}
+
+@app.get("/api/market-outlook")
+async def get_market_outlook():
+    loop = asyncio.get_event_loop()
+    markets = await loop.run_in_executor(None, fetcher.get_global_markets)
+    futures = await loop.run_in_executor(None, fetcher.get_realtime_wtx) or await loop.run_in_executor(None, fetcher.get_taiwan_futures) or {}
+    
+    signals = []
+    outlook_score = 0  # positive = bullish, negative = bearish
+    
+    # 1. US tech indices
+    sox = markets.get("費半指數", {})
+    nasdaq = markets.get("那斯達克", {})
+    sp500 = markets.get("標普500", {})
+    
+    if sox.get("change_pct", 0) > 1:
+        outlook_score += 2; signals.append(f"✅ 費半指數大漲 +{sox['change_pct']}%，台股半導體族群利多")
+    elif sox.get("change_pct", 0) < -1:
+        outlook_score -= 2; signals.append(f"⚠️ 費半指數重挫 {sox['change_pct']}%，台股有補跌壓力")
+    
+    if nasdaq.get("change_pct", 0) > 0.5:
+        outlook_score += 1; signals.append(f"✅ 那斯達克收漲 +{nasdaq['change_pct']}%，科技股氣氛正面")
+    elif nasdaq.get("change_pct", 0) < -0.5:
+        outlook_score -= 1; signals.append(f"⚠️ 那斯達克下跌 {nasdaq['change_pct']}%，科技股承壓")
+    
+    # 2. Taiwan specific
+    tsm = markets.get("台積電ADR", {})
+    if tsm.get("change_pct", 0) > 1:
+        outlook_score += 2; signals.append(f"✅ 台積電ADR大漲 +{tsm['change_pct']}%，權值股強勁支撐")
+    elif tsm.get("change_pct", 0) < -1:
+        outlook_score -= 2; signals.append(f"⚠️ 台積電ADR下跌 {tsm['change_pct']}%，權值股承壓")
+    
+    # 3. Currency
+    twd = markets.get("美元/台幣", {})
+    if twd.get("change_pct", 0) < -0.3:
+        outlook_score += 1; signals.append("✅ 新台幣升值，資金流入台股")
+    elif twd.get("change_pct", 0) > 0.3:
+        outlook_score -= 1; signals.append("⚠️ 新台幣責值，外資有可能化汇出")
+    
+    # 4. Futures
+    if futures.get("change_pct") is not None:
+        fp = futures["change_pct"]
+        if fp > 0.5:
+            outlook_score += 1; signals.append(f"✅ 台指期偏多 +{fp}%，盤前氣氛正面")
+        elif fp < -0.5:
+            outlook_score -= 1; signals.append(f"⚠️ 台指期偏空 {fp}%，盤前氣氛謹慎")
+    
+    if not signals:
+        signals.append("✅ 全球市場變動不大，台股可能橫盤整理")
+    
+    if outlook_score >= 3:
+        trend = "偏多"
+        trend_desc = "美股科技股強勁，台股可望開高並向上测試壓力位"
+    elif outlook_score >= 1:
+        trend = "微多"
+        trend_desc = "國際市場氣氛偏正面，台股有機會收在紅盤"
+    elif outlook_score <= -3:
+        trend = "偏空"
+        trend_desc = "美股科技股重挫，台股開盤有補跌風險，建議觀望"
+    elif outlook_score <= -1:
+        trend = "微空"
+        trend_desc = "國際市場氣氛偏謹慎，台股開盤可能小跌"
+    else:
+        trend = "中性"
+        trend_desc = "全球市場變動不大，台股可能在平盤附近整理"
+    
+    return {
+        "trend": trend,
+        "trend_desc": trend_desc,
+        "outlook_score": outlook_score,
+        "signals": signals
+    }
+
 @app.get("/api/news")
 async def get_news():
     loop = asyncio.get_event_loop()

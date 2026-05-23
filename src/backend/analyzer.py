@@ -828,6 +828,7 @@ class StockAnalyzer:
             "bottom_fishing_rec": bottom_fishing_res, "short_term_burst_rec": st_burst_res, 
             "etf_rec": etf_rec,
             "opening_checklist": opening_checklist,
+            "volume_patterns": vol_patterns,
             "entry_notes": self.generate_entry_notes(last, is_etf),
             "exit_rule": strat_res.get("exit_rule")
         }

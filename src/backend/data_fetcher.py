@@ -1152,7 +1152,7 @@ class DataFetcher:
         try:
             res = self._session.get(config.TWSE_NEWS_URL, timeout=10)
             if res.status_code == 200:
-                for item in res.json()[:8]:
+                for item in res.json()[:15]:
                     title = item.get("Title")
                     url_link = item.get("Url")
                     if title: 
@@ -1167,7 +1167,7 @@ class DataFetcher:
         # 2. Yahoo Finance 台股市場新聞 (針對 ^TWII)
         try:
             t = yf.Ticker("^TWII")
-            yf_news = t.news[:12]
+            yf_news = t.news[:20]
             for item in yf_news:
                 content = item.get("content", {})
                 title = content.get("title") or item.get("title")
@@ -1190,6 +1190,34 @@ class DataFetcher:
                         "source": publisher,
                         "time": time_str
                     })
+        except: pass
+
+        # 3. 補充更多財經新聞來源 (Yahoo 台股熱門)
+        try:
+            for extra_ticker in ["2330.TW", "2317.TW", "2454.TW"]:
+                t2 = yf.Ticker(extra_ticker)
+                for item in (t2.news or [])[:5]:
+                    content = item.get("content", {})
+                    title = content.get("title") or item.get("title")
+                    link = content.get("canonicalUrl", {}).get("url") or item.get("link")
+                    pubDate = content.get("pubDate") or item.get("providerPublishTime")
+                    publisher = content.get("provider", {}).get("displayName") or item.get("publisher", "Yahoo")
+                    
+                    time_str = ""
+                    if pubDate:
+                        try:
+                            time_str = datetime.fromisoformat(str(pubDate).replace("Z", "+00:00")).strftime("%m-%d %H:%M")
+                        except:
+                            try: time_str = datetime.fromtimestamp(pubDate).strftime("%m-%d %H:%M")
+                            except: pass
+                    
+                    if title and not any(existing['title'].endswith(title) for existing in items):
+                        items.append({
+                            "title": f"[產業] {title}",
+                            "url": link if link else "",
+                            "source": publisher,
+                            "time": time_str
+                        })
         except: pass
 
         return items, []

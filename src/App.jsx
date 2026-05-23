@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import StrategySubNav from './components/StrategySubNav';
 import Dashboard from './pages/Dashboard';
 import RecommendationPage from './pages/RecommendationPage';
 import StockAnalysis from './pages/StockAnalysis';
@@ -35,7 +34,6 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-900 text-white font-sans">
         <Navbar status={status} lastUpdated={lastUpdated} />
-        <StrategySubNav />
         <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
           <Routes>
             <Route path="/" element={<Dashboard />} />

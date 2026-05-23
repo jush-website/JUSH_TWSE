@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { getGlobalMarket, getNews } from '../services/api';
-import { Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react';
+import { getGlobalMarket, getNews, getFutures, getMarketOutlook } from '../services/api';
+import { Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown, Activity, BarChart2, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const [markets, setMarkets] = useState({});
   const [news, setNews] = useState({ taiwan: [], global: [] });
+  const [futures, setFutures] = useState(null);
+  const [outlook, setOutlook] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [mRes, nRes] = await Promise.all([getGlobalMarket(), getNews()]);
+        const [mRes, nRes, fRes, oRes] = await Promise.all([
+          getGlobalMarket(), getNews(), getFutures(), getMarketOutlook()
+        ]);
         setMarkets(mRes.data);
         setNews(nRes.data);
+        setFutures(fRes.data);
+        setOutlook(oRes.data);
       } catch (err) {
         console.error('Dashboard data fetch failed', err);
       } finally {
@@ -20,49 +26,71 @@ const Dashboard = () => {
       }
     };
     fetchData();
+    // 每 3 分鐘自動更新
+    const interval = setInterval(fetchData, 3 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) return <div className="text-center py-20 text-gray-400">載入中...</div>;
 
+  const trendColor = outlook?.trend === '偏多' || outlook?.trend === '微多' ? 'text-red-400' 
+                   : outlook?.trend === '偏空' || outlook?.trend === '微空' ? 'text-green-400' 
+                   : 'text-gray-400';
+  const trendBg = outlook?.trend === '偏多' || outlook?.trend === '微多' ? 'from-red-900/30 to-orange-900/20 border-red-800/40' 
+               : outlook?.trend === '偏空' || outlook?.trend === '微空' ? 'from-green-900/30 to-teal-900/20 border-green-800/40' 
+               : 'from-gray-800 to-gray-900 border-gray-700';
+
   return (
     <div className="space-y-5 sm:space-y-8">
-      {/* Featured Strategies */}
-      <section>
-        <div className="flex items-center space-x-2 mb-3 sm:mb-5 text-indigo-400">
-          <TrendingUp size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
-          <h2 className="text-lg sm:text-xl font-bold">精選策略</h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-          {[
-            { id: 'short-term', name: '短線極佳', desc: '動能強勢 適合短打', icon: '⚡', color: 'from-blue-500 to-cyan-500' },
-            { id: 'overnight', name: '隔日沖動能', desc: '主力鎖碼 隔日套利', icon: '🌙', color: 'from-purple-500 to-pink-500' },
-            { id: 'burst', name: '強勢爆發', desc: '突破區間 大量攻擊', icon: '🚀', color: 'from-orange-500 to-red-500' },
-            { id: 'bottom', name: '抄底絕佳', desc: '乖離過大 搶反彈', icon: '🎣', color: 'from-teal-500 to-emerald-500' },
-            { id: 'long-term', name: '長期精選', desc: '基本面優 價值投資', icon: '💎', color: 'from-indigo-500 to-blue-600' }
-          ].map(strat => (
-            <a 
-              key={strat.id}
-              href={`/recommendations/${strat.id}`}
-              className={`relative overflow-hidden rounded-xl p-4 sm:p-5 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 bg-gradient-to-br ${strat.color} shadow-md flex flex-col justify-between h-28 sm:h-32 border border-white/10`}
-            >
-              <div className="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 bg-white opacity-10 rounded-full blur-xl group-hover:opacity-20 transition-opacity"></div>
-              <div className="text-2xl sm:text-3xl mb-1 filter drop-shadow-sm">{strat.icon}</div>
-              <div className="relative z-10">
-                <h3 className="font-bold text-white text-sm sm:text-base tracking-wide drop-shadow-md">{strat.name}</h3>
-                <p className="text-white/80 text-[10px] sm:text-xs mt-0.5">{strat.desc}</p>
+      {/* Market Outlook */}
+      {outlook && (
+        <section className={`bg-gradient-to-br ${trendBg} rounded-2xl border p-4 sm:p-6 shadow-xl`}>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex items-center space-x-2">
+              <Activity size={24} className={`${trendColor} w-5 h-5 sm:w-6 sm:h-6`} />
+              <h2 className="text-lg sm:text-xl font-bold text-white">台股走勢展望</h2>
+            </div>
+            <div className={`px-3 py-1.5 rounded-full text-sm sm:text-base font-black ${trendColor} bg-gray-900/60 border border-gray-700`}>
+              {outlook.trend}
+            </div>
+          </div>
+          <p className="text-gray-200 text-sm sm:text-base mb-3 sm:mb-4 font-medium">{outlook.trend_desc}</p>
+          <div className="space-y-1.5">
+            {outlook.signals?.map((sig, idx) => (
+              <div key={idx} className="flex items-start space-x-2 text-xs sm:text-sm text-gray-300">
+                <span className="mt-0.5 shrink-0">{sig.startsWith('✅') ? <CheckCircle size={14} className="text-green-400" /> : <AlertTriangle size={14} className="text-yellow-400" />}</span>
+                <span>{sig.replace(/^✅ |^⚠️ /, '')}</span>
               </div>
-            </a>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+          <div className="mt-3 text-[10px] text-gray-500 italic">
+            分析基於美股科技指數、台積電ADR、外資資金流向、台指期等三大維度即時評估
+          </div>
+        </section>
+      )}
 
-      {/* Global Markets */}
+      {/* Global Markets + Futures */}
       <section>
         <div className="flex items-center space-x-2 mb-2 sm:mb-4 text-blue-400">
           <Globe size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
           <h2 className="text-lg sm:text-xl font-bold">全球市場概況</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+          {/* Taiwan Futures Card */}
+          {futures && futures.price && (
+            <div className="bg-gradient-to-br from-yellow-900/30 to-orange-900/20 p-3 sm:p-4 rounded-lg border border-yellow-800/50 col-span-2 md:col-span-1">
+              <div className="flex items-center justify-between">
+                <div className="text-yellow-400 text-xs sm:text-sm font-bold">台指期 WTX&</div>
+                <span className="text-[10px] bg-yellow-900/50 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-700">{futures.session}</span>
+              </div>
+              <div className="text-base sm:text-lg font-bold my-1">{futures.price}</div>
+              <div className={`flex items-center text-xs sm:text-sm ${futures.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                {futures.change_pct >= 0 ? <TrendingUp size={14} className="mr-1" /> : <TrendingDown size={14} className="mr-1" />}
+                {futures.change_pct}%
+              </div>
+              {futures.date && <div className="text-[10px] text-gray-500 mt-1">{futures.date}</div>}
+            </div>
+          )}
           {Object.entries(markets).map(([name, data]) => (
             <div key={name} className="bg-gray-800 p-3 sm:p-4 rounded-lg border border-gray-700">
               <div className="text-gray-400 text-xs sm:text-sm">{name}</div>
@@ -79,11 +107,17 @@ const Dashboard = () => {
       {/* News */}
       <div className="grid md:grid-cols-2 gap-5 sm:gap-8">
         <section>
-          <div className="flex items-center space-x-2 mb-2 sm:mb-4 text-orange-400">
-            <Newspaper size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
-            <h2 className="text-lg sm:text-xl font-bold">台股要聞</h2>
+          <div className="flex items-center justify-between mb-2 sm:mb-4">
+            <div className="flex items-center space-x-2 text-orange-400">
+              <Newspaper size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
+              <h2 className="text-lg sm:text-xl font-bold">台股要聞</h2>
+            </div>
+            <div className="flex items-center space-x-1 text-[10px] text-gray-500">
+              <Clock size={10} />
+              <span>即時更新</span>
+            </div>
           </div>
-          <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700 max-h-[600px] overflow-y-auto">
             {news.taiwan.map((item, idx) => (
               <a 
                 key={idx} 
@@ -99,7 +133,12 @@ const Dashboard = () => {
                 <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center space-x-2 text-[10px] text-gray-500">
                     <span className="font-semibold text-gray-400">{item.source}</span>
-                    {item.time && <span>• {item.time}</span>}
+                    {item.time && (
+                      <span className="flex items-center space-x-0.5">
+                        <Clock size={9} />
+                        <span>{item.time}</span>
+                      </span>
+                    )}
                   </div>
                   {item.related_stocks?.length > 0 && (
                     <div className="flex flex-wrap gap-1">
@@ -117,11 +156,17 @@ const Dashboard = () => {
         </section>
 
         <section>
-          <div className="flex items-center space-x-2 mb-2 sm:mb-4 text-purple-400">
-            <Globe size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
-            <h2 className="text-lg sm:text-xl font-bold">國際財經</h2>
+          <div className="flex items-center justify-between mb-2 sm:mb-4">
+            <div className="flex items-center space-x-2 text-purple-400">
+              <Globe size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
+              <h2 className="text-lg sm:text-xl font-bold">國際財經</h2>
+            </div>
+            <div className="flex items-center space-x-1 text-[10px] text-gray-500">
+              <Clock size={10} />
+              <span>即時更新</span>
+            </div>
           </div>
-          <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700 max-h-[600px] overflow-y-auto">
             {news.global.map((item, idx) => (
               <a 
                 key={idx} 
@@ -136,7 +181,12 @@ const Dashboard = () => {
                 </div>
                 <div className="mt-2 flex items-center space-x-2 text-[10px] text-gray-500">
                   <span className="font-semibold text-gray-400">{item.source}</span>
-                  {item.time && <span>• {item.time}</span>}
+                  {item.time && (
+                    <span className="flex items-center space-x-0.5">
+                      <Clock size={9} />
+                      <span>{item.time}</span>
+                    </span>
+                  )}
                 </div>
               </a>
             ))}

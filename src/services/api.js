@@ -19,5 +19,7 @@ export const getIndustries = () => api.get('/api/industries');
 export const getIndustryStocks = (name) => api.get(`/api/industry/${name}`);
 export const analyzeStock = (query) => api.get(`/api/analyze/${query}`);
 export const syncData = (mode = "1") => api.post(`/api/sync?mode=${mode}`);
+export const getFutures = () => api.get('/api/futures');
+export const getMarketOutlook = () => api.get('/api/market-outlook');
 
 export default api;
