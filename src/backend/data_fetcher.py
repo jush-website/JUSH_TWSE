@@ -108,9 +108,9 @@ class DataFetcher:
             try:
                 with open(cache_path, "rb") as f:
                     self._stock_info_df = pickle.load(f)
-                    self._build_id_maps()
             except Exception as e:
                 if self.logger: self.logger.error(f"Error loading local stock info: {e}")
+        self._build_id_maps()
 
     def _save_local_stock_info(self):
         if self._stock_info_df is not None and not self._stock_info_df.empty:

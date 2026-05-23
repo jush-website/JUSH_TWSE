@@ -134,7 +134,7 @@ const Navbar = ({ status }) => {
       </div>
 
       {/* Mobile Menu Drawer */}
-      <div className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`lg:hidden overflow-y-auto transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-[85vh] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-4 pt-2 pb-6 space-y-4 bg-gray-900 border-t border-white/10">
           <form onSubmit={handleSearch} className="relative w-full mt-4">
             <input
