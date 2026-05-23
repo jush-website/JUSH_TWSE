@@ -34,6 +34,11 @@ const StockCard = ({ stock, type }) => {
   } else if (type === 'cdp') {
     score = stock.total_score || 0;
     status = stock.cdp?.is_preview ? '明日預覽' : '今日即時';
+  } else if (type === 'day-trade-cdp') {
+    score = stock.day_trade_cdp_rec?.score || 0;
+    status = stock.day_trade_cdp_rec?.status || 'N/A';
+    signals = stock.day_trade_cdp_rec?.signals || [];
+    subText = stock.day_trade_cdp_rec?.amplitude ? `前日波幅: ${stock.day_trade_cdp_rec.amplitude}%` : '';
   }
 
   const cdp = stock.cdp;

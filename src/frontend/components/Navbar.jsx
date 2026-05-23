@@ -45,6 +45,7 @@ const Navbar = ({ status }) => {
     { path: '/recommendations/burst', label: '強勢爆發 (短線動能)' },
     { path: '/recommendations/short-term', label: '短線衝刺 (技術指標)' },
     { path: '/recommendations/overnight', label: '隔日沖偵測 (尾盤大戶)' },
+    { path: '/recommendations/day-trade-cdp', label: '當沖 CDP (區間實戰)' },
     { path: '/recommendations/bottom', label: '抄底推薦 (超跌反彈)' },
     { path: '/recommendations/long-term', label: '長期精選 (價值存股)' },
     { path: '/recommendations/etf', label: 'ETF 佈局 (穩健配置)' },
@@ -91,6 +92,7 @@ const Navbar = ({ status }) => {
             <Link to="/recommendations/short-term" className={`text-sm font-medium transition-colors hover:text-blue-400 ${location.pathname.includes('short-term') ? 'text-blue-400' : 'text-gray-300'}`}>短線</Link>
             <Link to="/recommendations/overnight" className={`text-sm font-medium transition-colors hover:text-purple-400 ${location.pathname.includes('overnight') ? 'text-purple-400' : 'text-gray-300'}`}>隔日沖</Link>
             <Link to="/recommendations/burst" className={`text-sm font-medium transition-colors hover:text-orange-400 ${location.pathname.includes('burst') ? 'text-orange-400' : 'text-gray-300'}`}>爆發</Link>
+            <Link to="/recommendations/day-trade-cdp" className={`text-sm font-medium transition-colors hover:text-pink-400 ${location.pathname.includes('day-trade-cdp') ? 'text-pink-400' : 'text-gray-300'}`}>當沖</Link>
             <Link to="/recommendations/bottom" className={`text-sm font-medium transition-colors hover:text-emerald-400 ${location.pathname.includes('bottom') ? 'text-emerald-400' : 'text-gray-300'}`}>抄底</Link>
             <Link to="/recommendations/long-term" className={`text-sm font-medium transition-colors hover:text-indigo-400 ${location.pathname.includes('long-term') ? 'text-indigo-400' : 'text-gray-300'}`}>長期</Link>
           </div>

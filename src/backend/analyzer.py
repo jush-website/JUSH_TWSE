@@ -615,6 +615,69 @@ class StockAnalyzer:
             "vol_ratio": round(vol_ratio, 2)
         }
 
+    def evaluate_day_trade_cdp(self, price_df, is_limit_up, is_limit_down, cdp_data):
+        """
+        當沖 CDP 偵測
+        核心關鍵：尋找「股價波動大、成交量活絡、且前一日有明顯高低點但未出現連續漲跌停」的個股。
+        """
+        if len(price_df) < 6:
+            return {"score": 0, "status": "資料不足", "signals": [], "is_valid": False}
+        
+        last = price_df.iloc[-1]
+        prev = price_df.iloc[-2]
+        
+        vol_avg_5 = price_df['Volume'].iloc[:-1].tail(5).mean()
+        curr_vol = last['Volume']
+        
+        prev_high = prev['High']
+        prev_low = prev['Low']
+        prev_open = prev['Open']
+        
+        score = 0
+        signals = []
+        
+        # 條件 1: 前一日波幅適中 (3% ~ 8%)
+        amplitude = 0
+        if prev_open > 0:
+            amplitude = (prev_high - prev_low) / prev_open
+            
+        if 0.03 <= amplitude <= 0.08:
+            score += 30
+            signals.append(f"前日波幅 {round(amplitude*100, 1)}% (符合當沖)")
+        elif amplitude > 0.08:
+            score += 15
+            signals.append(f"前日波幅 {round(amplitude*100, 1)}% (波動劇烈)")
+        else:
+            # 波動太小不適合
+            return {"score": 0, "status": "波幅過小", "signals": [], "is_valid": False}
+            
+        # 條件 2: 成交量活絡 (> 2000張)
+        if vol_avg_5 > 2000 and curr_vol > 2000:
+            score += 30
+            signals.append("流動性佳")
+        else:
+            return {"score": 0, "status": "流動性不足", "signals": [], "is_valid": False}
+            
+        # 條件 3: 排除漲跌停鎖死 (股性活潑但非極端)
+        if is_limit_up or is_limit_down:
+            return {"score": 0, "status": "漲跌停鎖死", "signals": [], "is_valid": False}
+        else:
+            score += 20
+            
+        # 條件 4: CDP 價位建議
+        if cdp_data and cdp_data.get('CDP'):
+            score += 20
+            
+        status = "適合當沖" if score >= 80 else "波段觀察"
+        
+        return {
+            "score": score,
+            "status": status,
+            "signals": signals,
+            "is_valid": score >= 80,
+            "amplitude": round(amplitude*100, 2)
+        }
+
     def calculate_atr(self, df, n=14):
         high = df['High']; low = df['Low']; close_prev = df['Close'].shift(1)
         tr = pd.concat([high - low, abs(high - close_prev), abs(low - close_prev)], axis=1).max(axis=1)
@@ -797,6 +860,12 @@ class StockAnalyzer:
         st_burst_res = self.evaluate_short_term_burst(price_df, chip_df)
         cdp_res = self.calculate_cdp(price_df, intraday_snapshot)
         
+        change_pct = round(((last['Close']-prev['Close'])/(prev['Close']+1e-9))*100, 2)
+        is_limit_up = change_pct >= 9.7
+        is_limit_down = change_pct <= -9.7
+        
+        day_trade_cdp_res = self.evaluate_day_trade_cdp(price_df, is_limit_up, is_limit_down, cdp_res)
+        
         # 新增開盤檢核表
         opening_checklist = self.evaluate_opening_checklist(intraday_snapshot)
         if opening_checklist:
@@ -824,6 +893,7 @@ class StockAnalyzer:
             "overnight": self.evaluate_overnight_momentum(price_df, intraday_snapshot) if not is_etf else {"score":0, "status": "N/A", "signals": []},
             "short_term_rec": self.evaluate_short_term_recommendation(price_df, chip_df, intraday_snapshot) if not is_etf else {"score":0, "status": "N/A", "signals": []}, 
             "cdp": cdp_res,
+            "day_trade_cdp_rec": day_trade_cdp_res,
             "low_pe_rec": low_pe_res,
             "bottom_fishing_rec": bottom_fishing_res, "short_term_burst_rec": st_burst_res, 
             "etf_rec": etf_rec,

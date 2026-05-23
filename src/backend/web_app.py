@@ -177,6 +177,13 @@ async def background_strategies_sync():
                     await loop.run_in_executor(None, update_doc, 'overnight_1', overnight_1)
                     await loop.run_in_executor(None, update_doc, 'overnight_2', overnight_2)
                     await loop.run_in_executor(None, update_doc, 'cdp', cdp)
+                    
+                    try:
+                        day_trade_cdp = await get_day_trade_cdp_recommendations(force=True)
+                        await loop.run_in_executor(None, update_doc, 'day_trade_cdp', day_trade_cdp)
+                    except Exception as e:
+                        print(f"[系統] 同步 day_trade_cdp 失敗: {e}")
+
                     await loop.run_in_executor(None, update_doc, 'etf', etf)
                     print("[系統] 背景深度策略分析完成，已同步寫入 Firebase Firestore！")
                 else:
@@ -478,6 +485,37 @@ async def get_short_term_burst_recommendations(force: bool = False):
         top = [r for r in results if r["short_term_burst_rec"]["score"] > 0][:10]
     final_res = sanitize_data(top)
     set_cached_response("short_term_burst", final_res)
+    return final_res
+
+@app.get("/api/recommendations/day-trade-cdp")
+async def get_day_trade_cdp_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("day_trade_cdp")
+        if cached: return cached
+    
+    loop = asyncio.get_event_loop()
+    # 擴大範圍掃描，因為符合當沖條件的股票可能不多
+    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res and "day_trade_cdp_rec" in res]
+    
+    # 篩出 is_valid == True 的結果
+    valid_results = [r for r in results if r["day_trade_cdp_rec"].get("is_valid", False)]
+    valid_results.sort(key=lambda x: x["day_trade_cdp_rec"]["score"], reverse=True)
+    
+    if not valid_results and results:
+        # 如果沒有嚴格符合條件的，至少回傳最高分的
+        results.sort(key=lambda x: x["day_trade_cdp_rec"]["score"], reverse=True)
+        valid_results = [r for r in results if r["day_trade_cdp_rec"]["score"] > 0][:10]
+        
+    final_res = sanitize_data(valid_results[:15])
+    set_cached_response("day_trade_cdp", final_res)
     return final_res
 
 @app.get("/api/overnight-recommendations")

@@ -50,6 +50,7 @@ export const getHotStocks = () => fetchFromFirestore('recommendations', 'hot_sto
 export const getShortTermRecommendations = () => fetchFromFirestore('recommendations', 'short_term');
 export const getBottomFishingRecommendations = () => fetchFromFirestore('recommendations', 'bottom_fishing');
 export const getShortTermBurstRecommendations = () => fetchFromFirestore('recommendations', 'short_term_burst');
+export const getDayTradeCdpRecommendations = () => fetchFromFirestore('recommendations', 'day_trade_cdp');
 export const getOvernightRecommendations = (mode = "1") => fetchFromFirestore('recommendations', `overnight_${mode}`);
 export const getCdpRecommendations = () => fetchFromFirestore('recommendations', 'cdp');
 export const getEtfRecommendations = () => fetchFromFirestore('recommendations', 'etf');

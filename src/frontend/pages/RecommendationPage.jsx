@@ -7,7 +7,8 @@ import {
   getShortTermBurstRecommendations,
   getLongTermRecommendations,
   getEtfRecommendations,
-  getCdpRecommendations
+  getCdpRecommendations,
+  getDayTradeCdpRecommendations
 } from '../services/api';
 import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
@@ -25,7 +26,8 @@ const RecommendationPage = () => {
     'burst': '強勢爆發推薦 (放量突破與趨勢確認)',
     'long-term': '長期精選核心 (績優龍頭與穩定配息)',
     'etf': 'ETF 佈局 (穩健進場與防禦配置)',
-    'cdp': 'CDP 逆勢分析 (當沖與隔日點位實戰)'
+    'cdp': 'CDP 逆勢分析 (當沖與隔日點位實戰)',
+    'day-trade-cdp': '當沖 CDP 偵測 (實戰區間操作)'
   };
 
   const [sortBy, setSortBy] = useState('score');
@@ -43,6 +45,7 @@ const RecommendationPage = () => {
         case 'long-term': res = await getLongTermRecommendations(); break;
         case 'etf': res = await getEtfRecommendations(); break;
         case 'cdp': res = await getCdpRecommendations(); break;
+        case 'day-trade-cdp': res = await getDayTradeCdpRecommendations(); break;
         default: res = { data: [] };
       }
       setStocks(res.data || []);
@@ -62,6 +65,7 @@ const RecommendationPage = () => {
     if (type === 'bottom') return stock.bottom_fishing_rec?.score || 0;
     if (type === 'burst') return stock.short_term_burst_rec?.score || 0;
     if (type === 'short-term') return stock.short_term_rec?.score || 0;
+    if (type === 'day-trade-cdp') return stock.day_trade_cdp_rec?.score || 0;
     return stock.total_score || 0;
   };
 
