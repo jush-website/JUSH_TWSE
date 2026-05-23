@@ -77,6 +77,7 @@ else:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    bg_tasks = []
     # 啟動時執行初步數據同步 (非阻塞方式)
     if not os.environ.get("VERCEL"):
         print("[系統] 正在啟動背景數據同步...")
@@ -84,18 +85,29 @@ async def lifespan(app: FastAPI):
         # 強制啟動時抓取一次台股代號列表，確保 _stock_id_map 完整，避免個股名稱顯示為「未知」
         await loop.run_in_executor(None, lambda: fetcher.fetch_twse_openapi(fetch_all=False))
         
-        asyncio.create_task(background_sync())
-        asyncio.create_task(background_strategies_sync())
+        bg_tasks.append(asyncio.create_task(background_sync()))
+        bg_tasks.append(asyncio.create_task(background_strategies_sync()))
+    
     yield
+    
+    # 關閉時清理背景任務
+    for task in bg_tasks:
+        task.cancel()
+    if bg_tasks:
+        await asyncio.gather(*bg_tasks, return_exceptions=True)
+        print("[系統] 背景同步任務已優雅關閉")
 
 async def background_sync():
     loop = asyncio.get_event_loop()
-    while True:
-        try:
-            await loop.run_in_executor(None, fetcher.sync_if_needed)
-        except Exception as e:
-            print(f"[系統] 背景同步發生錯誤: {e}")
-        await asyncio.sleep(60)
+    try:
+        while True:
+            try:
+                await loop.run_in_executor(None, fetcher.sync_if_needed)
+            except Exception as e:
+                print(f"[系統] 背景同步發生錯誤: {e}")
+            await asyncio.sleep(60)
+    except asyncio.CancelledError:
+        pass
 
 async def background_strategies_sync():
     # 等待初始資料同步完成
@@ -176,6 +188,8 @@ async def background_strategies_sync():
                 print(f"[系統] 已經收盤且更新完畢 (或處於未更新空窗期)，暫停更新機制休眠中 ({now.strftime('%H:%M')})...")
                 await asyncio.sleep(600)
                 
+        except asyncio.CancelledError:
+            return
         except Exception as e:
             print(f"[系統] 背景策略分析與同步錯誤: {e}")
             await asyncio.sleep(180)
