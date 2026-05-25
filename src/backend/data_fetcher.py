@@ -1029,6 +1029,13 @@ class DataFetcher:
                         cdp_base_date = ref_date_str
 
                         last_price = float(price_df['Close'].iloc[-1])
+                        
+                        # 盤後修正：如果已經收盤 (13:30 後) 且有官方快取，強制覆蓋為官方收盤價
+                        if now.hour > 13 or (now.hour == 13 and now.minute >= 30):
+                            if official_data and official_data.get('date') == now.strftime("%Y-%m-%d"):
+                                if not pd.isna(official_data.get('price')):
+                                    last_price = float(official_data['price'])
+                                    
                         price_1325_df = price_df.between_time("13:24", "13:25")
                         price_1325 = float(price_1325_df['Close'].iloc[-1]) if not price_1325_df.empty else last_price
                         
