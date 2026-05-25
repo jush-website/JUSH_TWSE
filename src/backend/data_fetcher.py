@@ -251,9 +251,11 @@ class DataFetcher:
                 is_stale = True
                 if sid in self._history_cache:
                     df = self._history_cache[sid]
+                    last_fetch_time = self._history_cache_ts.get(sid, 0)
                     if not df.empty:
                         last_cache_date = df.index[-1].date()
-                        if last_cache_date >= expected_date:
+                        # 如果已有今日資料，或者在 4 小時內已經抓取過，就不視為過期，避免盤中一直重複抓取 yfinance
+                        if last_cache_date >= expected_date or (time.time() - last_fetch_time < config.HISTORY_CACHE_EXPIRY):
                             is_stale = False
                 
                 if is_stale:
@@ -290,7 +292,9 @@ class DataFetcher:
                                 df = df.rename(columns={"Date": "Date", "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"})
                                 df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
                                 df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
-                                with self._lock: self._history_cache[sid] = df
+                                with self._lock:
+                                    self._history_cache[sid] = df
+                                    self._history_cache_ts[sid] = time.time()
                         except: continue
                 self._save_persistent_cache("history")
             except Exception as e:
@@ -973,9 +977,9 @@ class DataFetcher:
                     try:
                         if isinstance(data.columns, pd.MultiIndex):
                             if ticker not in data.columns.levels[0]: continue
-                            df = data[ticker].dropna()
+                            df = data[ticker].dropna(subset=['Close'])
                         else:
-                            if len(tickers) == 1: df = data.dropna()
+                            if len(tickers) == 1: df = data.dropna(subset=['Close'])
                             else: continue
                         
                         if df.empty: continue
