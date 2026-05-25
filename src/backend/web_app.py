@@ -6,6 +6,7 @@ from typing import List, Optional
 import asyncio
 import time
 import os
+import gc
 import numpy as np
 from src.backend import config
 import asyncio
@@ -158,6 +159,9 @@ async def background_strategies_sync():
                 print("[系統] 背景深度策略分析完成，已同步寫入 Firebase Firestore！")
             else:
                 print("[系統] 背景深度策略分析完成 (已快取)，但未同步至 Firebase (無金鑰)")
+                
+            # 強制回收記憶體，避免大量 DataFrame 造成記憶體超過 512MB
+            gc.collect()
                 
             await asyncio.sleep(180) # 固定休息 3 分鐘
                 
@@ -353,7 +357,7 @@ async def get_news():
 
 
 
-executor = ThreadPoolExecutor(max_workers=30)
+executor = ThreadPoolExecutor(max_workers=10)
 
 def analyze_wrap(sid):
     snapshot = fetcher.get_intraday_data(sid)
