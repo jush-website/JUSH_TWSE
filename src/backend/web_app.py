@@ -404,6 +404,7 @@ async def get_long_term_recommendations(force: bool = False):
     loop = asyncio.get_event_loop()
     sids = config.LONG_TERM_STOCK_IDS
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
@@ -425,6 +426,7 @@ async def get_hot_stocks(force: bool = False):
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
@@ -444,6 +446,7 @@ async def get_short_term_recommendations(force: bool = False):
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
@@ -465,6 +468,7 @@ async def get_bottom_fishing_recommendations(force: bool = False):
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
@@ -489,6 +493,7 @@ async def get_short_term_burst_recommendations(force: bool = False):
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
@@ -514,6 +519,7 @@ async def get_day_trade_cdp_recommendations(force: bool = False):
     # 擴大範圍掃描，因為符合當沖條件的股票可能不多
     sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
@@ -565,6 +571,7 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
         
     sids = await loop.run_in_executor(executor, get_custom_overnight_ids)
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     def analyze_overnight(sid):
         snapshot = fetcher.get_intraday_data(sid)
@@ -638,6 +645,7 @@ async def get_etf_recommendations(force: bool = False):
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, fetcher.get_popular_etf_ids)
     await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
@@ -659,6 +667,8 @@ async def get_industries():
 async def get_industry_stocks(name: str):
     loop = asyncio.get_event_loop()
     sids = await loop.run_in_executor(executor, fetcher.search_stocks_by_industry, name)
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
