@@ -112,88 +112,54 @@ async def background_sync():
 async def background_strategies_sync():
     # 等待初始資料同步完成
     await asyncio.sleep(15)
-    last_final_sync_date = None
-    last_1330_sync_date = None
     
     while True:
         try:
             now = datetime.now(pytz.timezone("Asia/Taipei"))
-            is_weekend = now.weekday() >= 5
+            print(f"[系統] 定時更新機制啟動 ({now.strftime('%H:%M')})，執行 3 分鐘持續更新...")
             
-            # 開盤活躍時段 (08:50 ~ 13:30)
-            is_market_hours = not is_weekend and (
-                (now.hour == 8 and now.minute >= 50) or 
-                (9 <= now.hour < 13) or 
-                (now.hour == 13 and now.minute <= 30)
-            )
+            long_term = await get_long_term_recommendations(force=True)
+            hot_stocks = await get_hot_stocks(force=True)
+            short_term = await get_short_term_recommendations(force=True)
+            bottom_fishing = await get_bottom_fishing_recommendations(force=True)
+            short_term_burst = await get_short_term_burst_recommendations(force=True)
+            overnight_1 = await get_overnight_recommendations(mode="1", force=True)
+            overnight_2 = await get_overnight_recommendations(mode="2", force=True)
+            cdp = await get_cdp_recommendations(force=True)
+            etf = await get_etf_recommendations(force=True)
             
-            today_str = now.strftime("%Y-%m-%d")
-            should_sync = False
-            
-            if is_market_hours:
-                should_sync = True
-                print(f"[系統] 目前為開盤時段 ({now.strftime('%H:%M')})，執行 3 分鐘持續更新...")
-            else:
-                # 確保 13:30 後的最新收盤資料 (大約 13:33~13:35) 有被更新一次，避免只更新到 13:28
-                if not is_weekend and now.hour == 13 and now.minute > 30 and last_1330_sync_date != today_str:
-                    should_sync = True
-                    last_1330_sync_date = today_str
-                    print(f"[系統] 盤後確認機制啟動 ({now.strftime('%H:%M')})，確保 13:30 確切收盤數據...")
-                # 收盤後防呆：確保在官方收盤資訊與籌碼 (14:30後) 進行一次最終更新，確保是確切的最終收盤數據
-                elif last_final_sync_date != today_str:
-                    # 若現在已經過了 14:30 (或者是假日的伺服器重啟)，就執行一次最終更新
-                    if now.hour > 14 or (now.hour == 14 and now.minute >= 30) or is_weekend:
-                        should_sync = True
-                        last_final_sync_date = today_str
-                        print(f"[系統] 收盤防呆機制啟動 ({now.strftime('%H:%M')})，執行本日確切最終數據更新...")
-            
-            if should_sync:
-                long_term = await get_long_term_recommendations(force=True)
-                hot_stocks = await get_hot_stocks(force=True)
-                short_term = await get_short_term_recommendations(force=True)
-                bottom_fishing = await get_bottom_fishing_recommendations(force=True)
-                short_term_burst = await get_short_term_burst_recommendations(force=True)
-                overnight_1 = await get_overnight_recommendations(mode="1", force=True)
-                overnight_2 = await get_overnight_recommendations(mode="2", force=True)
-                cdp = await get_cdp_recommendations(force=True)
-                etf = await get_etf_recommendations(force=True)
+            if firebase_db:
+                base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+                def update_doc(doc_id, data_list):
+                    doc_ref = firebase_db.collection('recommendations').document(doc_id)
+                    doc_ref.set({
+                        'data': data_list,
+                        'base_date': base_date,
+                        'updated_at': firestore.SERVER_TIMESTAMP
+                    })
                 
-                if firebase_db:
-                    base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-                    def update_doc(doc_id, data_list):
-                        doc_ref = firebase_db.collection('recommendations').document(doc_id)
-                        doc_ref.set({
-                            'data': data_list,
-                            'base_date': base_date,
-                            'updated_at': firestore.SERVER_TIMESTAMP
-                        })
-                    
-                    loop = asyncio.get_event_loop()
-                    await loop.run_in_executor(None, update_doc, 'long_term', long_term)
-                    await loop.run_in_executor(None, update_doc, 'hot_stocks', hot_stocks)
-                    await loop.run_in_executor(None, update_doc, 'short_term', short_term)
-                    await loop.run_in_executor(None, update_doc, 'bottom_fishing', bottom_fishing)
-                    await loop.run_in_executor(None, update_doc, 'short_term_burst', short_term_burst)
-                    await loop.run_in_executor(None, update_doc, 'overnight_1', overnight_1)
-                    await loop.run_in_executor(None, update_doc, 'overnight_2', overnight_2)
-                    await loop.run_in_executor(None, update_doc, 'cdp', cdp)
-                    
-                    try:
-                        day_trade_cdp = await get_day_trade_cdp_recommendations(force=True)
-                        await loop.run_in_executor(None, update_doc, 'day_trade_cdp', day_trade_cdp)
-                    except Exception as e:
-                        print(f"[系統] 同步 day_trade_cdp 失敗: {e}")
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, update_doc, 'long_term', long_term)
+                await loop.run_in_executor(None, update_doc, 'hot_stocks', hot_stocks)
+                await loop.run_in_executor(None, update_doc, 'short_term', short_term)
+                await loop.run_in_executor(None, update_doc, 'bottom_fishing', bottom_fishing)
+                await loop.run_in_executor(None, update_doc, 'short_term_burst', short_term_burst)
+                await loop.run_in_executor(None, update_doc, 'overnight_1', overnight_1)
+                await loop.run_in_executor(None, update_doc, 'overnight_2', overnight_2)
+                await loop.run_in_executor(None, update_doc, 'cdp', cdp)
+                
+                try:
+                    day_trade_cdp = await get_day_trade_cdp_recommendations(force=True)
+                    await loop.run_in_executor(None, update_doc, 'day_trade_cdp', day_trade_cdp)
+                except Exception as e:
+                    print(f"[系統] 同步 day_trade_cdp 失敗: {e}")
 
-                    await loop.run_in_executor(None, update_doc, 'etf', etf)
-                    print("[系統] 背景深度策略分析完成，已同步寫入 Firebase Firestore！")
-                else:
-                    print("[系統] 背景深度策略分析完成 (已快取)，但未同步至 Firebase (無金鑰)")
-                    
-                await asyncio.sleep(180) # 開盤時或剛更新完，休息 3 分鐘
+                await loop.run_in_executor(None, update_doc, 'etf', etf)
+                print("[系統] 背景深度策略分析完成，已同步寫入 Firebase Firestore！")
             else:
-                # 不需更新時，進入長休眠 (每 10 分鐘檢查一次時間即可，節省資源)
-                print(f"[系統] 已經收盤且更新完畢 (或處於未更新空窗期)，暫停更新機制休眠中 ({now.strftime('%H:%M')})...")
-                await asyncio.sleep(600)
+                print("[系統] 背景深度策略分析完成 (已快取)，但未同步至 Firebase (無金鑰)")
+                
+            await asyncio.sleep(180) # 固定休息 3 分鐘
                 
         except asyncio.CancelledError:
             return
