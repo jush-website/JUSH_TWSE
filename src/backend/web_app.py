@@ -364,7 +364,7 @@ async def get_news():
 
 
 
-executor = ThreadPoolExecutor(max_workers=10)
+executor = ThreadPoolExecutor(max_workers=3)
 
 def analyze_wrap(sid):
     return analyzer.analyze(sid)
