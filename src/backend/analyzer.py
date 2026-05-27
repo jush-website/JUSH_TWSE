@@ -698,9 +698,24 @@ class StockAnalyzer:
         return "一般熱門股"
 
     def analyze(self, stock_id: str, intraday_snapshot=None):
-        df_raw = self.fetcher.get_price_data(stock_id, days=250)
+        is_etf = self.fetcher.is_etf(stock_id)
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future_intraday = executor.submit(self.fetcher.get_intraday_data, stock_id) if intraday_snapshot is None else None
+            future_price = executor.submit(self.fetcher.get_price_data, stock_id, 250)
+            future_chip = executor.submit(self.fetcher.get_chip_data, stock_id, 10) if not is_etf else None
+            future_margin = executor.submit(self.fetcher.get_margin_data, stock_id, 5) if not is_etf else None
+            future_vol = executor.submit(self.fetcher.get_stock_volatility, stock_id)
+            
+            if future_intraday:
+                intraday_snapshot = future_intraday.result()
+            df_raw = future_price.result()
+            self._chip_df_cache = future_chip.result() if future_chip else pd.DataFrame()
+            self._margin_df_cache = future_margin.result() if future_margin else pd.DataFrame()
+            self._vol_info_cache = future_vol.result()
+
         if df_raw.empty or len(df_raw) < 35: return {"error": "數據不足"}
-        price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(str(stock_id), "未知"); is_etf = self.fetcher.is_etf(stock_id)
+        price_df = df_raw.copy(); stock_name = self.fetcher._stock_id_map.get(str(stock_id), "未知")
         
         # 修正：如果還是沒有名稱，或是名稱就是代碼本身，嘗試從 yfinance 抓取
         # 修正：如果還是沒有名稱，或是名稱就是代碼本身 (全數字)，嘗試從 yfinance 抓取
@@ -804,16 +819,9 @@ class StockAnalyzer:
         vol_patterns = self.evaluate_volume_patterns(price_df)
         
         last, prev = price_df.iloc[-1], price_df.iloc[-2]
-        
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            future_chip = executor.submit(self.fetcher.get_chip_data, stock_id, 10) if not is_etf else None
-            future_margin = executor.submit(self.fetcher.get_margin_data, stock_id, 5) if not is_etf else None
-            future_vol = executor.submit(self.fetcher.get_stock_volatility, stock_id)
-            
-            chip_df = future_chip.result() if future_chip else pd.DataFrame()
-            margin_df = future_margin.result() if future_margin else pd.DataFrame()
-            vol_info = future_vol.result()
+        chip_df = getattr(self, '_chip_df_cache', pd.DataFrame())
+        margin_df = getattr(self, '_margin_df_cache', pd.DataFrame())
+        vol_info = getattr(self, '_vol_info_cache', {'volatility': 0, 'atr': 0})
         
         # 獲取基礎面與分類
         official = self.fetcher._official_cache.get(stock_id, {})

@@ -210,6 +210,9 @@ def get_cached_response(key):
 
 @app.get("/api/status")
 async def get_status():
+    cached = get_cached_response("status")
+    if cached: return cached
+    
     current_status = fetcher.get_market_status()
     loop = asyncio.get_event_loop()
     
@@ -224,11 +227,13 @@ async def get_status():
     except:
         data_date = "確認中..."
     
-    return {
+    res = {
         "market_status": current_status,
         "data_date": data_date,
         "server_time": time.time()
     }
+    set_cached_response("status", res, expiry=180)
+    return res
 
 @app.get("/api/global-market")
 async def get_global_market():
@@ -360,9 +365,7 @@ async def get_news():
 executor = ThreadPoolExecutor(max_workers=10)
 
 def analyze_wrap(sid):
-    snapshot = fetcher.get_intraday_data(sid)
-    if snapshot: snapshot['stock_id'] = sid
-    return analyzer.analyze(sid, intraday_snapshot=snapshot)
+    return analyzer.analyze(sid)
 
 
 @app.get("/api/long-term-recommendations")
