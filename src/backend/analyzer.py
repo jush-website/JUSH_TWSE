@@ -804,8 +804,16 @@ class StockAnalyzer:
         vol_patterns = self.evaluate_volume_patterns(price_df)
         
         last, prev = price_df.iloc[-1], price_df.iloc[-2]
-        chip_df = self.fetcher.get_chip_data(stock_id, days=10) if not is_etf else pd.DataFrame()
-        margin_df = self.fetcher.get_margin_data(stock_id, days=5) if not is_etf else pd.DataFrame()
+        
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_chip = executor.submit(self.fetcher.get_chip_data, stock_id, 10) if not is_etf else None
+            future_margin = executor.submit(self.fetcher.get_margin_data, stock_id, 5) if not is_etf else None
+            future_vol = executor.submit(self.fetcher.get_stock_volatility, stock_id)
+            
+            chip_df = future_chip.result() if future_chip else pd.DataFrame()
+            margin_df = future_margin.result() if future_margin else pd.DataFrame()
+            vol_info = future_vol.result()
         
         # 獲取基礎面與分類
         official = self.fetcher._official_cache.get(stock_id, {})
@@ -817,7 +825,6 @@ class StockAnalyzer:
                 industry = str(row[col].iloc[0])
         
         # 計算波動率與分類
-        vol_info = self.fetcher.get_stock_volatility(stock_id)
         category = self.classify_category(stock_id, stock_name, industry, 50) # 簡化 volume rank
         if vol_info['volatility'] > 40: category = "高波動題材股"
 
