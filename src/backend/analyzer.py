@@ -796,7 +796,10 @@ class StockAnalyzer:
         upper, middle, lower = self.calculate_bollinger_bands(price_df)
         price_df.loc[:, 'BB_Upper'] = upper; price_df.loc[:, 'BB_Middle'] = middle; price_df.loc[:, 'BB_Lower'] = lower
         k, d = self.calculate_kd(price_df); price_df.loc[:, 'K'] = k; price_df.loc[:, 'D'] = d; price_df.loc[:, 'RSI'] = self.calculate_rsi(price_df)
-        dif, dea, macd = self.calculate_macd(price_df); price_df.loc[:, 'MACD_Hist'] = macd
+        dif, dea, macd = self.calculate_macd(price_df)
+        price_df.loc[:, 'MACD_Hist'] = macd
+        price_df.loc[:, 'MACD_Line'] = dif
+        price_df.loc[:, 'MACD_Signal'] = dea
         
         vol_patterns = self.evaluate_volume_patterns(price_df)
         
@@ -876,6 +879,18 @@ class StockAnalyzer:
         strat_res = self.calculate_entry_strategy(price_df, chip_df, is_etf, intraday_snapshot)
         change_pct = round(((last['Close']-prev['Close'])/(prev['Close']+1e-9))*100, 2)
         
+        # 準備圖表資料 (最近 60 筆)
+        chart_data = []
+        for index, row in price_df.tail(60).iterrows():
+            chart_data.append({
+                "date": index.strftime("%m-%d"),
+                "volume": int(row['Volume'] / 1000) if row['Volume'] > 0 else 0,
+                "close": round(float(row['Close']), 2) if not pd.isna(row['Close']) else 0,
+                "macd_hist": round(float(row['MACD_Hist']), 3) if not pd.isna(row['MACD_Hist']) else 0,
+                "macd_line": round(float(row['MACD_Line']), 3) if not pd.isna(row['MACD_Line']) else 0,
+                "macd_signal": round(float(row['MACD_Signal']), 3) if not pd.isna(row['MACD_Signal']) else 0
+            })
+        
         return {
             "stock_id": stock_id, "stock_name": stock_name, "is_etf": is_etf, "category": category, "total_score": st_res["score"], 
             "price": round(last['Close'], 2), "yesterday_close": round(prev['Close'], 2), "change_percent": change_pct, "is_limit_up": change_pct >= 9.7, "vol_ratio": st_res["vol_ratio"],
@@ -894,7 +909,8 @@ class StockAnalyzer:
             "opening_checklist": opening_checklist,
             "volume_patterns": vol_patterns,
             "entry_notes": self.generate_entry_notes(last, is_etf),
-            "exit_rule": strat_res.get("exit_rule")
+            "exit_rule": strat_res.get("exit_rule"),
+            "chart_data": chart_data
         }
 
     def evaluate_opening_checklist(self, intraday_snapshot):

@@ -5,6 +5,9 @@ import {
   TrendingUp, TrendingDown, AlertCircle, CheckCircle, 
   Target, ShieldAlert, BarChart, PieChart, Info, Search
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell
+} from 'recharts';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -120,6 +123,53 @@ const StockAnalysis = () => {
               <div className="text-sm font-bold text-blue-400 sm:mt-2 text-right sm:text-center">{data.recommend_status}</div>
             </div>
           </div>
+
+          {/* Charts Section */}
+          {data.chart_data && data.chart_data.length > 0 && (
+            <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Price & Volume Chart */}
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[350px]">
+                <h2 className="text-lg font-bold text-gray-300 mb-4">價格與成交量</h2>
+                <div className="h-[250px] sm:h-[260px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={data.chart_data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                      <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} domain={['auto', 'auto']} />
+                      <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" fontSize={10} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <Bar yAxisId="right" dataKey="volume" name="成交量(張)" fill="#4B5563" opacity={0.6} />
+                      <Line yAxisId="left" type="monotone" dataKey="close" name="收盤價" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* MACD Chart */}
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[350px]">
+                <h2 className="text-lg font-bold text-gray-300 mb-4">MACD 技術指標</h2>
+                <div className="h-[250px] sm:h-[260px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={data.chart_data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                      <YAxis stroke="#9CA3AF" fontSize={10} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <Bar dataKey="macd_hist" name="MACD柱狀">
+                        {data.chart_data.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.macd_hist > 0 ? '#EF4444' : '#10B981'} />
+                        ))}
+                      </Bar>
+                      <Line type="monotone" dataKey="macd_line" name="DIF(快線)" stroke="#F59E0B" strokeWidth={1.5} dot={false} />
+                      <Line type="monotone" dataKey="macd_signal" name="DEA(慢線)" stroke="#8B5CF6" strokeWidth={1.5} dot={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Strategy & Target Section */}
