@@ -82,10 +82,6 @@ async def lifespan(app: FastAPI):
     # 啟動時執行初步數據同步 (非阻塞方式)
     if not os.environ.get("VERCEL"):
         print("[系統] 正在啟動背景數據同步...")
-        loop = asyncio.get_event_loop()
-        # 強制啟動時抓取一次台股代號列表，確保 _stock_id_map 完整，避免個股名稱顯示為「未知」
-        await loop.run_in_executor(None, lambda: fetcher.fetch_twse_openapi(fetch_all=False))
-        
         bg_tasks.append(asyncio.create_task(background_sync()))
         bg_tasks.append(asyncio.create_task(background_strategies_sync()))
     
@@ -101,6 +97,12 @@ async def lifespan(app: FastAPI):
 async def background_sync():
     loop = asyncio.get_event_loop()
     try:
+        # 強制啟動時抓取一次台股代號列表，確保 _stock_id_map 完整，避免個股名稱顯示為「未知」
+        try:
+            await loop.run_in_executor(None, lambda: fetcher.fetch_twse_openapi(fetch_all=False))
+        except Exception as e:
+            print(f"[系統] 啟動時預載資料失敗: {e}")
+            
         while True:
             try:
                 await loop.run_in_executor(None, fetcher.sync_if_needed)
