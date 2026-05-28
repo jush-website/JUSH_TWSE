@@ -71,10 +71,20 @@ const fetchFinmind = async (dataset, stockId, daysAgo) => {
   return res.data.data || [];
 };
 
+import { analyzeStockData } from '../utils/analyzer';
+
 export const analyzeStockRaw = async (query) => {
-  // 1. 取得 stock_id
-  const resolveRes = await api.get(`/api/resolve/${query}`);
-  const stockId = resolveRes.data.stock_id;
+  // 1. 解析股票代碼 
+  let stockId = query;
+  // 如果輸入的是純數字，直接當作代碼，不要吵醒 Render
+  if (!/^\d+$/.test(query)) {
+    try {
+      const resolveRes = await api.get(`/api/resolve/${query}`);
+      stockId = resolveRes.data.stock_id;
+    } catch (e) {
+      // 若解析失敗，假設輸入的就是代碼
+    }
+  }
 
   // 2. 在前端平行發送 3 個請求抓取歷史資料 (非常快)
   console.log("前端開始抓取原始資料...");
@@ -95,8 +105,15 @@ export const analyzeStockRaw = async (query) => {
     intraday: null
   };
 
-  const analysisRes = await api.post('/api/analyze-raw', payload);
-  return analysisRes;
+  // 直接在前端執行複雜的 JS 分析運算，千分之一秒完成
+  const analysisResult = analyzeStockData(payload);
+  
+  if (analysisResult.error) {
+    throw new Error(analysisResult.error);
+  }
+
+  // 模擬 Axios 回傳格式以相容既有 UI
+  return { data: analysisResult };
 };
 
 export default api;
