@@ -1104,6 +1104,12 @@ class StockAnalyzer:
         price_df = pd.DataFrame(raw_price)
         chip_df = pd.DataFrame(raw_chip)
         margin_df = pd.DataFrame(raw_margin)
+
+        if not intraday_snapshot:
+            try:
+                intraday_snapshot = self.fetcher.get_intraday_data(stock_id)
+            except Exception:
+                intraday_snapshot = None
         
         if price_df.empty or len(price_df) < 35:
             return {"error": "資料不足"}
