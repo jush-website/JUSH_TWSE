@@ -80,11 +80,12 @@ function calculateCdp(highSeries, lowSeries, closeSeries, intradaySnapshot) {
   let nl = cdp * 2 - h;
   let al = cdp - (h - l);
   return {
-    cdp: Math.round(cdp * 100) / 100,
-    ah: Math.round(ah * 100) / 100,
-    nh: Math.round(nh * 100) / 100,
-    nl: Math.round(nl * 100) / 100,
-    al: Math.round(al * 100) / 100,
+    CDP: Math.round(cdp * 100) / 100,
+    AH: Math.round(ah * 100) / 100,
+    NH: Math.round(nh * 100) / 100,
+    NL: Math.round(nl * 100) / 100,
+    AL: Math.round(al * 100) / 100,
+    base_date: intradaySnapshot?.cdp_base_date || "最新資料",
     signals: []
   };
 }
