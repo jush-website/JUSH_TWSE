@@ -1,4 +1,6 @@
-import { sma, ewma, calculateMacd, calculateRsi, calculateKd, calculateBollingerBands, calculateAtr, calculateDmi, calculateObv, calculateAd } from './indicators.js';
+import os
+
+code = """import { sma, ewma, calculateMacd, calculateRsi, calculateKd, calculateBollingerBands, calculateAtr, calculateDmi, calculateObv, calculateAd } from './indicators.js';
 
 function classifyCategory(stockId, stockName, industry, volVolatility) {
   if (volVolatility > 40) return "高波動飆股";
@@ -465,3 +467,9 @@ export function analyzeStockData(payload) {
     chart_data: chartData
   };
 }
+"""
+
+with open("src/frontend/utils/analyzer.js", "w", encoding="utf-8") as f:
+    f.write(code)
+
+print("Done patching analyzer.js")
