@@ -73,16 +73,28 @@ const fetchFinmind = async (dataset, stockId, daysAgo) => {
 
 import { analyzeStockData } from '../utils/analyzer';
 
+import stockDataMap from '../assets/stock_names.json';
+
 export const analyzeStockRaw = async (query) => {
-  // 1. 解析股票代碼 
+  // 1. 解析股票代碼與名稱 (直接使用本地 JSON，達到零延遲與零超時)
   let stockId = query;
-  // 如果輸入的是純數字，直接當作代碼，不要吵醒 Render
-  if (!/^\d+$/.test(query)) {
-    try {
-      const resolveRes = await api.get(`/api/resolve/${query}`);
-      stockId = resolveRes.data.stock_id;
-    } catch (e) {
-      // 若解析失敗，假設輸入的就是代碼
+  let stockName = "未知";
+  let category = "未知";
+
+  if (stockDataMap) {
+    if (stockDataMap.id_map && stockDataMap.id_map[query]) {
+      stockId = query;
+      stockName = stockDataMap.id_map[query];
+    } else if (stockDataMap.name_map && stockDataMap.name_map[query]) {
+      stockId = stockDataMap.name_map[query];
+      stockName = query;
+    }
+
+    if (stockDataMap.industry) {
+      const row = stockDataMap.industry.find(r => r.stock_id === stockId);
+      if (row) {
+        category = row.industry || row.industry_category || "未知";
+      }
     }
   }
 
@@ -99,6 +111,8 @@ export const analyzeStockRaw = async (query) => {
   console.log("前端抓取完畢，送交後端進行指標運算...");
   const payload = {
     stock_id: stockId,
+    stock_name: stockName,
+    category: category,
     price_data: priceData,
     chip_data: chipData,
     margin_data: marginData,

@@ -657,8 +657,20 @@ async def resolve_stock(query: str):
     loop = asyncio.get_event_loop()
     sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
     if not sid:
-        raise HTTPException(status_code=404, detail="找不到標的")
-    return {"stock_id": sid}
+        raise HTTPException(status_code=404, detail="找不到對應的股票代碼")
+        
+    sname = fetcher._stock_id_map.get(sid, "未知")
+    category = "未知"
+    if fetcher._stock_info_df is not None and not fetcher._stock_info_df.empty:
+        try:
+            row = fetcher._stock_info_df[fetcher._stock_info_df['stock_id'] == sid]
+            if not row.empty:
+                col = 'industry' if 'industry' in fetcher._stock_info_df.columns else 'industry_category'
+                category = row.iloc[0].get(col, "未知")
+        except:
+            pass
+
+    return {"stock_id": sid, "stock_name": sname, "category": category}
 
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional

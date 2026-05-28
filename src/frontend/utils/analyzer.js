@@ -203,7 +203,7 @@ export function analyzeStockData(payload) {
   let changePct = ((lastClose - prevClose) / prevClose) * 100;
   
   let isEtf = false; // 簡化
-  let category = classifyCategory(stock_id, "未知", "未知", 20);
+  let categoryStr = category || classifyCategory(stock_id, stock_name, "未知", 20);
   
   let stRes = evaluateShortTerm(closeSeries, volumeSeries, false, false);
   let stratRes = calculateEntryStrategy(closeSeries, volumeSeries, bb.upper, bb.middle, intraday);
@@ -231,9 +231,9 @@ export function analyzeStockData(payload) {
 
   return {
     stock_id: stock_id,
-    stock_name: "台股標的", 
+    stock_name: stock_name || "未知標的", 
     is_etf: isEtf,
-    category: category,
+    category: categoryStr,
     total_score: stRes.score,
     price: Math.round(lastClose * 100) / 100,
     yesterday_close: Math.round(prevClose * 100) / 100,
