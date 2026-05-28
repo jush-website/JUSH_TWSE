@@ -652,6 +652,42 @@ async def get_industry_stocks(name: str):
     all_res = await asyncio.gather(*tasks)
     return sanitize_data([res for res in all_res if res and "error" not in res])
 
+@app.get("/api/resolve/{query}")
+async def resolve_stock(query: str):
+    loop = asyncio.get_event_loop()
+    sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
+    if not sid:
+        raise HTTPException(status_code=404, detail="找不到標的")
+    return {"stock_id": sid}
+
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+
+class RawDataPayload(BaseModel):
+    stock_id: str
+    price_data: List[Dict[str, Any]]
+    chip_data: List[Dict[str, Any]]
+    margin_data: List[Dict[str, Any]]
+    intraday: Optional[Dict[str, Any]] = None
+
+@app.post("/api/analyze-raw")
+async def analyze_raw_data(payload: RawDataPayload):
+    loop = asyncio.get_event_loop()
+    
+    def analyze_from_raw():
+        return analyzer.analyze_from_raw(
+            stock_id=payload.stock_id,
+            raw_price=payload.price_data,
+            raw_chip=payload.chip_data,
+            raw_margin=payload.margin_data,
+            intraday_snapshot=payload.intraday
+        )
+        
+    res = await loop.run_in_executor(executor, analyze_from_raw)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return sanitize_data(res)
+
 @app.get("/api/analyze/{query}")
 async def analyze_stock(query: str):
     loop = asyncio.get_event_loop()

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { analyzeStock } from '../services/api';
+import { analyzeStockRaw } from '../services/api';
 import { 
   TrendingUp, TrendingDown, AlertCircle, CheckCircle, 
   Target, ShieldAlert, BarChart, PieChart, Info, Search
@@ -22,8 +22,8 @@ const StockAnalysis = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await analyzeStock(searchQuery);
-      setData(res.data);
+      const response = await analyzeStockRaw(searchQuery);
+      setData(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || '分析失敗，請檢查代號是否正確。');
       setData(null);
