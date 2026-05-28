@@ -139,7 +139,7 @@ function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradayS
 }
 
 export function analyzeStockData(payload) {
-  const { stock_id, price_data, chip_data, margin_data, intraday } = payload;
+  const { stock_id, stock_name, category, price_data, chip_data, margin_data, intraday } = payload;
   
   if (!price_data || price_data.length < 35) {
     return { error: "資料不足" };
