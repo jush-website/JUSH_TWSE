@@ -225,6 +225,61 @@ const StockAnalysis = () => {
                 </div>
               )}
 
+              {/* CDP Card */}
+              {data.cdp && (
+                <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-purple-400">
+                      <Target size={20} className="sm:w-6 sm:h-6" />
+                      <h2 className="text-lg sm:text-xl font-bold">CDP 走勢預測</h2>
+                    </div>
+                    {data.cdp.base_date && (
+                      <span className="text-[10px] sm:text-xs bg-purple-900/40 text-purple-300 px-2 py-1 rounded">
+                        基準日: {data.cdp.base_date}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-5 gap-1 sm:gap-4 text-center">
+                    <div className="bg-red-950/40 border border-red-900/50 p-2 sm:p-3 rounded-xl">
+                      <div className="text-red-400 text-[9px] sm:text-xs font-bold mb-1">AH</div>
+                      <div className="text-xs sm:text-lg font-black text-red-300">{data.cdp.AH}</div>
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">突破追買</div>
+                    </div>
+                    <div className="bg-orange-950/40 border border-orange-900/30 p-2 sm:p-3 rounded-xl">
+                      <div className="text-orange-400 text-[9px] sm:text-xs font-bold mb-1">NH</div>
+                      <div className="text-xs sm:text-lg font-black text-orange-300">{data.cdp.NH}</div>
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">高壓遇阻</div>
+                    </div>
+                    <div className="bg-gray-900/80 border border-gray-700 p-2 sm:p-3 rounded-xl">
+                      <div className="text-gray-300 text-[9px] sm:text-xs font-bold mb-1">CDP</div>
+                      <div className="text-xs sm:text-lg font-black text-white">{data.cdp.CDP}</div>
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">多空分界</div>
+                    </div>
+                    <div className="bg-green-950/40 border border-green-900/30 p-2 sm:p-3 rounded-xl">
+                      <div className="text-green-400 text-[9px] sm:text-xs font-bold mb-1">NL</div>
+                      <div className="text-xs sm:text-lg font-black text-green-300">{data.cdp.NL}</div>
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">低檔買進</div>
+                    </div>
+                    <div className="bg-emerald-950/40 border border-emerald-900/50 p-2 sm:p-3 rounded-xl">
+                      <div className="text-emerald-400 text-[9px] sm:text-xs font-bold mb-1">AL</div>
+                      <div className="text-xs sm:text-lg font-black text-emerald-300">{data.cdp.AL}</div>
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">跌破追賣</div>
+                    </div>
+                  </div>
+
+                  {data.cdp.signals && data.cdp.signals.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {data.cdp.signals.map((sig, sIdx) => (
+                        <span key={sIdx} className="bg-purple-900/30 text-purple-300 text-[10px] sm:text-xs px-2.5 py-1 rounded-full border border-purple-800/30">
+                          {sig}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Diagnosis Details */}
               <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
                 <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
