@@ -1,9 +1,17 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // 如果有設定 VITE_API_URL 就使用它 (例如 Render 部署的後端)，否則預設使用相對路徑
-  baseURL: import.meta.env.VITE_API_URL || '', 
+  // 1. 強制將「首頁及個股分析數據」交由 Vercel 處理 (使用相對路徑，觸發 Vercel Serverless Function)
+  baseURL: '', 
 });
+
+// 2. 喚醒 Render 伺服器：確保 Render 有被喚醒以執行「功能分析與資料儲存」(背景自動同步)
+// 如果有設定 VITE_RENDER_URL (例如 https://jush-twse.onrender.com)，就每隔一段時間去敲它一下防止它休眠
+const renderUrl = import.meta.env.VITE_RENDER_URL || import.meta.env.VITE_API_URL;
+if (renderUrl) {
+  console.log("喚醒 Render 背景同步伺服器...");
+  axios.get(`${renderUrl}/api/status`).catch(() => {});
+}
 
 // 攔截器：如果 Vercel 回傳了 index.html (通常是因為 API 崩潰或尚未部署)，則視為錯誤
 api.interceptors.response.use(
