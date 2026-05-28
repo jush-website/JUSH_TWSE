@@ -68,6 +68,10 @@ const fetchFinmind = async (dataset, stockId, daysAgo) => {
   const startDate = d.toISOString().split('T')[0];
   const url = `https://api.finmindtrade.com/api/v4/data?dataset=${dataset}&data_id=${stockId}&start_date=${startDate}`;
   const res = await axios.get(url);
+  
+  if (res.data.msg === "超過使用次數") {
+    throw new Error("超過使用次數");
+  }
   return res.data.data || [];
 };
 
@@ -76,18 +80,19 @@ import { analyzeStockData } from '../utils/analyzer';
 import stockDataMap from '../assets/stock_names.json';
 
 export const analyzeStockRaw = async (query) => {
-  // 1. 解析股票代碼與名稱 (直接使用本地 JSON，達到零延遲與零超時)
-  let stockId = query;
+  // 1. 解析股票代碼與名稱 
+  let rawQuery = query.trim();
+  let stockId = rawQuery;
   let stockName = "未知";
   let category = "未知";
 
   if (stockDataMap) {
-    if (stockDataMap.id_map && stockDataMap.id_map[query]) {
-      stockId = query;
-      stockName = stockDataMap.id_map[query];
-    } else if (stockDataMap.name_map && stockDataMap.name_map[query]) {
-      stockId = stockDataMap.name_map[query];
-      stockName = query;
+    if (stockDataMap.id_map && stockDataMap.id_map[rawQuery]) {
+      stockId = rawQuery;
+      stockName = stockDataMap.id_map[rawQuery];
+    } else if (stockDataMap.name_map && stockDataMap.name_map[rawQuery]) {
+      stockId = stockDataMap.name_map[rawQuery];
+      stockName = rawQuery;
     }
 
     if (stockDataMap.industry) {

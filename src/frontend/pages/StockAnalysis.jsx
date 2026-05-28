@@ -25,7 +25,8 @@ const StockAnalysis = () => {
       const response = await analyzeStockRaw(searchQuery);
       setData(response.data);
     } catch (err) {
-      setError(err.response?.data?.detail || '分析失敗，請檢查代號是否正確。');
+      const msg = err.response?.data?.detail || err.message || '分析失敗，請檢查代號是否正確。';
+      setError(msg === "超過使用次數" ? "FinMind 免費版限制：超過單小時 300 次請求，請稍後再試！" : msg);
       setData(null);
     } finally {
       setLoading(false);

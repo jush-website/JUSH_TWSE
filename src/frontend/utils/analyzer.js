@@ -156,8 +156,8 @@ export function analyzeStockData(payload) {
   for (let row of price_data) {
     dateSeries.push(row.date);
     openSeries.push(row.open || row.Open);
-    highSeries.push(row.high || row.High);
-    lowSeries.push(row.low || row.Low);
+    highSeries.push(row.max || row.high || row.High);
+    lowSeries.push(row.min || row.low || row.Low);
     closeSeries.push(row.close || row.Close);
     volumeSeries.push(row.Trading_Volume || row.Volume);
   }
