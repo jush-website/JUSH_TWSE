@@ -158,11 +158,11 @@ function evaluateShortTermBurst(closeSeries, chipNetBuy, openSeries, highSeries,
   return { score, status, signals, stop_loss: Math.round(Math.min(lastLow, lastClose * 0.97) * 100) / 100 };
 }
 
-function calculateCdp(highSeries, lowSeries, closeSeries, intradaySnapshot) {
+function calculateCdp(highSeries, lowSeries, closeSeries, intradaySnapshot, lastDate) {
   let h = highSeries[highSeries.length - 1];
   let l = lowSeries[lowSeries.length - 1];
   let c = closeSeries[closeSeries.length - 1];
-  let baseDate = intradaySnapshot?.cdp_base_date || "最新資料";
+  let baseDate = intradaySnapshot?.cdp_base_date || lastDate || "最新資料";
 
   if (intradaySnapshot && intradaySnapshot.yesterday_high) {
     h = intradaySnapshot.yesterday_high;
@@ -373,7 +373,7 @@ export function analyzeStockData(payload) {
   
   let stRes = evaluateShortTerm(closeSeries, volumeSeries, false, false);
   let stratRes = calculateEntryStrategy(closeSeries, volumeSeries, bb.upper, bb.middle, intraday);
-  let cdpRes = calculateCdp(highSeries, lowSeries, closeSeries, intraday);
+  let cdpRes = calculateCdp(highSeries, lowSeries, closeSeries, intraday, dateSeries[lastIdx]);
   let openingChecklist = evaluateOpeningChecklist(intraday);
   
   let bottomFishingRes = evaluateBottomFishing(closeSeries, chipNetBuy, openSeries, highSeries, lowSeries, volumeSeries);
