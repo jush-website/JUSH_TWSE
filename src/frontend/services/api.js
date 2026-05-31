@@ -104,16 +104,15 @@ export const analyzeStockRaw = async (query) => {
   }
 
   // 2. 在前端平行發送 3 個請求抓取歷史資料 (非常快)
-  console.log("前端開始抓取原始資料...");
-  const [priceData, chipData, marginData] = await Promise.all([
-    fetchFinmind('TaiwanStockPrice', stockId, 90), // 約60個交易日
-    fetchFinmind('TaiwanStockInstitutionalInvestorsBuySell', stockId, 25), // 約15個交易日
-    fetchFinmind('TaiwanStockMarginPurchaseShortSale', stockId, 15) // 約10個交易日
+  console.log("前端發送請求拉取資料...");
+  const [priceData, chipData, marginData, perData] = await Promise.all([
+    fetchFinmind('TaiwanStockPrice', stockId, 90), // 近90個交易日
+    fetchFinmind('TaiwanStockInstitutionalInvestorsBuySell', stockId, 25), // 近25個交易日
+    fetchFinmind('TaiwanStockMarginPurchaseShortSale', stockId, 15), // 近15個交易日
+    fetchFinmind('TaiwanStockPER', stockId, 5) // 近5個交易日的本益比等基本面資料
   ]);
 
-  // 3. 將巨大 JSON 打包送到後端進行 Pandas 數學運算
-  // (即時股價 intradaySnapshot 交由後端 yfinance 處理)
-  console.log("前端抓取完畢，送交後端進行指標運算...");
+  console.log("前端拉取完畢，開始在本地端進行運算...");
   const payload = {
     stock_id: stockId,
     stock_name: stockName,
@@ -121,7 +120,8 @@ export const analyzeStockRaw = async (query) => {
     price_data: priceData,
     chip_data: chipData,
     margin_data: marginData,
-    intraday: null
+    per_data: perData,
+    intraday: null 
   };
 
   // 直接在前端執行複雜的 JS 分析運算，千分之一秒完成

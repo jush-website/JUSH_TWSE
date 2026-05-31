@@ -294,10 +294,25 @@ function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradayS
 }
 
 export function analyzeStockData(payload) {
-  const { stock_id, stock_name, category, price_data, chip_data, margin_data, intraday } = payload;
+  const { stock_id, stock_name, category, price_data, chip_data, margin_data, per_data, intraday } = payload;
   
   if (!price_data || price_data.length < 35) {
     return { error: "資料不足" };
+  }
+
+  // Parse fundamental data
+  let currentPe = 15.0;
+  let currentYield = 4.0;
+  let currentRoe = 10.0;
+  if (per_data && per_data.length > 0) {
+    let latestPer = per_data[per_data.length - 1];
+    currentPe = latestPer.PER || 15.0;
+    currentYield = latestPer.dividend_yield || 0.0;
+    if (latestPer.PER > 0 && latestPer.PBR > 0) {
+      // Approximate ROE = (P/B) / (P/E) * 100
+      currentRoe = (latestPer.PBR / latestPer.PER) * 100;
+      currentRoe = Math.round(currentRoe * 100) / 100;
+    }
   }
 
   let dateSeries = [];
@@ -442,9 +457,9 @@ export function analyzeStockData(payload) {
     net_buy_3d: Math.round(chipNetBuy.slice(-3).reduce((a, b) => a + b, 0) / 1000),
     recommend_status: stRes.status,
     diagnosis: diag,
-    pe: 15.0,
-    yield: 4.0,
-    roe: 10.0,
+    pe: currentPe,
+    yield: currentYield,
+    roe: currentRoe,
     debt_ratio: 50.0,
     entry_range: stratRes.entry_range,
     stop_loss: stratRes.stop_loss,
