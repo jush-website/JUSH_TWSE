@@ -352,6 +352,20 @@ const StockAnalysis = () => {
                     <div className="text-lg font-bold">{data.debt_ratio}%</div>
                   </div>
                 </div>
+                <div className="mt-4 space-y-2 border-t border-gray-700/50 pt-4">
+                  <div className="text-[11px] sm:text-xs text-gray-400">
+                    <span className="text-blue-400 font-bold">本益比 (PE)</span>：評估股價是否合理的指標，越低代表回本越快。
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-gray-400">
+                    <span className="text-blue-400 font-bold">殖利率</span>：每年配息金額除以股價，越高代表領取的現金股利越多。
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-gray-400">
+                    <span className="text-blue-400 font-bold">ROE (股東權益報酬率)</span>：公司利用股東資金獲利的能力，越高賺錢效率越好。
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-gray-400">
+                    <span className="text-blue-400 font-bold">負債比</span>：衡量公司財務槓桿與風險的指標，過高代表財務壓力大。
+                  </div>
+                </div>
               </div>
             </div>
           </div>
