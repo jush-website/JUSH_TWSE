@@ -431,6 +431,7 @@ export function analyzeStockData(payload) {
   let prevClose = closeSeries[prevIdx];
   let changePct = ((lastClose - prevClose) / prevClose) * 100;
   
+  let categoryStr = category || classifyCategory(stock_id, stock_name, "未知", 20);
   let isEtf = categoryStr.includes("ETF") || stock_name.includes("ETF") || stock_id.startsWith("00");
   
   let stRes = evaluateShortTerm(closeSeries, volumeSeries, false, false);
