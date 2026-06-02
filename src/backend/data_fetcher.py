@@ -308,7 +308,7 @@ class DataFetcher:
             if fetch_fs: self.get_financial_statements(sid)
 
         print(f"[系統] 正在同步 {len(sids)} 檔標的之籌碼與財務數據...")
-        with ThreadPoolExecutor(max_workers=15) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             executor.map(fetch_fm_individual, sids)
         
         self._save_persistent_cache("chip")
@@ -638,7 +638,7 @@ class DataFetcher:
             if stock_id in self._history_cache:
                 df = self._history_cache[stock_id]
                 last_fetch_time = self._history_cache_ts.get(stock_id, 0)
-                if not df.empty and (df.index[-1].date() >= expected_date or time.time() - last_fetch_time < 300):
+                if not df.empty and (df.index[-1].date() >= expected_date or time.time() - last_fetch_time < config.HISTORY_CACHE_EXPIRY):
                     return df.tail(days)
         
         try:

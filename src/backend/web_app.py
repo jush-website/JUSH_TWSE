@@ -180,13 +180,13 @@ async def background_strategies_sync():
             # 強制回收記憶體，避免大量 DataFrame 造成記憶體超過 512MB
             gc.collect()
                 
-            await asyncio.sleep(180) # 固定休息 3 分鐘
+            await asyncio.sleep(3600) # 休息 1 小時
                 
         except asyncio.CancelledError:
             return
         except Exception as e:
             print(f"[系統] 背景策略分析與同步錯誤: {e}")
-            await asyncio.sleep(180)
+            await asyncio.sleep(3600)
 
 
 from fastapi.middleware.cors import CORSMiddleware
