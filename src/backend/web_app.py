@@ -121,6 +121,7 @@ async def background_strategies_sync():
             now = datetime.now(pytz.timezone("Asia/Taipei"))
             print(f"[系統] 定時更新機制啟動 ({now.strftime('%H:%M')})，執行 3 分鐘持續更新...")
             
+            loop = asyncio.get_event_loop()
             long_term = await get_long_term_recommendations(force=True)
             hot_stocks = await get_hot_stocks(force=True)
             short_term = await get_short_term_recommendations(force=True)
@@ -130,6 +131,7 @@ async def background_strategies_sync():
             overnight_2 = await get_overnight_recommendations(mode="2", force=True)
             cdp = await get_cdp_recommendations(force=True)
             etf = await get_etf_recommendations(force=True)
+            capital_flow = await get_capital_flow_recommendations(force=True)
             
             if firebase_db:
                 base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
@@ -631,6 +633,18 @@ async def get_etf_recommendations(force: bool = False):
     results.sort(key=lambda x: x['etf_rec']['score'], reverse=True)
     final_res = sanitize_data(results)
     set_cached_response("etf", final_res)
+    return final_res
+
+@app.get("/api/capital-flow")
+async def get_capital_flow_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("capital_flow")
+        if cached: return cached
+    
+    loop = asyncio.get_event_loop()
+    cf_data = await loop.run_in_executor(executor, fetcher.get_capital_flow)
+    final_res = sanitize_data(cf_data)
+    set_cached_response("capital_flow", final_res)
     return final_res
 
 @app.get("/api/industries")

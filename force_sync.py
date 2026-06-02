@@ -3,6 +3,7 @@ from src.backend.web_app import (
     get_short_term_recommendations, get_overnight_recommendations,
     get_bottom_fishing_recommendations, get_short_term_burst_recommendations,
     get_long_term_recommendations, get_etf_recommendations, get_cdp_recommendations,
+    get_capital_flow_recommendations,
     firebase_db, firestore, fetcher
 )
 
@@ -16,6 +17,7 @@ async def force_push():
     overnight_2 = await get_overnight_recommendations(mode='2', force=True)
     cdp = await get_cdp_recommendations(force=True)
     etf = await get_etf_recommendations(force=True)
+    capital_flow = await get_capital_flow_recommendations(force=True)
     
     if firebase_db:
         base_date = fetcher.get_last_expected_trading_date().strftime('%Y-%m-%d')
@@ -31,7 +33,7 @@ async def force_push():
                 ('long_term', long_term), ('short_term', short_term),
                 ('bottom_fishing', bottom_fishing), ('short_term_burst', short_term_burst),
                 ('overnight_1', overnight_1), ('overnight_2', overnight_2),
-                ('cdp', cdp), ('etf', etf)
+                ('cdp', cdp), ('etf', etf), ('capital_flow', capital_flow)
             ]
         ]
         await asyncio.gather(*tasks)

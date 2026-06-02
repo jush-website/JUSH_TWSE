@@ -54,6 +54,16 @@ export const getDayTradeCdpRecommendations = () => fetchFromFirestore('recommend
 export const getOvernightRecommendations = (mode = "1") => fetchFromFirestore('recommendations', `overnight_${mode}`);
 export const getCdpRecommendations = () => fetchFromFirestore('recommendations', 'cdp');
 export const getEtfRecommendations = () => fetchFromFirestore('recommendations', 'etf');
+export const getCapitalFlow = async () => {
+  try {
+    const res = await fetchFromFirestore('recommendations', 'capital_flow');
+    if (res.data && res.data.length > 0) return res;
+  } catch (err) {
+    console.warn("Firestore capital_flow fetch failed, falling back to API", err);
+  }
+  const apiRes = await api.get('/api/capital-flow');
+  return { data: apiRes.data, updated_at: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
+};
 export const getIndustries = () => api.get('/api/industries');
 export const getIndustryStocks = (name) => api.get(`/api/industry/${name}`);
 export const analyzeStock = (query) => api.get(`/api/analyze/${query}`);

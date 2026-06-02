@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Activity, Home, TrendingUp, BarChart2, Menu, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Activity, Home, TrendingUp, BarChart2, Menu, X, ChevronDown, ChevronRight, Flame } from 'lucide-react';
 
 // 前端即時計算市場狀態（不依賴 Firebase）
 const getLocalMarketStatus = () => {
@@ -73,6 +73,16 @@ const Navbar = ({ status }) => {
             >
               <Home size={16} />
               <span className="text-sm">首頁</span>
+            </Link>
+
+            <Link 
+              to="/capital-flow" 
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
+                location.pathname === '/capital-flow' ? 'bg-orange-500/20 text-orange-400 font-bold shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'hover:bg-gray-800 text-gray-300'
+              }`}
+            >
+              <Flame size={16} />
+              <span className="text-sm">資金流向</span>
             </Link>
             
             <div className="h-4 w-px bg-white/20 mx-1"></div>
@@ -164,7 +174,11 @@ const Navbar = ({ status }) => {
           </Link>
           
           <Link to="/analyze" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><Search size={18} /><span>個股分析</span></div>
+            <div className="flex items-center space-x-3"><Search size={18} /><span>個股診斷</span></div>
+          </Link>
+
+          <Link to="/capital-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
+            <div className="flex items-center space-x-3"><Flame size={18} className="text-orange-400" /><span className="text-orange-400 font-bold">資金流向</span></div>
           </Link>
           
           <div className="py-2">

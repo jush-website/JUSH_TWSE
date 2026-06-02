@@ -1475,3 +1475,69 @@ class DataFetcher:
             return items
         except:
             return []
+
+    def get_capital_flow(self):
+        """
+        計算今日台股資金流向 (各產業成交比重、漲跌幅、以及推薦的熱門股)
+        """
+        if self._stock_info_df is None: self.get_all_stock_ids()
+        if not self._official_cache: self.fetch_twse_openapi(fetch_all=False)
+        
+        df = self._stock_info_df
+        if df is None or df.empty: return []
+        col = 'industry' if 'industry' in df.columns else 'industry_category'
+        if col not in df.columns: return []
+        
+        industry_stats = {}
+        total_market_value = 0
+        
+        # 1. 統計各產業成交總值與漲跌幅
+        for _, row in df.iterrows():
+            sid = str(row['stock_id'])
+            ind = str(row[col]).strip()
+            
+            # 過濾無效產業
+            if not ind or any(x in ind for x in ["不適用", "認購證券", "Index", "存託憑證", "大盤", "ETF", "ETN", "受益", "債券"]): 
+                continue
+            if ind.endswith("業"): ind = ind[:-1] + "類"
+            if not ind.endswith("類"): ind = ind + "類"
+            if "半導體" in ind: ind = "半導體類"
+            ind = ind.replace("股票", "").replace("-", "")
+            
+            if sid in self._official_cache:
+                info = self._official_cache[sid]
+                # info["volume"] 是張數(千股)
+                val = info.get("price", 0) * info.get("volume", 0) * 1000
+                cpct = info.get("change_pct", 0)
+                
+                if ind not in industry_stats:
+                    industry_stats[ind] = {"total_value": 0, "sum_change": 0, "count": 0, "stocks": []}
+                
+                industry_stats[ind]["total_value"] += val
+                industry_stats[ind]["sum_change"] += cpct
+                industry_stats[ind]["count"] += 1
+                industry_stats[ind]["stocks"].append({"id": sid, "name": info.get("name", ""), "value": val, "change_pct": cpct, "price": info.get("price")})
+                total_market_value += val
+        
+        # 2. 計算比重與排序
+        results = []
+        for ind, stats in industry_stats.items():
+            if stats["total_value"] == 0: continue
+            
+            ratio = (stats["total_value"] / total_market_value) * 100 if total_market_value > 0 else 0
+            avg_change = stats["sum_change"] / stats["count"] if stats["count"] > 0 else 0
+            
+            # 挑選該產業中成交值最大的前5檔股票作為代表
+            top_stocks = sorted(stats["stocks"], key=lambda x: x["value"], reverse=True)[:5]
+            
+            results.append({
+                "industry": ind,
+                "value_ratio": round(ratio, 2),
+                "avg_change_pct": round(avg_change, 2),
+                "total_value_ntd": int(stats["total_value"]),
+                "top_stocks": top_stocks
+            })
+            
+        # 依成交比重降序排列
+        results = sorted(results, key=lambda x: x["value_ratio"], reverse=True)
+        return results
