@@ -71,16 +71,16 @@ export const syncData = (mode = "1") => api.post(`/api/sync?mode=${mode}`);
 export const getFutures = () => api.get('/api/futures');
 export const getMarketOutlook = () => api.get('/api/market-outlook');
 
-// 獲取 FinMind 原始資料 (在瀏覽器端執行以分散流量)
+// 透過後端 Proxy 取得 FinMind 歷史資料 (避免瀏覽器 CORS 或無 token 造成的 Rate Limit)
 const fetchFinmind = async (dataset, stockId, daysAgo) => {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
   const startDate = d.toISOString().split('T')[0];
-  const url = `https://api.finmindtrade.com/api/v4/data?dataset=${dataset}&data_id=${stockId}&start_date=${startDate}`;
-  const res = await axios.get(url);
+  const url = `/api/finmind/${dataset}?data_id=${stockId}&start_date=${startDate}`;
+  const res = await api.get(url);
   
   if (res.data.msg === "超過使用次數") {
-    throw new Error("超過使用次數");
+    throw new Error("超過使用次數 (Backend API Rate Limited)");
   }
   return res.data.data || [];
 };

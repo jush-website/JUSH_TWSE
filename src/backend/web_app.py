@@ -719,13 +719,31 @@ async def analyze_stock(query: str):
     loop = asyncio.get_event_loop()
     sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
     if not sid:
-        raise HTTPException(status_code=404, detail="找不到標的")
+        raise HTTPException(status_code=404, detail="找不到對應股票代碼")
     
-        
     res = await loop.run_in_executor(executor, analyze_wrap, sid)
-    if "error" in res:
-        raise HTTPException(status_code=400, detail=res["error"])
+    if not res:
+        raise HTTPException(status_code=404, detail="無法分析該股票")
     return sanitize_data(res)
+
+@app.get("/api/finmind/{dataset}")
+async def proxy_finmind(dataset: str, data_id: str, start_date: str):
+    import requests
+    loop = asyncio.get_event_loop()
+    token = os.environ.get("FINMIND_API_TOKEN", "")
+    url = f"https://api.finmindtrade.com/api/v4/data?dataset={dataset}&data_id={data_id}&start_date={start_date}"
+    if token:
+        url += f"&token={token}"
+    
+    def fetch():
+        res = requests.get(url, timeout=15)
+        return res.json()
+    
+    try:
+        data = await loop.run_in_executor(executor, fetch)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/sync")
 async def sync_data(mode: str = "1"):
