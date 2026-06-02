@@ -184,7 +184,7 @@ const CapitalFlow = () => {
                   <div className="space-y-3">
                     {selectedIndustry.top_stocks?.map((stock, idx) => (
                       <Link 
-                        to={`/stock/${stock.id}`} 
+                        to={`/analyze/${stock.id}`} 
                         key={idx}
                         className="group flex items-center justify-between p-3 rounded-xl bg-gray-900/50 border border-gray-700/50 hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
                       >

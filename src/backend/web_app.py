@@ -745,6 +745,68 @@ async def proxy_finmind(dataset: str, data_id: str, start_date: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/raw-data/{query}")
+async def get_raw_data(query: str):
+    """
+    提供給前端分析器 (analyzer.js) 使用的單一 API，一次性回傳個股的所有原始資料。
+    利用後端的 fm_loader 快取，大幅減少前端打 4 次 API 的網路延遲與超時風險。
+    """
+    loop = asyncio.get_event_loop()
+    sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
+    if not sid:
+        raise HTTPException(status_code=404, detail="找不到對應股票代碼")
+        
+    def fetch_all():
+        d_price = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+        d_chip = (datetime.now() - timedelta(days=25)).strftime("%Y-%m-%d")
+        d_margin = (datetime.now() - timedelta(days=15)).strftime("%Y-%m-%d")
+        d_per = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
+        
+        try:
+            df_price = fetcher.fm_loader.taiwan_stock_daily_k_line(stock_id=sid, start_date=d_price)
+            price_data = df_price.fillna(0).to_dict('records') if (df_price is not None and not df_price.empty) else []
+        except: price_data = []
+            
+        try:
+            df_chip = fetcher.fm_loader.taiwan_stock_institutional_investors(stock_id=sid, start_date=d_chip)
+            chip_data = df_chip.fillna(0).to_dict('records') if (df_chip is not None and not df_chip.empty) else []
+        except: chip_data = []
+            
+        try:
+            df_margin = fetcher.fm_loader.taiwan_stock_margin_purchase_short_sale(stock_id=sid, start_date=d_margin)
+            margin_data = df_margin.fillna(0).to_dict('records') if (df_margin is not None and not df_margin.empty) else []
+        except: margin_data = []
+            
+        try:
+            df_per = fetcher.fm_loader.taiwan_stock_per_pbr(stock_id=sid, start_date=d_per)
+            per_data = df_per.fillna(0).to_dict('records') if (df_per is not None and not df_per.empty) else []
+        except: per_data = []
+            
+        intraday = fetcher.get_intraday_data(sid)
+        category = "未知"
+        if fetcher._stock_info_df is not None:
+            row = fetcher._stock_info_df[fetcher._stock_info_df['stock_id'] == sid]
+            if not row.empty:
+                col = 'industry' if 'industry' in row.columns else 'industry_category'
+                category = row.iloc[0].get(col, '未知')
+                
+        return {
+            "stock_id": sid,
+            "stock_name": fetcher._stock_id_map.get(str(sid), str(sid)),
+            "category": category,
+            "price_data": price_data,
+            "chip_data": chip_data,
+            "margin_data": margin_data,
+            "per_data": per_data,
+            "intraday": intraday
+        }
+        
+    try:
+        data = await loop.run_in_executor(executor, fetch_all)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/sync")
 async def sync_data(mode: str = "1"):
     loop = asyncio.get_event_loop()

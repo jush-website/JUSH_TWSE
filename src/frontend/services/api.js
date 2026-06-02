@@ -90,51 +90,17 @@ import { analyzeStockData } from '../utils/analyzer';
 import stockDataMap from '../assets/stock_names.json';
 
 export const analyzeStockRaw = async (query) => {
-  // 1. 解析股票代碼與名稱 
+  // 1. 整理輸入
   let rawQuery = query.trim();
-  let stockId = rawQuery;
-  let stockName = "未知";
-  let category = "未知";
+  
+  console.log("前端發送單一請求取得個股原始資料...");
+  // 透過後端一次性取得所需的所有歷史資料 (由後端做 FinMind 請求與快取)
+  const res = await api.get(`/api/raw-data/${rawQuery}`);
+  const payload = res.data; // 包含 price_data, chip_data, margin_data, per_data, intraday 等
 
-  if (stockDataMap) {
-    if (stockDataMap.id_map && stockDataMap.id_map[rawQuery]) {
-      stockId = rawQuery;
-      stockName = stockDataMap.id_map[rawQuery];
-    } else if (stockDataMap.name_map && stockDataMap.name_map[rawQuery]) {
-      stockId = stockDataMap.name_map[rawQuery];
-      stockName = rawQuery;
-    }
+  console.log("資料獲取完畢，開始在本地端進行分析...");
 
-    if (stockDataMap.industry) {
-      const row = stockDataMap.industry.find(r => r.stock_id === stockId);
-      if (row) {
-        category = row.industry || row.industry_category || "未知";
-      }
-    }
-  }
-
-  // 2. 在前端平行發送 3 個請求抓取歷史資料 (非常快)
-  console.log("前端發送請求拉取資料...");
-  const [priceData, chipData, marginData, perData] = await Promise.all([
-    fetchFinmind('TaiwanStockPrice', stockId, 90), // 近90個交易日
-    fetchFinmind('TaiwanStockInstitutionalInvestorsBuySell', stockId, 25), // 近25個交易日
-    fetchFinmind('TaiwanStockMarginPurchaseShortSale', stockId, 15), // 近15個交易日
-    fetchFinmind('TaiwanStockPER', stockId, 5) // 近5個交易日的本益比等基本面資料
-  ]);
-
-  console.log("前端拉取完畢，開始在本地端進行運算...");
-  const payload = {
-    stock_id: stockId,
-    stock_name: stockName,
-    category: category,
-    price_data: priceData,
-    chip_data: chipData,
-    margin_data: marginData,
-    per_data: perData,
-    intraday: null 
-  };
-
-  // 直接在前端執行複雜的 JS 分析運算，千分之一秒完成
+  // 直接傳給前端 JS 分析器
   const analysisResult = analyzeStockData(payload);
   
   if (analysisResult.error) {
