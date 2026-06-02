@@ -364,13 +364,13 @@ export function analyzeStockData(payload) {
   }
 
   // Parse fundamental data
-  let currentPe = 15.0;
-  let currentYield = 4.0;
-  let currentRoe = 10.0;
+  let currentPe = "-";
+  let currentYield = "-";
+  let currentRoe = "-";
   if (per_data && per_data.length > 0) {
     let latestPer = per_data[per_data.length - 1];
-    currentPe = latestPer.PER || 15.0;
-    currentYield = latestPer.dividend_yield || 0.0;
+    currentPe = latestPer.PER || "-";
+    currentYield = latestPer.dividend_yield || "-";
     if (latestPer.PER > 0 && latestPer.PBR > 0) {
       // Approximate ROE = (P/B) / (P/E) * 100
       currentRoe = (latestPer.PBR / latestPer.PER) * 100;
@@ -523,7 +523,7 @@ export function analyzeStockData(payload) {
     pe: currentPe,
     yield: currentYield,
     roe: currentRoe,
-    debt_ratio: 50.0,
+    debt_ratio: "-",
     entry_range: stratRes.entry_range,
     stop_loss: stratRes.stop_loss,
     take_profit: stratRes.take_profit,
