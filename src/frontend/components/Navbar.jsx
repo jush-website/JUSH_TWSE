@@ -135,8 +135,8 @@ const Navbar = ({ status }) => {
           </div>
 
           {/* Mobile Status & Menu Toggle */}
-          <div className="lg:hidden flex items-center space-x-3">
-            <div className="flex flex-col items-end">
+          <div className="lg:hidden flex items-center space-x-2">
+            <div className="flex flex-col items-end mr-1">
               <div className="flex items-center space-x-1.5">
                 <span className={`text-[10px] font-semibold ${marketStatus.color}`}>{marketStatus.label}</span>
                 <span className="relative flex h-1.5 w-1.5">
@@ -148,8 +148,16 @@ const Navbar = ({ status }) => {
                 {status?.last_sync ? `更新: ${status.last_sync}` : '同步中...'}
               </span>
             </div>
+            
+            <Link 
+              to="/capital-flow" 
+              className={`p-1 rounded-md transition-all ${location.pathname === '/capital-flow' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-white/5 text-gray-300 hover:text-orange-400 border border-white/5'}`}
+            >
+              <Flame size={20} />
+            </Link>
+
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-300 hover:text-white focus:outline-none p-1 border border-white/5 rounded-md bg-white/5">
-              {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
