@@ -20,11 +20,17 @@ from src.backend.data_fetcher import DataFetcher
 
 import math
 
+import pandas as pd
+
 def sanitize_data(data):
     if isinstance(data, dict):
-        return {k: sanitize_data(v) for k, v in data.items()}
+        return {str(k): sanitize_data(v) for k, v in data.items()}
     elif isinstance(data, list):
         return [sanitize_data(v) for v in data]
+    elif isinstance(data, tuple):
+        return tuple(sanitize_data(v) for v in data)
+    elif pd.isna(data):
+        return None
     elif isinstance(data, (np.bool_, bool)):
         return bool(data)
     elif isinstance(data, (np.integer, int)):
@@ -34,6 +40,12 @@ def sanitize_data(data):
         if math.isnan(val) or math.isinf(val):
             return 0.0
         return val
+    elif hasattr(data, 'item') and callable(data.item):
+        # Catch any other numpy scalars like np.int64 that slipped through
+        try:
+            return data.item()
+        except:
+            pass
     return data
 
 # 初始化服務
