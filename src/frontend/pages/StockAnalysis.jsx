@@ -138,10 +138,10 @@ const StockAnalysis = () => {
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} domain={['auto', 'auto']} />
                       <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
+                      <Tooltip isAnimationActive={false} contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
                       <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar yAxisId="right" dataKey="volume" name="成交量(張)" fill="#4B5563" opacity={0.6} />
-                      <Line yAxisId="left" type="monotone" dataKey="close" name="收盤價" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                      <Bar isAnimationActive={false} yAxisId="right" dataKey="volume" name="成交量(張)" fill="#4B5563" opacity={0.6} />
+                      <Line isAnimationActive={false} yAxisId="left" type="monotone" dataKey="close" name="收盤價" stroke="#3B82F6" strokeWidth={2} dot={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -156,15 +156,15 @@ const StockAnalysis = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
+                      <Tooltip isAnimationActive={false} contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
                       <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar dataKey="macd_hist" name="MACD柱狀">
+                      <Bar isAnimationActive={false} dataKey="macd_hist" name="MACD柱狀">
                         {data.chart_data.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.macd_hist > 0 ? '#EF4444' : '#10B981'} />
                         ))}
                       </Bar>
-                      <Line type="monotone" dataKey="macd_line" name="DIF(快線)" stroke="#F59E0B" strokeWidth={1.5} dot={false} />
-                      <Line type="monotone" dataKey="macd_signal" name="DEA(慢線)" stroke="#8B5CF6" strokeWidth={1.5} dot={false} />
+                      <Line isAnimationActive={false} type="monotone" dataKey="macd_line" name="DIF(快線)" stroke="#F59E0B" strokeWidth={1.5} dot={false} />
+                      <Line isAnimationActive={false} type="monotone" dataKey="macd_signal" name="DEA(慢線)" stroke="#8B5CF6" strokeWidth={1.5} dot={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>

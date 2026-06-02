@@ -642,39 +642,33 @@ class DataFetcher:
                     return df.tail(days)
         
         try:
-            symbol = "^TWII" if stock_id == "TAIEX" else self.get_symbol_map().get(stock_id, f"{stock_id}.TW")
-            t = yf.Ticker(symbol); df = t.history(period="1y", interval="1d", auto_adjust=False)
+            if stock_id == "TAIEX":
+                t = yf.Ticker("^TWII")
+                df = t.history(period="1y", interval="1d", auto_adjust=False)
+                if df is not None and not df.empty:
+                    for col in ['Open', 'High', 'Low', 'Close']: df[col] = df[col].round(2)
+                    df = df.dropna(subset=['Close']).reset_index()
+                    df = df.rename(columns={"Date": "Date"})
+                    df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+                    df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+            else:
+                # Use FinMind API instead of Yahoo Finance to ensure consistency and avoid missing data
+                start = (datetime.now() - timedelta(days=days * 2 + 10)).strftime("%Y-%m-%d")
+                df = self.fm_loader.taiwan_stock_daily(stock_id=stock_id, start_date=start)
+                
+                if df is not None and not df.empty:
+                    df = df.rename(columns={'date': 'Date', 'open': 'Open', 'max': 'High', 'min': 'Low', 'close': 'Close', 'Trading_Volume': 'Volume'})
+                    for col in ['Open', 'High', 'Low', 'Close']:
+                        df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
+                    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+                    df = df.dropna(subset=['Close'])
+                    df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+                    df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+
             if df is None or df.empty:
-                # 如果 yf 沒抓到，嘗試回傳舊的 (如果有)
                 with self._lock:
                     if stock_id in self._history_cache: return self._history_cache[stock_id].tail(days)
                 return pd.DataFrame()
-            
-            # 確保價格精確度
-            for col in ['Open', 'High', 'Low', 'Close']:
-                df[col] = df[col].round(2)
-
-            if pd.isna(df['Close'].iloc[-1]):
-                intraday = t.history(period="1d", interval="1m", auto_adjust=False)
-                if not intraday.empty: 
-                    df.loc[df.index[-1], ['Open', 'High', 'Low', 'Close']] = intraday['Close'].iloc[-1].round(2)
-            
-            # 修正當日收盤價 (14:00 後使用官方數據確保準確)
-            now = datetime.now(pytz.timezone("Asia/Taipei"))
-            if now.hour >= 14:
-                official_data = self._official_cache.get(stock_id)
-                last_date_str = df.index[-1].strftime("%Y-%m-%d")
-                if official_data and official_data.get('date') == last_date_str:
-                    df.loc[df.index[-1], 'Close'] = float(official_data['price'])
-                    if 'Open' in official_data: df.loc[df.index[-1], 'Open'] = float(official_data['open'])
-                    if 'High' in official_data: df.loc[df.index[-1], 'High'] = float(official_data['high'])
-                    if 'Low' in official_data: df.loc[df.index[-1], 'Low'] = float(official_data['low'])
-                    if 'Volume' in official_data: df.loc[df.index[-1], 'Volume'] = float(official_data['volume'] * 1000)
-            
-            df = df.dropna(subset=['Close']).reset_index()
-            df = df.rename(columns={"Date": "Date", "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"})
-            df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
-            df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
             
             with self._lock: 
                 self._history_cache[stock_id] = df

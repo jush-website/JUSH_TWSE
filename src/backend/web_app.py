@@ -762,14 +762,14 @@ async def proxy_finmind(dataset: str, data_id: str, start_date: str):
 async def get_raw_data(query: str):
     """
     提供給前端分析器 (analyzer.js) 使用的單一 API，一次性回傳個股的所有原始資料。
-    利用後端的 fm_loader 快取，大幅減少前端打 4 次 API 的網路延遲與超時風險。
+    利用 Firebase 快取 FinMind 重裝資料 (避免 600次/小時 限制)，並即時拉取 Yahoo 報價。
     """
     loop = asyncio.get_event_loop()
     sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
     if not sid:
         raise HTTPException(status_code=404, detail="找不到對應股票代碼")
         
-    def fetch_all():
+    def fetch_finmind_data():
         d_chip = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         d_margin = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         d_per = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
@@ -805,23 +805,16 @@ async def get_raw_data(query: str):
                 return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
             except: return []
 
-        def get_intraday():
-            try:
-                return fetcher.get_intraday_data(sid)
-            except: return {}
-
-        with ThreadPoolExecutor(max_workers=5) as ex:
+        with ThreadPoolExecutor(max_workers=4) as ex:
             fut_price = ex.submit(get_price)
             fut_chip = ex.submit(get_chip)
             fut_margin = ex.submit(get_margin)
             fut_per = ex.submit(get_per)
-            fut_intraday = ex.submit(get_intraday)
 
             price_data = fut_price.result()
             chip_data = fut_chip.result()
             margin_data = fut_margin.result()
             per_data = fut_per.result()
-            intraday = fut_intraday.result()
 
         category = "未知"
         if fetcher._stock_info_df is not None:
@@ -837,12 +830,48 @@ async def get_raw_data(query: str):
             "price_data": price_data,
             "chip_data": chip_data,
             "margin_data": margin_data,
-            "per_data": per_data,
-            "intraday": intraday
+            "per_data": per_data
         }
+
+    def get_raw_data_sync():
+        cached_data = None
+        if firebase_db:
+            try:
+                doc_ref = firebase_db.collection('raw_data_cache').document(sid)
+                doc = doc_ref.get()
+                if doc.exists:
+                    cache_content = doc.to_dict()
+                    last_updated = cache_content.get('updated_at')
+                    if last_updated:
+                        updated_time = datetime.fromisoformat(last_updated)
+                        if datetime.now(pytz.utc) - updated_time < timedelta(hours=4):
+                            cached_data = cache_content.get('payload')
+            except Exception as e:
+                print(f"[系統] Firebase cache read error: {e}")
+                
+        if not cached_data:
+            cached_data = fetch_finmind_data()
+            if firebase_db and cached_data.get("price_data"):
+                try:
+                    firebase_db.collection('raw_data_cache').document(sid).set({
+                        'payload': cached_data,
+                        'updated_at': datetime.now(pytz.utc).isoformat()
+                    })
+                except Exception as e:
+                    print(f"[系統] Firebase cache write error: {e}")
         
+        # 抓取即時報價 (Yahoo API)，完全不消耗 FinMind 額度
+        try:
+            intraday = fetcher.get_intraday_data(sid)
+        except Exception as e:
+            print(f"Intraday fetch error: {e}")
+            intraday = {}
+            
+        cached_data["intraday"] = intraday
+        return cached_data
+
     try:
-        data = await loop.run_in_executor(executor, fetch_all)
+        data = await loop.run_in_executor(executor, get_raw_data_sync)
         return sanitize_data(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
