@@ -763,7 +763,7 @@ async def get_raw_data(query: str):
         d_per = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
         
         try:
-            df_price = fetcher.fm_loader.taiwan_stock_daily_k_line(stock_id=sid, start_date=d_price)
+            df_price = fetcher.fm_loader.taiwan_stock_daily(stock_id=sid, start_date=d_price)
             price_data = df_price.fillna(0).to_dict('records') if (df_price is not None and not df_price.empty) else []
         except: price_data = []
             
