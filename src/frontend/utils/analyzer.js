@@ -357,7 +357,7 @@ function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradayS
 }
 
 export function analyzeStockData(payload) {
-  const { stock_id, stock_name, category, price_data, chip_data, margin_data, per_data, intraday } = payload;
+  const { stock_id, stock_name, category, price_data, chip_data, margin_data, per_data, intraday, news_data, revenue_data, dividend_data, financial_data } = payload;
   
   if (!price_data || price_data.length < 35) {
     return { error: "資料不足" };
@@ -542,6 +542,12 @@ export function analyzeStockData(payload) {
     volume_patterns: [],
     entry_notes: [],
     exit_rule: stratRes.exit_rule,
-    chart_data: chartData
+    chart_data: chartData,
+    
+    // Export raw payload arrays for UI consumption
+    news_data: news_data || [],
+    revenue_data: revenue_data || [],
+    dividend_data: dividend_data || [],
+    financial_data: financial_data || []
   };
 }

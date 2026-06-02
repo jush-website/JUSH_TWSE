@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { analyzeStockRaw } from '../services/api';
 import { 
-  TrendingUp, TrendingDown, AlertCircle, CheckCircle, 
-  Target, ShieldAlert, BarChart, PieChart, Info, Search
+  TrendingUp, TrendingDown, AlertCircle, Search, 
+  Newspaper, FileText, PieChart, BarChart2
 } from 'lucide-react';
 import { 
-  ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell
+  ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid
 } from 'recharts';
 
 const StockAnalysis = () => {
@@ -16,6 +16,7 @@ const StockAnalysis = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   const fetchAnalysis = async (searchQuery) => {
     if (!searchQuery) return;
@@ -48,8 +49,24 @@ const StockAnalysis = () => {
 
   const isPositive = data?.change_percent >= 0;
 
+  // Process data for charts
+  const epsData = data?.financial_data?.filter(d => d.type === 'EPS') || [];
+  const revData = data?.revenue_data || [];
+  
+  // Format revenue for chart (group by month/year)
+  const chartRevData = revData.slice(-36).map(d => ({
+    date: d.date,
+    revenue: d.revenue / 100000000, // 億
+    yoy: d.revenue_year_on_year
+  }));
+
+  const chartEpsData = epsData.slice(-12).map(d => ({
+    date: d.date,
+    value: d.value
+  }));
+
   return (
-    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 pb-20">
       {/* Search Section */}
       <div className="bg-gray-800 p-4 sm:p-6 rounded-2xl border border-gray-700 shadow-xl">
         <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-4">
@@ -88,7 +105,7 @@ const StockAnalysis = () => {
       )}
 
       {data && !loading && (
-        <div className="space-y-4 sm:space-y-6">
+        <>
           {/* Header Summary */}
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
             <div className="flex items-center space-x-3 sm:space-x-4">
@@ -110,302 +127,218 @@ const StockAnalysis = () => {
                 </div>
               </div>
             </div>
-
-            <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-center bg-gray-900/50 p-3 sm:p-6 rounded-2xl border border-gray-700 w-full sm:w-auto sm:min-w-[160px]">
-              <div className="flex sm:block flex-col sm:text-center">
-                <div className="text-gray-400 text-xs sm:text-sm mb-0 sm:mb-1">系統綜合評分</div>
-                <div className={`text-3xl sm:text-5xl font-black ${
-                  data.total_score >= 70 ? 'text-red-500' : 
-                  data.total_score >= 50 ? 'text-orange-500' : 'text-gray-400'
-                }`}>
-                  {data.total_score}
-                </div>
-              </div>
-              <div className="text-sm font-bold text-blue-400 sm:mt-2 text-right sm:text-center">{data.recommend_status}</div>
-            </div>
           </div>
 
-          {/* Charts Section */}
-          {data.chart_data && data.chart_data.length > 0 && (
-            <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-              {/* Price & Volume Chart */}
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[350px]">
-                <h2 className="text-lg font-bold text-gray-300 mb-4">價格與成交量</h2>
-                <div className="h-[250px] sm:h-[260px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chart_data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} domain={['auto', 'auto']} />
-                      <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip isAnimationActive={false} contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar isAnimationActive={false} yAxisId="right" dataKey="volume" name="成交量(張)" fill="#4B5563" opacity={0.6} />
-                      <Line isAnimationActive={false} yAxisId="left" type="monotone" dataKey="close" name="收盤價" stroke="#3B82F6" strokeWidth={2} dot={false} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+          {/* Tab Navigation */}
+          <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-3 rounded-xl font-bold transition flex items-center space-x-2 ${activeTab === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <BarChart2 size={18} /><span>綜合分析</span>
+            </button>
+            <button onClick={() => setActiveTab('news')} className={`px-6 py-3 rounded-xl font-bold transition flex items-center space-x-2 ${activeTab === 'news' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <Newspaper size={18} /><span>新聞</span>
+            </button>
+            <button onClick={() => setActiveTab('income')} className={`px-6 py-3 rounded-xl font-bold transition flex items-center space-x-2 ${activeTab === 'income' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <FileText size={18} /><span>綜合損益表</span>
+            </button>
+            <button onClick={() => setActiveTab('balance')} className={`px-6 py-3 rounded-xl font-bold transition flex items-center space-x-2 ${activeTab === 'balance' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <PieChart size={18} /><span>資產負債表</span>
+            </button>
+          </div>
 
-              {/* MACD Chart */}
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[350px]">
-                <h2 className="text-lg font-bold text-gray-300 mb-4">MACD 技術指標</h2>
-                <div className="h-[250px] sm:h-[260px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chart_data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip isAnimationActive={false} contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} itemStyle={{ color: '#E5E7EB' }} />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar isAnimationActive={false} dataKey="macd_hist" name="MACD柱狀">
-                        {data.chart_data.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.macd_hist > 0 ? '#EF4444' : '#10B981'} />
-                        ))}
-                      </Bar>
-                      <Line isAnimationActive={false} type="monotone" dataKey="macd_line" name="DIF(快線)" stroke="#F59E0B" strokeWidth={1.5} dot={false} />
-                      <Line isAnimationActive={false} type="monotone" dataKey="macd_signal" name="DEA(慢線)" stroke="#8B5CF6" strokeWidth={1.5} dot={false} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Strategy & Target Section */}
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-              {/* Strategy Card */}
-              <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-2xl border border-blue-800/50 p-4 sm:p-6 shadow-xl">
-                <div className="flex flex-wrap items-center gap-2 mb-3 sm:mb-4 text-blue-300">
-                  <Target size={20} className="sm:w-6 sm:h-6" />
-                  <h2 className="text-lg sm:text-xl font-bold">進場策略建議</h2>
-                  {data.can_enter && (
-                    <span className="bg-gray-900/50 text-white text-[11px] sm:text-sm px-3 py-1 rounded-full border border-gray-700 ml-auto font-bold">
-                      {data.can_enter}
-                    </span>
-                  )}
-                </div>
-                <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
-                  <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
-                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">建議策略</div>
-                    <div className="text-base sm:text-lg font-bold text-white">{data.strategy_name}</div>
+          {/* Tab Content */}
+          <div className="mt-4">
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                
+                {/* Top Cards (Price, Foreign, Trust) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+                    <div className="text-sm text-gray-400 mb-2">股價資訊</div>
+                    <div className="text-2xl font-bold">{data.price}</div>
+                    <div className="text-sm text-gray-400 mt-2">昨收 {data.yesterday_close}</div>
                   </div>
-                  <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
-                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">進場價位</div>
-                    <div className="text-base sm:text-lg font-bold text-green-400">{data.entry_range}</div>
-                  </div>
-                  <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
-                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">停損價位</div>
-                    <div className="text-base sm:text-lg font-bold text-red-400">{data.stop_loss}</div>
-                  </div>
-                </div>
-                {data.strategy_notes && data.strategy_notes.length > 0 && (
-                  <div className="mt-4 p-3 bg-blue-900/20 border border-blue-900/50 rounded-lg flex flex-col space-y-1 text-blue-200 text-sm">
-                    {data.strategy_notes.map((note, idx) => (
-                      <div key={idx} className="flex items-start space-x-2">
-                        <span className="text-blue-400">•</span>
-                        <span>{note}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {data.exit_rule && (
-                  <div className="mt-3 p-3 bg-red-900/20 border border-red-900/50 rounded-lg flex items-center space-x-2 text-red-300 text-sm">
-                    <ShieldAlert size={18} className="flex-shrink-0" />
-                    <span className="font-bold">出場鐵律：{data.exit_rule}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Volume Patterns Section */}
-              {data.volume_patterns && data.volume_patterns.length > 0 && (
-                <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
-                  <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
-                    <BarChart size={20} className="sm:w-6 sm:h-6" />
-                    <h2 className="text-lg sm:text-xl font-bold">成交量形態診斷</h2>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-                    {data.volume_patterns.map((vp, idx) => {
-                      const bg = vp.status === 'positive' ? 'bg-red-900/20 border-red-800/50 text-red-300' 
-                               : vp.status === 'negative' ? 'bg-green-900/20 border-green-800/50 text-green-300' 
-                               : 'bg-gray-900/60 border-gray-700 text-gray-300';
-                      return (
-                        <div key={idx} className={`p-3 sm:p-4 rounded-xl border ${bg}`}>
-                          <div className="font-bold text-base sm:text-lg mb-1">{vp.pattern}</div>
-                          <div className="text-[11px] sm:text-xs opacity-80">{vp.desc}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* CDP Card */}
-              {data.cdp && (
-                <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 text-purple-400">
-                      <Target size={20} className="sm:w-6 sm:h-6" />
-                      <h2 className="text-lg sm:text-xl font-bold">CDP 走勢預測</h2>
+                  <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+                    <div className="text-sm text-gray-400 mb-2">外資買賣超(3日)</div>
+                    <div className={`text-2xl font-bold ${data.net_buy_3d > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {data.net_buy_3d > 0 ? '+' : ''}{data.net_buy_3d} 張
                     </div>
-                    {data.cdp.base_date && (
-                      <span className="text-[10px] sm:text-xs bg-purple-900/40 text-purple-300 px-2 py-1 rounded">
-                        基準日: {data.cdp.base_date}
-                      </span>
-                    )}
+                  </div>
+                  <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+                    <div className="text-sm text-gray-400 mb-2">本益比 / 殖利率</div>
+                    <div className="text-2xl font-bold text-blue-400">{data.pe} / {data.yield}%</div>
+                  </div>
+                </div>
+
+                {/* Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl h-[350px]">
+                    <h3 className="text-lg font-bold mb-4">EPS 歷年走勢</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={chartEpsData} margin={{ top: 5, right: 0, left: -20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                        <YAxis stroke="#9CA3AF" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151' }} />
+                        <Line type="monotone" dataKey="value" name="EPS" stroke="#EF4444" strokeWidth={2} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                   
-                  <div className="grid grid-cols-5 gap-1 sm:gap-4 text-center">
-                    <div className="bg-red-950/40 border border-red-900/50 p-2 sm:p-3 rounded-xl">
-                      <div className="text-red-400 text-[9px] sm:text-xs font-bold mb-1">AH</div>
-                      <div className="text-xs sm:text-lg font-black text-red-300">{data.cdp.AH}</div>
-                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">突破追買</div>
-                    </div>
-                    <div className="bg-orange-950/40 border border-orange-900/30 p-2 sm:p-3 rounded-xl">
-                      <div className="text-orange-400 text-[9px] sm:text-xs font-bold mb-1">NH</div>
-                      <div className="text-xs sm:text-lg font-black text-orange-300">{data.cdp.NH}</div>
-                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">高壓遇阻</div>
-                    </div>
-                    <div className="bg-gray-900/80 border border-gray-700 p-2 sm:p-3 rounded-xl">
-                      <div className="text-gray-300 text-[9px] sm:text-xs font-bold mb-1">CDP</div>
-                      <div className="text-xs sm:text-lg font-black text-white">{data.cdp.CDP}</div>
-                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">多空分界</div>
-                    </div>
-                    <div className="bg-green-950/40 border border-green-900/30 p-2 sm:p-3 rounded-xl">
-                      <div className="text-green-400 text-[9px] sm:text-xs font-bold mb-1">NL</div>
-                      <div className="text-xs sm:text-lg font-black text-green-300">{data.cdp.NL}</div>
-                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">低檔買進</div>
-                    </div>
-                    <div className="bg-emerald-950/40 border border-emerald-900/50 p-2 sm:p-3 rounded-xl">
-                      <div className="text-emerald-400 text-[9px] sm:text-xs font-bold mb-1">AL</div>
-                      <div className="text-xs sm:text-lg font-black text-emerald-300">{data.cdp.AL}</div>
-                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-1 hidden sm:block">跌破追賣</div>
+                  <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl h-[350px]">
+                    <h3 className="text-lg font-bold mb-4">月營收 (億)</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={chartRevData} margin={{ top: 5, right: 0, left: -20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                        <YAxis stroke="#9CA3AF" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151' }} />
+                        <Bar dataKey="revenue" name="營收(億)" fill="#3B82F6" opacity={0.8} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Indicator Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 text-center">
+                    <div className="text-xs text-gray-400">系統評分</div>
+                    <div className="text-xl font-bold mt-1 text-orange-400">{data.total_score}</div>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 text-center">
+                    <div className="text-xs text-gray-400">BIAS 乖離率</div>
+                    <div className="text-xl font-bold mt-1 text-blue-400">{data.bias_20}%</div>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 text-center">
+                    <div className="text-xs text-gray-400">RSI 指標</div>
+                    <div className="text-xl font-bold mt-1 text-purple-400">{data.rsi}</div>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 text-center">
+                    <div className="text-xs text-gray-400">MACD</div>
+                    <div className="text-xl font-bold mt-1 text-pink-400">{data.macd}</div>
+                  </div>
+                </div>
+
+                {/* Dividend Tables */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
+                    <h3 className="p-4 font-bold bg-gray-900 border-b border-gray-700 text-green-400">除息/配息紀錄</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-800 text-gray-400">
+                          <tr>
+                            <th className="px-4 py-3">日期</th>
+                            <th className="px-4 py-3">現金股利</th>
+                            <th className="px-4 py-3">股票股利</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.dividend_data && data.dividend_data.slice(0, 10).map((d, i) => (
+                            <tr key={i} className="border-t border-gray-700 hover:bg-gray-700/50">
+                              <td className="px-4 py-3">{d.date}</td>
+                              <td className="px-4 py-3 text-red-400">{d.cash_dividend || '-'}</td>
+                              <td className="px-4 py-3 text-blue-400">{d.stock_dividend || '-'}</td>
+                            </tr>
+                          ))}
+                          {(!data.dividend_data || data.dividend_data.length === 0) && (
+                            <tr><td colSpan="3" className="px-4 py-4 text-center text-gray-500">尚無股利資料</td></tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
+                  
+                  <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden flex items-center justify-center min-h-[200px]">
+                     <div className="text-center p-6">
+                        <div className="text-2xl font-bold text-gray-300 mb-2">技術分析摘要</div>
+                        <div className="text-blue-400">{data.diagnosis}</div>
+                     </div>
+                  </div>
+                </div>
 
-                  {data.cdp.signals && data.cdp.signals.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {data.cdp.signals.map((sig, sIdx) => (
-                        <span key={sIdx} className="bg-purple-900/30 text-purple-300 text-[10px] sm:text-xs px-2.5 py-1 rounded-full border border-purple-800/30">
-                          {sig}
-                        </span>
-                      ))}
-                    </div>
+              </div>
+            )}
+
+            {activeTab === 'news' && (
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl p-6">
+                <h3 className="text-xl font-bold mb-6 text-blue-400 flex items-center gap-2"><Newspaper /> 個股相關新聞</h3>
+                <div className="space-y-4">
+                  {data.news_data && data.news_data.length > 0 ? (
+                    data.news_data.map((item, idx) => (
+                      <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="block bg-gray-900/50 p-4 rounded-xl border border-gray-700 hover:border-blue-500 hover:bg-gray-800 transition">
+                        <div className="text-xs text-gray-400 mb-1">{item.date} | {item.source}</div>
+                        <div className="text-lg font-bold text-gray-200">{item.title}</div>
+                      </a>
+                    ))
+                  ) : (
+                    <div className="text-center py-10 text-gray-500">暫無新聞資料 (可能受到 FinMind 額度限制)</div>
                   )}
                 </div>
-              )}
-
-              {/* Diagnosis Details */}
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
-                  <Activity size={20} className="sm:w-6 sm:h-6" />
-                  <h2 className="text-lg sm:text-xl font-bold">專業診斷報告</h2>
-                </div>
-                <div className="space-y-2 sm:space-y-3">
-                  {data.diagnosis.map((line, idx) => (
-                    <div key={idx} className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-3 bg-gray-900/40 rounded-xl hover:bg-gray-900/60 transition">
-                      <div className="mt-0.5 sm:mt-1">
-                        {line.includes('!!!') || line.includes('警告') ? <ShieldAlert className="text-red-500 w-4 h-4 sm:w-5 sm:h-5" /> : 
-                         line.includes('看多') || line.includes('強勢') ? <TrendingUp className="text-red-400 w-4 h-4 sm:w-5 sm:h-5" /> :
-                         <CheckCircle className="text-blue-400 w-4 h-4 sm:w-5 sm:h-5" />}
-                      </div>
-                      <p className="text-gray-200 text-sm sm:text-base leading-relaxed">{line}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
-            </div>
+            )}
 
-            {/* Technical Indicators Sidebar */}
-            <div className="space-y-4 sm:space-y-6">
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
-                  <BarChart size={20} className="sm:w-6 sm:h-6" />
-                  <h2 className="text-lg sm:text-xl font-bold">關鍵技術指標</h2>
-                </div>
-                <div className="space-y-4">
-                  {[
-                    { label: 'KD 指標', value: data.kd, color: 'text-orange-400' },
-                    { label: 'RSI 強度', value: data.rsi, color: data.rsi > 70 ? 'text-red-400' : 'text-blue-400' },
-                    { label: 'MACD 趨勢', value: data.macd, color: data.macd.includes('多') ? 'text-red-400' : 'text-green-400' },
-                    { label: '5日均線', value: data.ma5, color: 'text-gray-200' },
-                    { label: '20日月線', value: data.ma20, color: 'text-gray-200' },
-                    { label: '60日季線', value: data.ma60, color: 'text-gray-200' },
-                    { label: '量能比例', value: data.vol_ratio, color: data.vol_ratio > 1.5 ? 'text-orange-400' : 'text-gray-400' },
-                    { label: '年化波動率', value: `${data.volatility}%`, color: 'text-purple-400' }
-                  ].map(item => (
-                    <div key={item.label} className="flex justify-between items-center border-b border-gray-700 pb-2">
-                      <span className="text-gray-400 text-sm">{item.label}</span>
-                      <span className={`font-bold ${item.color}`}>{item.value}</span>
-                    </div>
-                  ))}
-                </div>
+            {activeTab === 'income' && (
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
+                 <h3 className="p-6 font-bold bg-gray-900 border-b border-gray-700 text-blue-400 text-xl flex items-center gap-2"><FileText/> 綜合損益表</h3>
+                 <div className="overflow-x-auto p-4">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-800 text-gray-400 border-b border-gray-600">
+                        <tr>
+                          <th className="px-4 py-3">日期</th>
+                          <th className="px-4 py-3">項目</th>
+                          <th className="px-4 py-3 text-right">數值</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.financial_data && data.financial_data.filter(d => d.type !== 'BalanceSheet').slice(0, 100).map((d, i) => (
+                          <tr key={i} className="border-b border-gray-700 hover:bg-gray-700/50">
+                            <td className="px-4 py-2">{d.date}</td>
+                            <td className="px-4 py-2 text-gray-300">{d.origin_name}</td>
+                            <td className="px-4 py-2 text-right text-blue-300">{Number(d.value).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {(!data.financial_data || data.financial_data.length === 0) && (
+                          <tr><td colSpan="3" className="px-4 py-8 text-center text-gray-500">暫無財報資料 (可能受到 FinMind 額度限制)</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                 </div>
               </div>
+            )}
 
-              {/* Fundamentals Card */}
-              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
-                  <PieChart size={20} className="sm:w-6 sm:h-6" />
-                  <h2 className="text-lg sm:text-xl font-bold">基本面評估</h2>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">本益比 PE</div>
-                    <div className="text-lg font-bold">{data.pe}</div>
-                  </div>
-                  <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">殖利率 %</div>
-                    <div className="text-lg font-bold">{data.yield}%</div>
-                  </div>
-                  <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">ROE %</div>
-                    <div className="text-lg font-bold">{data.roe}%</div>
-                  </div>
-                  <div className="bg-gray-900/60 p-3 rounded-xl text-center">
-                    <div className="text-gray-500 text-[10px] uppercase">負債比 %</div>
-                    <div className="text-lg font-bold">{data.debt_ratio}%</div>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-2 border-t border-gray-700/50 pt-4">
-                  <div className="text-[11px] sm:text-xs text-gray-400">
-                    <span className="text-blue-400 font-bold">本益比 (PE)</span>：評估股價是否合理的指標，越低代表回本越快。
-                  </div>
-                  <div className="text-[11px] sm:text-xs text-gray-400">
-                    <span className="text-blue-400 font-bold">殖利率</span>：每年配息金額除以股價，越高代表領取的現金股利越多。
-                  </div>
-                  <div className="text-[11px] sm:text-xs text-gray-400">
-                    <span className="text-blue-400 font-bold">ROE (股東權益報酬率)</span>：公司利用股東資金獲利的能力，越高賺錢效率越好。
-                  </div>
-                  <div className="text-[11px] sm:text-xs text-gray-400">
-                    <span className="text-blue-400 font-bold">負債比</span>：衡量公司財務槓桿與風險的指標，過高代表財務壓力大。
-                  </div>
-                </div>
+            {activeTab === 'balance' && (
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
+                 <h3 className="p-6 font-bold bg-gray-900 border-b border-gray-700 text-purple-400 text-xl flex items-center gap-2"><PieChart/> 資產負債表</h3>
+                 <div className="overflow-x-auto p-4">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-800 text-gray-400 border-b border-gray-600">
+                        <tr>
+                          <th className="px-4 py-3">日期</th>
+                          <th className="px-4 py-3">項目</th>
+                          <th className="px-4 py-3 text-right">數值</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.financial_data && data.financial_data.filter(d => d.type === 'BalanceSheet').slice(0, 100).map((d, i) => (
+                          <tr key={i} className="border-b border-gray-700 hover:bg-gray-700/50">
+                            <td className="px-4 py-2">{d.date}</td>
+                            <td className="px-4 py-2 text-gray-300">{d.origin_name}</td>
+                            <td className="px-4 py-2 text-right text-purple-300">{Number(d.value).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {(!data.financial_data || data.financial_data.length === 0) && (
+                          <tr><td colSpan="3" className="px-4 py-8 text-center text-gray-500">暫無財報資料 (可能受到 FinMind 額度限制)</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                 </div>
               </div>
-            </div>
+            )}
+
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 };
-
-// Activity icon for the diagnosis section
-const Activity = ({ size, className }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-  </svg>
-);
 
 export default StockAnalysis;

@@ -3,6 +3,7 @@ import axios from 'axios';
 const api = axios.create({
   // 回復使用 VITE_API_URL 讓前端呼叫 Render
   baseURL: import.meta.env.VITE_API_URL || '', 
+  timeout: 30000, // 加入 30 秒超時機制，避免無限轉圈
 });
 
 // 攔截器：如果 Vercel 回傳了 index.html (通常是因為 API 崩潰或尚未部署)，則視為錯誤

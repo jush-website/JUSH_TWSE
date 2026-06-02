@@ -121,7 +121,7 @@ async def background_sync():
                 await loop.run_in_executor(None, fetcher.sync_if_needed)
             except Exception as e:
                 print(f"[系統] 背景同步發生錯誤: {e}")
-            await asyncio.sleep(60)
+            await asyncio.sleep(3600)
     except asyncio.CancelledError:
         pass
 
@@ -773,6 +773,10 @@ async def get_raw_data(query: str):
         d_chip = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         d_margin = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         d_per = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        d_news = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+        d_rev = (datetime.now() - timedelta(days=365*3)).strftime("%Y-%m-%d")
+        d_div = (datetime.now() - timedelta(days=365*5)).strftime("%Y-%m-%d")
+        d_fin = (datetime.now() - timedelta(days=365*3)).strftime("%Y-%m-%d")
         
         def get_price():
             try:
@@ -805,16 +809,48 @@ async def get_raw_data(query: str):
                 return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
             except: return []
 
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        def get_news():
+            try:
+                df = fetcher.fm_loader.get_data(dataset='TaiwanStockNews', data_id=sid, start_date=d_news)
+                return df.fillna("").to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
+        def get_revenue():
+            try:
+                df = fetcher.fm_loader.taiwan_stock_month_revenue(stock_id=sid, start_date=d_rev)
+                return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
+        def get_dividend():
+            try:
+                df = fetcher.fm_loader.get_data(dataset='TaiwanStockDividendResult', data_id=sid, start_date=d_div)
+                return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
+        def get_financials():
+            try:
+                df = fetcher.fm_loader.taiwan_stock_financial_statements(stock_id=sid, start_date=d_fin)
+                return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
+        with ThreadPoolExecutor(max_workers=8) as ex:
             fut_price = ex.submit(get_price)
             fut_chip = ex.submit(get_chip)
             fut_margin = ex.submit(get_margin)
             fut_per = ex.submit(get_per)
+            fut_news = ex.submit(get_news)
+            fut_rev = ex.submit(get_revenue)
+            fut_div = ex.submit(get_dividend)
+            fut_fin = ex.submit(get_financials)
 
             price_data = fut_price.result()
             chip_data = fut_chip.result()
             margin_data = fut_margin.result()
             per_data = fut_per.result()
+            news_data = fut_news.result()
+            revenue_data = fut_rev.result()
+            dividend_data = fut_div.result()
+            financial_data = fut_fin.result()
 
         category = "未知"
         if fetcher._stock_info_df is not None:
@@ -830,7 +866,11 @@ async def get_raw_data(query: str):
             "price_data": price_data,
             "chip_data": chip_data,
             "margin_data": margin_data,
-            "per_data": per_data
+            "per_data": per_data,
+            "news_data": news_data,
+            "revenue_data": revenue_data,
+            "dividend_data": dividend_data,
+            "financial_data": financial_data
         }
 
     def get_raw_data_sync():
@@ -860,18 +900,21 @@ async def get_raw_data(query: str):
                 except Exception as e:
                     print(f"[系統] Firebase cache write error: {e}")
         
-        # 抓取即時報價 (Yahoo API)，完全不消耗 FinMind 額度
-        try:
-            intraday = fetcher.get_intraday_data(sid)
-        except Exception as e:
-            print(f"Intraday fetch error: {e}")
-            intraday = {}
-            
-        cached_data["intraday"] = intraday
         return cached_data
 
     try:
-        data = await loop.run_in_executor(executor, get_raw_data_sync)
+        finmind_task = loop.run_in_executor(executor, get_raw_data_sync)
+        
+        def safe_get_intraday():
+            try: return fetcher.get_intraday_data(sid)
+            except Exception as e:
+                print(f"Intraday fetch error: {e}")
+                return {}
+                
+        intraday_task = loop.run_in_executor(executor, safe_get_intraday)
+        
+        data, intraday = await asyncio.gather(finmind_task, intraday_task)
+        data["intraday"] = intraday
         return sanitize_data(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
