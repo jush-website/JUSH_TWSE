@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getCapitalFlow } from '../services/api';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame } from 'lucide-react';
+import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 
 const CapitalFlow = () => {
@@ -19,7 +19,10 @@ const CapitalFlow = () => {
         setData(res.data || []);
         setLastUpdated(res.updated_at);
         if (res.data && res.data.length > 0) {
-          setSelectedIndustry(res.data[0]); // Default select the top industry
+          // 在電腦版 (>=1024px) 預設選中第一筆，手機版則不選中，避免直接跳出彈窗
+          if (window.innerWidth >= 1024) {
+            setSelectedIndustry(res.data[0]);
+          }
         }
       } catch (err) {
         setError(err.message || '無法取得資金流向資料');
@@ -77,6 +80,67 @@ const CapitalFlow = () => {
     if (val >= 10000) return `${(val / 10000).toFixed(0)}萬`;
     return val.toString();
   };
+
+  const industryDetailsContent = selectedIndustry ? (
+    <>
+      <div className="flex justify-between items-start mb-4 pb-4 border-b border-gray-700/50 pr-8">
+        <div>
+          <h2 className="text-xl font-bold text-white">{selectedIndustry.industry}</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            市場資金佔比 {selectedIndustry.value_ratio}%
+          </p>
+        </div>
+        <div className={`text-xl font-bold ${selectedIndustry.avg_change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+          {selectedIndustry.avg_change_pct > 0 ? '+' : ''}{selectedIndustry.avg_change_pct}%
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center">
+          <TrendingUp className="w-4 h-4 mr-1.5" />
+          板塊代表標的 (依成交值)
+        </h3>
+        <div className="space-y-3">
+          {selectedIndustry.top_stocks?.map((stock, idx) => (
+            <Link 
+              to={`/analyze/${stock.id}`} 
+              key={idx}
+              className="group flex items-center justify-between p-3 rounded-xl bg-gray-900/50 border border-gray-700/50 hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
+            >
+              <div>
+                <div className="font-bold text-gray-200 group-hover:text-blue-400 transition-colors flex items-center">
+                  {stock.name} 
+                  <span className="text-xs text-gray-500 ml-2">{stock.id}</span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  成交值: {formatMoney(stock.value)}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-300">
+                  ${stock.price}
+                </div>
+                <div className={`text-xs font-bold mt-1 ${stock.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  {stock.change_pct > 0 ? '+' : ''}{stock.change_pct}%
+                </div>
+              </div>
+            </Link>
+          ))}
+          {(!selectedIndustry.top_stocks || selectedIndustry.top_stocks.length === 0) && (
+            <div className="text-center py-6 text-gray-500 text-sm">
+              無代表標的資料
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-3 bg-blue-900/20 border border-blue-800/30 rounded-lg">
+        <p className="text-xs text-blue-200 leading-relaxed">
+          <strong>分析提示：</strong> 若某產業的「資金佔比」連續幾日放大，且「平均漲幅」維持正值，代表法人與熱錢正積極流入該板塊，是短波段操作的首選目標。反之若資金佔比極高但漲勢停滯，需留意高檔出貨風險。
+        </p>
+      </div>
+    </>
+  ) : null;
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
@@ -159,74 +223,26 @@ const CapitalFlow = () => {
           </div>
         </div>
 
-        {/* Selected Industry Detail Section */}
-        <div className="lg:col-span-1 space-y-4">
+        {/* Selected Industry Detail Section (Desktop) */}
+        <div className="hidden lg:block lg:col-span-1 space-y-4">
           <div className="bg-gray-800/40 rounded-2xl border border-gray-700/50 p-4 sm:p-5 sticky top-20">
-            {selectedIndustry ? (
-              <>
-                <div className="flex justify-between items-start mb-4 pb-4 border-b border-gray-700/50">
-                  <div>
-                    <h2 className="text-xl font-bold text-white">{selectedIndustry.industry}</h2>
-                    <p className="text-sm text-gray-400 mt-1">
-                      市場資金佔比 {selectedIndustry.value_ratio}%
-                    </p>
-                  </div>
-                  <div className={`text-xl font-bold ${selectedIndustry.avg_change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {selectedIndustry.avg_change_pct > 0 ? '+' : ''}{selectedIndustry.avg_change_pct}%
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center">
-                    <TrendingUp className="w-4 h-4 mr-1.5" />
-                    板塊代表標的 (依成交值)
-                  </h3>
-                  <div className="space-y-3">
-                    {selectedIndustry.top_stocks?.map((stock, idx) => (
-                      <Link 
-                        to={`/analyze/${stock.id}`} 
-                        key={idx}
-                        className="group flex items-center justify-between p-3 rounded-xl bg-gray-900/50 border border-gray-700/50 hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
-                      >
-                        <div>
-                          <div className="font-bold text-gray-200 group-hover:text-blue-400 transition-colors flex items-center">
-                            {stock.name} 
-                            <span className="text-xs text-gray-500 ml-2">{stock.id}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            成交值: {formatMoney(stock.value)}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium text-gray-300">
-                            ${stock.price}
-                          </div>
-                          <div className={`text-xs font-bold mt-1 ${stock.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
-                            {stock.change_pct > 0 ? '+' : ''}{stock.change_pct}%
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                    {(!selectedIndustry.top_stocks || selectedIndustry.top_stocks.length === 0) && (
-                      <div className="text-center py-6 text-gray-500 text-sm">
-                        無代表標的資料
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="p-3 bg-blue-900/20 border border-blue-800/30 rounded-lg">
-                  <p className="text-xs text-blue-200 leading-relaxed">
-                    <strong>分析提示：</strong> 若某產業的「資金佔比」連續幾日放大，且「平均漲幅」維持正值，代表法人與熱錢正積極流入該板塊，是短波段操作的首選目標。反之若資金佔比極高但漲勢停滯，需留意高檔出貨風險。
-                  </p>
-                </div>
-              </>
-            ) : (
+            {selectedIndustry ? industryDetailsContent : (
               <div className="text-center py-10 text-gray-500">
                 點擊左側熱力圖查看產業細節
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Selected Industry Modal (Mobile) */}
+      <div className={`lg:hidden fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${selectedIndustry ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedIndustry(null)}></div>
+        <div className={`bg-gray-900 rounded-2xl border border-gray-700 p-5 relative z-10 w-full max-w-md max-h-[85vh] overflow-y-auto transform transition-transform duration-300 shadow-2xl ${selectedIndustry ? 'scale-100 translate-y-0' : 'scale-95 translate-y-10'}`}>
+          <button onClick={() => setSelectedIndustry(null)} className="absolute top-4 right-4 text-gray-400 hover:text-white p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors">
+            <X size={20} />
+          </button>
+          {industryDetailsContent}
         </div>
       </div>
     </div>
