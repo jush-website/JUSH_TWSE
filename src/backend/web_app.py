@@ -770,40 +770,59 @@ async def get_raw_data(query: str):
         raise HTTPException(status_code=404, detail="找不到對應股票代碼")
         
     def fetch_all():
-        d_price = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
-        d_chip = (datetime.now() - timedelta(days=25)).strftime("%Y-%m-%d")
-        d_margin = (datetime.now() - timedelta(days=15)).strftime("%Y-%m-%d")
-        d_per = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
+        d_chip = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        d_margin = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        d_per = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         
-        try:
-            df_price = fetcher.get_price_data(sid, days=90)
-            if df_price is not None and not df_price.empty:
-                df_price = df_price.reset_index()
-                if 'Date' in df_price.columns:
-                    df_price['Date'] = df_price['Date'].dt.strftime('%Y-%m-%d')
-                elif 'index' in df_price.columns:
-                    df_price['index'] = df_price['index'].dt.strftime('%Y-%m-%d')
-                price_data = df_price.fillna(0).to_dict('records')
-            else:
-                price_data = []
-        except: price_data = []
-            
-        try:
-            df_chip = fetcher.fm_loader.taiwan_stock_institutional_investors(stock_id=sid, start_date=d_chip)
-            chip_data = df_chip.fillna(0).to_dict('records') if (df_chip is not None and not df_chip.empty) else []
-        except: chip_data = []
-            
-        try:
-            df_margin = fetcher.fm_loader.taiwan_stock_margin_purchase_short_sale(stock_id=sid, start_date=d_margin)
-            margin_data = df_margin.fillna(0).to_dict('records') if (df_margin is not None and not df_margin.empty) else []
-        except: margin_data = []
-            
-        try:
-            df_per = fetcher.fm_loader.taiwan_stock_per_pbr(stock_id=sid, start_date=d_per)
-            per_data = df_per.fillna(0).to_dict('records') if (df_per is not None and not df_per.empty) else []
-        except: per_data = []
-            
-        intraday = fetcher.get_intraday_data(sid)
+        def get_price():
+            try:
+                df = fetcher.get_price_data(sid, days=90)
+                if df is not None and not df.empty:
+                    df = df.reset_index()
+                    if 'Date' in df.columns:
+                        df['Date'] = df['Date'].dt.strftime('%Y-%m-%d')
+                    elif 'index' in df.columns:
+                        df['index'] = df['index'].dt.strftime('%Y-%m-%d')
+                    return df.fillna(0).to_dict('records')
+                return []
+            except: return []
+
+        def get_chip():
+            try:
+                df = fetcher.fm_loader.taiwan_stock_institutional_investors(stock_id=sid, start_date=d_chip)
+                return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
+        def get_margin():
+            try:
+                df = fetcher.fm_loader.taiwan_stock_margin_purchase_short_sale(stock_id=sid, start_date=d_margin)
+                return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
+        def get_per():
+            try:
+                df = fetcher.fm_loader.taiwan_stock_per_pbr(stock_id=sid, start_date=d_per)
+                return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
+        def get_intraday():
+            try:
+                return fetcher.get_intraday_data(sid)
+            except: return {}
+
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            fut_price = ex.submit(get_price)
+            fut_chip = ex.submit(get_chip)
+            fut_margin = ex.submit(get_margin)
+            fut_per = ex.submit(get_per)
+            fut_intraday = ex.submit(get_intraday)
+
+            price_data = fut_price.result()
+            chip_data = fut_chip.result()
+            margin_data = fut_margin.result()
+            per_data = fut_per.result()
+            intraday = fut_intraday.result()
+
         category = "未知"
         if fetcher._stock_info_df is not None:
             row = fetcher._stock_info_df[fetcher._stock_info_df['stock_id'] == sid]
