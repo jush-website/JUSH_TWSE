@@ -776,8 +776,16 @@ async def get_raw_data(query: str):
         d_per = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
         
         try:
-            df_price = fetcher.fm_loader.taiwan_stock_daily(stock_id=sid, start_date=d_price)
-            price_data = df_price.fillna(0).to_dict('records') if (df_price is not None and not df_price.empty) else []
+            df_price = fetcher.get_price_data(sid, days=90)
+            if df_price is not None and not df_price.empty:
+                df_price = df_price.reset_index()
+                if 'Date' in df_price.columns:
+                    df_price['Date'] = df_price['Date'].dt.strftime('%Y-%m-%d')
+                elif 'index' in df_price.columns:
+                    df_price['index'] = df_price['index'].dt.strftime('%Y-%m-%d')
+                price_data = df_price.fillna(0).to_dict('records')
+            else:
+                price_data = []
         except: price_data = []
             
         try:
