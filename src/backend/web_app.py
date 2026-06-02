@@ -23,8 +23,10 @@ import math
 import pandas as pd
 
 def sanitize_data(data):
-    if isinstance(data, dict):
-        return {str(k): sanitize_data(v) for k, v in data.items()}
+    if isinstance(data, (pd.DataFrame, pd.Series)):
+        return None # Prevent DataFrames from causing pd.isna ambiguous truth value errors
+    elif isinstance(data, dict):
+        return {str(k): sanitize_data(v) for k, v in data.items() if not isinstance(v, (pd.DataFrame, pd.Series))}
     elif isinstance(data, list):
         return [sanitize_data(v) for v in data]
     elif isinstance(data, tuple):
@@ -41,7 +43,6 @@ def sanitize_data(data):
             return 0.0
         return val
     elif hasattr(data, 'item') and callable(data.item):
-        # Catch any other numpy scalars like np.int64 that slipped through
         try:
             return data.item()
         except:
