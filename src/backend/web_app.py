@@ -803,7 +803,7 @@ async def get_raw_data(query: str):
         
     try:
         data = await loop.run_in_executor(executor, fetch_all)
-        return data
+        return sanitize_data(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
