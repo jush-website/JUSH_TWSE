@@ -264,33 +264,96 @@ function evaluateOpeningChecklist(intradaySnapshot) {
   return { score, status, signals, details: [] };
 }
 
-function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradaySnapshot) {
+function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradaySnapshot, isEtf, currentPe, currentYield, ma20Series, ma60Series, bias20Series, chipNetBuy) {
   let close = closeSeries[closeSeries.length - 1];
   let volAvg = sma(volSeries.slice(-6, -1), 5)[4] || 1;
   let volRatio = volSeries[volSeries.length - 1] / volAvg;
+  
+  let ma20 = ma20Series[ma20Series.length - 1];
+  let ma60 = ma60Series[ma60Series.length - 1];
+  let bias20 = bias20Series[bias20Series.length - 1];
+  let netBuy3d = chipNetBuy.slice(-3).reduce((a, b) => a + b, 0);
   
   let strategy = "中性觀望";
   let entryRange = "建議等候拉回";
   let stopLoss = Math.round(close * 0.93 * 100) / 100;
   let takeProfit = Math.round(close * 1.1 * 100) / 100;
-  let strategyNotes = ["區間震盪"];
+  let strategyNotes = ["切勿單筆重倉，請採資金分批策略(預備4筆資金)"];
   let exitRule = "跌破今日開盤價或停損點出場";
+  let canEnter = false;
   
-  if (close >= upper[upper.length - 1] * 0.98 && volRatio > 1.3) {
-    strategy = "強勢突破";
-    entryRange = "現價進場";
-    stopLoss = Math.round(close * 0.95 * 100) / 100;
-    strategyNotes = ["爆發潛力"];
-  }
-  
-  if (intradaySnapshot && intradaySnapshot.open) {
-    if (close < intradaySnapshot.open) {
-      strategy = "立刻退場";
-      strategyNotes.push("!!! 已經跌破今日開盤價，符合強制出場條件 !!!");
+  if (isEtf) {
+    strategy = "定期定額 / 大跌分批佈局";
+    entryRange = "不預設高低點，每月固定買進或大跌加碼";
+    strategyNotes = [
+      "適合大多散戶/存股族",
+      "能有效分散風險並平均成本",
+      "當市場自高點回檔10~20%可分批進場承接"
+    ];
+    exitRule = "長線投資，依個人財務規劃出場";
+    canEnter = true;
+    stopLoss = "無(長線存股)";
+  } else {
+    let goodFundamentals = false;
+    if (currentPe > 0 && currentPe < 15) {
+      strategyNotes.push("本益比偏低，具長線估值優勢");
+      goodFundamentals = true;
+    }
+    if (currentYield >= 5.0) {
+      strategyNotes.push("殖利率大於5%，逢低布局首選");
+      goodFundamentals = true;
+    }
+    if (netBuy3d > 0) {
+      strategyNotes.push("近期法人偏多買超，跟隨主力勝率較高");
+    }
+
+    if (close > ma60 && close <= ma60 * 1.05 && ma20 > ma60) {
+      strategy = "技術面買點";
+      entryRange = `季線支撐附近 (${Math.round(ma60 * 100) / 100}) 伺機進場`;
+      stopLoss = Math.round(ma60 * 0.98 * 100) / 100;
+      strategyNotes.push("多頭格局中回檔季線獲支撐");
+      canEnter = true;
+    } else if (bias20 > 8) {
+      strategy = "正乖離過大";
+      entryRange = "短線過熱，不建議追高";
+      strategyNotes.push("短線暴漲遠離均線，容易引發獲利了結");
+      canEnter = false;
+    } else if (bias20 < -8) {
+      strategy = "負乖離過大";
+      entryRange = `現價 ${close} 附近分批低接`;
+      strategyNotes.push("短線急跌導致負乖離過大，容易出現反彈");
+      canEnter = true;
+    } else if (close >= upper[upper.length - 1] * 0.98 && volRatio > 1.3) {
+      strategy = "強勢突破";
+      entryRange = "現價進場";
+      stopLoss = Math.round(close * 0.95 * 100) / 100;
+      strategyNotes.push("帶量突破，具爆發潛力");
+      canEnter = true;
+    } else if (goodFundamentals && close < ma20) {
+      strategy = "價值低估底倉";
+      entryRange = `均線下彎，建議等候 ${Math.round(close * 0.95 * 100) / 100} 分批買進`;
+      canEnter = true;
+    }
+    
+    if (intradaySnapshot && intradaySnapshot.open) {
+      if (close < intradaySnapshot.open) {
+        strategy = "立刻退場";
+        entryRange = "觀望";
+        canEnter = false;
+        strategyNotes.push("!!! 已跌破今日開盤價，符合強制出場條件 !!!");
+      }
     }
   }
   
-  return { strategy, entry_range: entryRange, stop_loss: stopLoss, take_profit: takeProfit, strategy_notes: strategyNotes, exit_rule: exitRule };
+  return { 
+    strategy, 
+    entry_range: entryRange, 
+    stop_loss: stopLoss, 
+    take_profit: takeProfit, 
+    strategy_notes: strategyNotes, 
+    exit_rule: exitRule,
+    can_enter: canEnter
+  };
 }
 
 export function analyzeStockData(payload) {
@@ -368,11 +431,10 @@ export function analyzeStockData(payload) {
   let prevClose = closeSeries[prevIdx];
   let changePct = ((lastClose - prevClose) / prevClose) * 100;
   
-  let isEtf = false; 
-  let categoryStr = category || classifyCategory(stock_id, stock_name, "未知", 20);
+  let isEtf = categoryStr.includes("ETF") || stock_name.includes("ETF") || stock_id.startsWith("00");
   
   let stRes = evaluateShortTerm(closeSeries, volumeSeries, false, false);
-  let stratRes = calculateEntryStrategy(closeSeries, volumeSeries, bb.upper, bb.middle, intraday);
+  let stratRes = calculateEntryStrategy(closeSeries, volumeSeries, bb.upper, bb.middle, intraday, isEtf, currentPe, currentYield, ma20, ma60, bias20, chipNetBuy);
   let cdpRes = calculateCdp(highSeries, lowSeries, closeSeries, intraday, dateSeries[lastIdx]);
   let openingChecklist = evaluateOpeningChecklist(intraday);
   
@@ -465,6 +527,8 @@ export function analyzeStockData(payload) {
     stop_loss: stratRes.stop_loss,
     take_profit: stratRes.take_profit,
     strategy_name: stratRes.strategy,
+    can_enter: stratRes.can_enter,
+    strategy_notes: stratRes.strategy_notes,
     overnight: { score: 0, status: "N/A", signals: [] },
     short_term_rec: evaluateShortTermRecommendation(closeSeries, volumeSeries, chipNetBuy),
     cdp: cdpRes,

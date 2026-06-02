@@ -177,9 +177,14 @@ const StockAnalysis = () => {
             <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               {/* Strategy Card */}
               <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-2xl border border-blue-800/50 p-4 sm:p-6 shadow-xl">
-                <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-blue-300">
+                <div className="flex flex-wrap items-center gap-2 mb-3 sm:mb-4 text-blue-300">
                   <Target size={20} className="sm:w-6 sm:h-6" />
                   <h2 className="text-lg sm:text-xl font-bold">進場策略建議</h2>
+                  {data.can_enter && (
+                    <span className="bg-gray-900/50 text-white text-[11px] sm:text-sm px-3 py-1 rounded-full border border-gray-700 ml-auto font-bold">
+                      {data.can_enter}
+                    </span>
+                  )}
                 </div>
                 <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
                   <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
@@ -187,17 +192,27 @@ const StockAnalysis = () => {
                     <div className="text-base sm:text-lg font-bold text-white">{data.strategy_name}</div>
                   </div>
                   <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
-                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">理想區間</div>
+                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">進場價位</div>
                     <div className="text-base sm:text-lg font-bold text-green-400">{data.entry_range}</div>
                   </div>
                   <div className="bg-gray-900/60 p-3 sm:p-4 rounded-xl">
-                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">停損點位</div>
+                    <div className="text-gray-400 text-[11px] sm:text-xs mb-1">停損價位</div>
                     <div className="text-base sm:text-lg font-bold text-red-400">{data.stop_loss}</div>
                   </div>
                 </div>
+                {data.strategy_notes && data.strategy_notes.length > 0 && (
+                  <div className="mt-4 p-3 bg-blue-900/20 border border-blue-900/50 rounded-lg flex flex-col space-y-1 text-blue-200 text-sm">
+                    {data.strategy_notes.map((note, idx) => (
+                      <div key={idx} className="flex items-start space-x-2">
+                        <span className="text-blue-400">•</span>
+                        <span>{note}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {data.exit_rule && (
-                  <div className="mt-4 p-3 bg-red-900/20 border border-red-900/50 rounded-lg flex items-center space-x-2 text-red-300">
-                    <ShieldAlert size={18} />
+                  <div className="mt-3 p-3 bg-red-900/20 border border-red-900/50 rounded-lg flex items-center space-x-2 text-red-300 text-sm">
+                    <ShieldAlert size={18} className="flex-shrink-0" />
                     <span className="font-bold">出場鐵律：{data.exit_rule}</span>
                   </div>
                 )}
