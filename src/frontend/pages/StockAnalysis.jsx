@@ -174,7 +174,7 @@ const StockAnalysis = () => {
                 <h2 className="text-lg font-bold text-gray-300 mb-4">價格與成交量</h2>
                 <div className="h-[250px] sm:h-[260px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chart_data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                    <ComposedChart data={data.chart_data} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} domain={['auto', 'auto']} />
@@ -193,7 +193,7 @@ const StockAnalysis = () => {
                 <h2 className="text-lg font-bold text-gray-300 mb-4">MACD 技術指標</h2>
                 <div className="h-[250px] sm:h-[260px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chart_data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                    <ComposedChart data={data.chart_data} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis stroke="#9CA3AF" fontSize={10} />
@@ -435,7 +435,7 @@ const StockAnalysis = () => {
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">三大法人買賣超 (張)</h2>
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chip_processed.slice(-60)} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                    <ComposedChart data={data.chip_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis stroke="#9CA3AF" fontSize={10} />
@@ -452,7 +452,7 @@ const StockAnalysis = () => {
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">融資融券餘額 (張)</h2>
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.margin_processed.slice(-60)} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                    <ComposedChart data={data.margin_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis yAxisId="left" stroke="#F87171" fontSize={10} />
@@ -470,7 +470,7 @@ const StockAnalysis = () => {
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">外資持股比例 (%)</h2>
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.shareholding_processed.slice(-60)} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                    <ComposedChart data={data.shareholding_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis domain={['auto', 'auto']} stroke="#9CA3AF" fontSize={10} />
@@ -491,7 +491,7 @@ const StockAnalysis = () => {
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">月營收與年增率</h2>
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.revenue_data.slice(-36).map(d => ({ date: d.date, rev: d.revenue/100000000, yoy: d.revenue_year_on_year }))} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                    <ComposedChart data={data.revenue_data.slice(-36).map(d => ({ date: d.date, rev: d.revenue/100000000, yoy: d.revenue_year_on_year }))} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} />
@@ -509,7 +509,7 @@ const StockAnalysis = () => {
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">每股盈餘 (EPS)</h2>
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.financial_data.filter(d => d.type === 'EPS').slice(-12)} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                    <ComposedChart data={data.financial_data.filter(d => d.type === 'EPS').slice(-12)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                       <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                       <YAxis stroke="#9CA3AF" fontSize={10} />
