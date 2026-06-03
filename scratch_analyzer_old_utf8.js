@@ -1,13 +1,13 @@
-import { sma, ewma, calculateMacd, calculateRsi, calculateKd, calculateBollingerBands, calculateAtr, calculateDmi, calculateObv, calculateAd } from './indicators.js';
+﻿import { sma, ewma, calculateMacd, calculateRsi, calculateKd, calculateBollingerBands, calculateAtr, calculateDmi, calculateObv, calculateAd } from './indicators.js';
 
 function classifyCategory(stockId, stockName, industry, volVolatility) {
-  if (volVolatility > 40) return "高波動飆股";
-  return industry || "未知產業";
+  if (volVolatility > 40) return "擃郭????;
+  return industry || "?芰?Ｘ平";
 }
 
 function evaluateShortTerm(closeSeries, volumeSeries, isHighPos, isLowPos) {
   let score = 50;
-  let status = "中性整理";
+  let status = "銝剜扳??;
   let volAvg = sma(volumeSeries.slice(-6, -1), 5)[4] || 1;
   let currVol = volumeSeries[volumeSeries.length - 1];
   let volRatio = currVol / volAvg;
@@ -17,14 +17,14 @@ function evaluateShortTerm(closeSeries, volumeSeries, isHighPos, isLowPos) {
   
   if (closeSeries[closeSeries.length - 1] > closeSeries[closeSeries.length - 2]) {
     score += 10;
-    status = "偏多震盪";
+    status = "???";
   } else {
     score -= 10;
-    status = "偏空震盪";
+    status = "?征?";
   }
 
-  if (score >= 70) status = "強勢多頭";
-  else if (score <= 30) status = "弱勢空頭";
+  if (score >= 70) status = "撘瑕憭";
+  else if (score <= 30) status = "撘勗蝛粹";
   
   return { score, status, vol_ratio: Math.round(volRatio * 100) / 100 };
 }
@@ -41,21 +41,21 @@ function evaluateShortTermRecommendation(closeSeries, volumeSeries, chipNetBuy) 
   let ma10 = sma(closeSeries, 10)[closeSeries.length - 1];
   let rsi = calculateRsi(closeSeries)[closeSeries.length - 1];
 
-  if (lastClose > ma5 && ma5 > ma10) { score += 15; signals.push("均線多頭排列"); }
-  else if (lastClose > ma5) { score += 5; signals.push("站上5日線"); }
+  if (lastClose > ma5 && ma5 > ma10) { score += 15; signals.push("??憭??"); }
+  else if (lastClose > ma5) { score += 5; signals.push("蝡?5?亦?"); }
 
-  if (currVol >= 1000000) { score += 15; signals.push("流動性充裕"); }
-  if (volRatio > 1.3) { score += 20; signals.push("量能增溫 (量比 " + (Math.round(volRatio * 10) / 10) + ")"); }
+  if (currVol >= 1000000) { score += 15; signals.push("瘚??批?鋆?); }
+  if (volRatio > 1.3) { score += 20; signals.push("?憓澈 (?? " + (Math.round(volRatio * 10) / 10) + ")"); }
 
   let recentHigh20 = Math.max(...closeSeries.slice(Math.max(0, closeSeries.length - 20)));
-  if (lastClose > recentHigh20) { score += 20; signals.push("突破盤整區間"); }
+  if (lastClose > recentHigh20) { score += 20; signals.push("蝒?斗???); }
 
-  if (rsi > 50 && rsi < 80) { score += 10; signals.push("RSI 強勢區"); }
+  if (rsi > 50 && rsi < 80) { score += 10; signals.push("RSI 撘瑕?"); }
 
   let netBuy3d = chipNetBuy.slice(-3).reduce((a, b) => a + b, 0);
-  if (netBuy3d > 0) { score += 10; signals.push("法人少量佈局"); }
+  if (netBuy3d > 0) { score += 10; signals.push("瘜犖撠?雿?"); }
 
-  let status = score >= 70 ? "短線極佳" : (score >= 45 ? "具潛力" : "觀察中");
+  let status = score >= 70 ? "?剔?璆萎蔔" : (score >= 45 ? "?瑟??? : "閫撖葉");
   return { score, status, signals, stop_loss: Math.round(lastClose * 0.95 * 100) / 100 };
 }
 
@@ -72,38 +72,38 @@ function evaluateBottomFishing(closeSeries, chipNetBuy, openSeries, highSeries, 
   let ma60 = sma(closeSeries, 60)[closeSeries.length - 1];
   let biasMa60 = (lastClose - ma60) / (ma60 || 1);
 
-  if (biasMa60 <= -0.10) { score += 35; signals.push("極度超跌 (季線乖離 " + Math.round(biasMa60*100) + "%)"); }
-  else if (biasMa60 <= -0.06) { score += 20; signals.push("波段超跌 (季線乖離 " + Math.round(biasMa60*100) + "%)"); }
+  if (biasMa60 <= -0.10) { score += 35; signals.push("璆萄漲頞? (摮??銋 " + Math.round(biasMa60*100) + "%)"); }
+  else if (biasMa60 <= -0.06) { score += 20; signals.push("瘜Ｘ挾頞? (摮??銋 " + Math.round(biasMa60*100) + "%)"); }
 
   let recentLow60 = Math.min(...lowSeries.slice(Math.max(0, lowSeries.length - 60)));
-  if (lastLow <= recentLow60 * 1.01) { score += 20; signals.push("歷史低價區 (近60日低點)"); }
+  if (lastLow <= recentLow60 * 1.01) { score += 20; signals.push("甇瑕雿? (餈?0?乩?暺?"); }
 
   let rsi = calculateRsi(closeSeries)[closeSeries.length - 1];
-  if (rsi < 25) { score += 25; signals.push("指標極度超賣 (RSI=" + Math.round(rsi) + ")"); }
-  else if (rsi < 35) { score += 15; signals.push("進入超賣區 (RSI=" + Math.round(rsi) + ")"); }
+  if (rsi < 25) { score += 25; signals.push("??璆萄漲頞都 (RSI=" + Math.round(rsi) + ")"); }
+  else if (rsi < 35) { score += 15; signals.push("?脣頞都? (RSI=" + Math.round(rsi) + ")"); }
 
   let { k, d } = calculateKd(highSeries, lowSeries, closeSeries);
   let lastK = k[k.length - 1], lastD = d[d.length - 1];
   if (lastK < 20 && lastD < 20) {
-    if (lastK > lastD) { score += 25; signals.push("KD低檔金叉 (強烈止跌訊號)"); }
-    else { score += 10; signals.push("KD低檔超賣"); }
+    if (lastK > lastD) { score += 25; signals.push("KD雿??? (撘瑞?甇Ｚ?閮?)"); }
+    else { score += 10; signals.push("KD雿?頞都"); }
   }
 
   let body = Math.abs(lastClose - lastOpen);
   let lowerShadow = Math.min(lastClose, lastOpen) - lastLow;
   let upperShadow = lastHigh - Math.max(lastClose, lastOpen);
-  if (lowerShadow > body * 2.0 && lowerShadow > upperShadow) { score += 25; signals.push("出現止跌鎚頭線"); }
-  else if (lastClose > prevOpen && lastOpen < prevClose && prevClose < prevOpen) { score += 20; signals.push("多方吞噬 (陽包陰)"); }
+  if (lowerShadow > body * 2.0 && lowerShadow > upperShadow) { score += 25; signals.push("?箇甇Ｚ??蝺?); }
+  else if (lastClose > prevOpen && lastOpen < prevClose && prevClose < prevOpen) { score += 20; signals.push("憭? (?賢???"); }
 
   let volAvg = sma(volumeSeries.slice(-6, -1), 5)[4] || 1;
   let currVol = volumeSeries[volumeSeries.length - 1];
-  if (currVol < volAvg * 0.5) { score += 15; signals.push("出現底部窒息量"); }
-  else if (currVol > volAvg * 1.8 && lastClose > lastOpen) { score += 20; signals.push("底部爆量攻擊 (換手轉強)"); }
+  if (currVol < volAvg * 0.5) { score += 15; signals.push("?箇摨蝒??); }
+  else if (currVol > volAvg * 1.8 && lastClose > lastOpen) { score += 20; signals.push("摨???餅? (??頧撥)"); }
 
   let netBuy3d = chipNetBuy.slice(-3).reduce((a, b) => a + b, 0);
-  if (netBuy3d > 100000) { score += 10; signals.push("法人低檔佈局"); }
+  if (netBuy3d > 100000) { score += 10; signals.push("瘜犖雿?雿?"); }
 
-  let status = score >= 75 ? "抄底絕佳標的" : (score >= 55 ? "初步止跌跡象" : (score >= 40 ? "尋找支撐中" : "仍處跌勢"));
+  let status = score >= 75 ? "??蝯蔔璅?" : (score >= 55 ? "?郊甇Ｚ?頝∟情" : (score >= 40 ? "撠?舀?銝? : "隞?頝"));
   let stopLoss = Math.round(Math.min(lastLow, lastClose * 0.95) * 100) / 100;
 
   return { score, status, signals, stop_loss: stopLoss, bias_ma60: Math.round(biasMa60 * 1000) / 1000 };
@@ -124,37 +124,37 @@ function evaluateShortTermBurst(closeSeries, chipNetBuy, openSeries, highSeries,
   let volAvg = sma(volumeSeries.slice(-6, -1), 5)[4] || 1;
   let volRatio = volumeSeries[volumeSeries.length - 1] / volAvg;
 
-  if (volumeSeries[volumeSeries.length - 1] >= 2000000) { score += 15; signals.push("流動性佳"); }
-  if (volRatio > 1.3) { score += 15; signals.push("量增 (量比 " + Math.round(volRatio * 10) / 10 + ")"); }
+  if (volumeSeries[volumeSeries.length - 1] >= 2000000) { score += 15; signals.push("瘚??找蔔"); }
+  if (volRatio > 1.3) { score += 15; signals.push("?? (?? " + Math.round(volRatio * 10) / 10 + ")"); }
 
-  if (lastClose > ma5 && ma5 > ma10) { score += 20; signals.push("多頭排列"); }
+  if (lastClose > ma5 && ma5 > ma10) { score += 20; signals.push("憭??"); }
 
-  if (lastLow <= ma5 * 1.01 && lastClose > ma5) { score += 20; signals.push("回踩 5 日線 (支撐確認)"); }
-  else if (lastLow <= ma10 * 1.01 && lastClose > ma10) { score += 15; signals.push("回踩 10 日線"); }
+  if (lastLow <= ma5 * 1.01 && lastClose > ma5) { score += 20; signals.push("?萱 5 ?亦? (?舀?蝣箄?)"); }
+  else if (lastLow <= ma10 * 1.01 && lastClose > ma10) { score += 15; signals.push("?萱 10 ?亦?"); }
 
   let recentHigh20 = Math.max(...highSeries.slice(Math.max(0, highSeries.length - 20)));
-  if (lastClose > recentHigh20 && volRatio > 1.5) { score += 25; signals.push("強勢突破前高"); }
+  if (lastClose > recentHigh20 && volRatio > 1.5) { score += 25; signals.push("撘瑕蝒??"); }
 
-  if (prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) { score += 20; signals.push("型態：陽包陰"); }
+  if (prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) { score += 20; signals.push("??嚗?"); }
 
   let body = Math.abs(lastClose - lastOpen);
   let lowerShadow = Math.min(lastClose, lastOpen) - lastLow;
-  if (lowerShadow > body * 1.8 && lastClose > lastOpen) { score += 15; signals.push("型態：長下影線"); }
+  if (lowerShadow > body * 1.8 && lastClose > lastOpen) { score += 15; signals.push("??嚗銝蔣蝺?); }
 
   let rsiSeries = calculateRsi(closeSeries);
   if (rsiSeries[rsiSeries.length - 1] > 50 && rsiSeries[rsiSeries.length - 1] > rsiSeries[rsiSeries.length - 2]) {
-    score += 15; signals.push("RSI 轉折向上");
+    score += 15; signals.push("RSI 頧???");
   }
 
   let { k, d } = calculateKd(highSeries, lowSeries, closeSeries);
   if (k[k.length - 1] > d[d.length - 1] && k[k.length - 2] <= d[d.length - 2]) {
-    score += 15; signals.push("KD 金叉");
+    score += 15; signals.push("KD ??");
   }
 
   let netBuy3d = chipNetBuy.slice(-3).reduce((a, b) => a + b, 0);
-  if (netBuy3d > 200000) { score += 10; signals.push("法人布局"); }
+  if (netBuy3d > 200000) { score += 10; signals.push("瘜犖撣?"); }
 
-  let status = score >= 65 ? "短線強烈推薦" : (score >= 45 ? "短線動能增強" : "動能整理中");
+  let status = score >= 65 ? "?剔?撘瑞??刻" : (score >= 45 ? "?剔??憓撥" : "??渡?銝?);
   return { score, status, signals, stop_loss: Math.round(Math.min(lastLow, lastClose * 0.97) * 100) / 100 };
 }
 
@@ -162,7 +162,7 @@ function calculateCdp(highSeries, lowSeries, closeSeries, intradaySnapshot, last
   let h = highSeries[highSeries.length - 1];
   let l = lowSeries[lowSeries.length - 1];
   let c = closeSeries[closeSeries.length - 1];
-  let baseDate = intradaySnapshot?.cdp_base_date || lastDate || "最新資料";
+  let baseDate = intradaySnapshot?.cdp_base_date || lastDate || "??啗???;
 
   if (intradaySnapshot && intradaySnapshot.yesterday_high) {
     h = intradaySnapshot.yesterday_high;
@@ -181,18 +181,18 @@ function calculateCdp(highSeries, lowSeries, closeSeries, intradaySnapshot, last
     let openP = intradaySnapshot.open;
     let price = intradaySnapshot.price;
     if (openP) {
-      if (openP > cdp) signals.push("開盤 > CDP (" + openP + " > " + Math.round(cdp*100)/100 + ")，偏多");
-      else signals.push("開盤 < CDP (" + openP + " < " + Math.round(cdp*100)/100 + ")，偏空");
+      if (openP > cdp) signals.push("? > CDP (" + openP + " > " + Math.round(cdp*100)/100 + ")嚗?憭?);
+      else signals.push("? < CDP (" + openP + " < " + Math.round(cdp*100)/100 + ")嚗?蝛?);
 
-      if (openP >= ah) signals.push("開盤突破 AH，動能強勁可追漲");
-      else if (openP <= al) signals.push("開盤跌破 AL，盤勢弱順勢偏空");
+      if (openP >= ah) signals.push("?蝒 AH嚗??賢撥?餈賣撞");
+      else if (openP <= al) signals.push("?頝 AL嚗?Ｗ摹??征");
     }
     
-    if (price >= ah) signals.push("觸及 AH，考慮獲利了結");
-    else if (price >= nh) signals.push("突破 NH，短線賣點");
+    if (price >= ah) signals.push("閫詨? AH嚗?脣鈭?");
+    else if (price >= nh) signals.push("蝒 NH嚗蝺都暺?);
 
-    if (price <= al) signals.push("觸及 AL，考慮低接佈局");
-    else if (price <= nl) signals.push("跌破 NL，短線買點");
+    if (price <= al) signals.push("閫詨? AL嚗雿雿?");
+    else if (price <= nl) signals.push("頝 NL嚗蝺眺暺?);
   }
 
   return {
@@ -209,7 +209,7 @@ function calculateCdp(highSeries, lowSeries, closeSeries, intradaySnapshot, last
 function evaluateDayTradeCdp(closeSeries, isLimitUp, isLimitDown, cdpRes, volumeSeries, highSeries, lowSeries, openSeries) {
   let score = 0;
   let signals = [];
-  let status = "一般";
+  let status = "銝??;
   
   let lastClose = closeSeries[closeSeries.length - 1];
   let prevClose = closeSeries[closeSeries.length - 2];
@@ -222,25 +222,25 @@ function evaluateDayTradeCdp(closeSeries, isLimitUp, isLimitDown, cdpRes, volume
   let amplitude = 0;
   if (prevOpen > 0) amplitude = (prevHigh - prevLow) / prevOpen;
   
-  if (amplitude >= 0.03 && amplitude <= 0.08) { score += 20; signals.push("前日波幅適中 (" + Math.round(amplitude * 100) + "%)"); }
-  else if (amplitude > 0.08) { score += 5; signals.push("前日波動劇烈"); }
-  else { score -= 10; signals.push("前日波動過小"); }
+  if (amplitude >= 0.03 && amplitude <= 0.08) { score += 20; signals.push("?瘜Ｗ??拐葉 (" + Math.round(amplitude * 100) + "%)"); }
+  else if (amplitude > 0.08) { score += 5; signals.push("?瘜Ｗ???"); }
+  else { score -= 10; signals.push("?瘜Ｗ???"); }
 
   let volAvg = sma(volumeSeries.slice(-6, -1), 5)[4] || 1;
   let currVol = volumeSeries[volumeSeries.length - 1];
   let volRatio = currVol / volAvg;
   
-  if (volRatio > 1.5) { score += 15; signals.push("量能放大有利當沖"); }
+  if (volRatio > 1.5) { score += 15; signals.push("??曉之??嗆?"); }
   
-  if (isLimitUp) { score += 20; signals.push("強勢鎖漲停 (隔日沖首選)"); status = "強勢隔日沖"; }
-  else if (changePct >= 7) { score += 15; signals.push("漲幅逾7%，動能強"); }
+  if (isLimitUp) { score += 20; signals.push("撘瑕?撞??(?瘝???"); status = "撘瑕?瘝?; }
+  else if (changePct >= 7) { score += 15; signals.push("瞍脣???%嚗??賢撥"); }
   
   let cdp = cdpRes.CDP, ah = cdpRes.AH, nh = cdpRes.NH;
-  if (lastClose >= ah) { score += 10; signals.push("收盤突破 AH，極強勢"); }
-  else if (lastClose >= cdp) { score += 5; signals.push("收盤站上 CDP，偏多"); }
+  if (lastClose >= ah) { score += 10; signals.push("?嗥蝒 AH嚗扔撘瑕"); }
+  else if (lastClose >= cdp) { score += 5; signals.push("?嗥蝡? CDP嚗?憭?); }
   
-  if (score >= 60) status = "強勢隔日沖";
-  else if (score >= 40) status = "具當沖潛力";
+  if (score >= 60) status = "撘瑕?瘝?;
+  else if (score >= 40) status = "?瑞瘝???;
   
   return { score: Math.max(0, score), status, signals };
 }
@@ -248,16 +248,16 @@ function evaluateDayTradeCdp(closeSeries, isLimitUp, isLimitDown, cdpRes, volume
 function evaluateOpeningChecklist(intradaySnapshot) {
   if (!intradaySnapshot || !intradaySnapshot.open) return null;
   let score = 50;
-  let status = "中性";
+  let status = "銝剜?;
   let signals = [];
   
   if (intradaySnapshot.price < intradaySnapshot.open) {
-    signals.push("觸發強制出場條件");
-    status = "立刻走人";
+    signals.push("閫貊撘瑕?箏璇辣");
+    status = "蝡韏唬犖";
     score = 20;
   } else if (intradaySnapshot.price > intradaySnapshot.open) {
-    signals.push("開盤走高");
-    status = "符合觀察";
+    signals.push("?韏圈?");
+    status = "蝚血?閫撖?;
     score = 60;
   }
   
@@ -274,73 +274,73 @@ function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradayS
   let bias20 = bias20Series[bias20Series.length - 1];
   let netBuy3d = chipNetBuy.slice(-3).reduce((a, b) => a + b, 0);
   
-  let strategy = "中性觀望";
-  let entryRange = "建議等候拉回";
+  let strategy = "銝剜扯???;
+  let entryRange = "撱箄降蝑???;
   let stopLoss = Math.round(close * 0.93 * 100) / 100;
   let takeProfit = Math.round(close * 1.1 * 100) / 100;
-  let strategyNotes = ["切勿單筆重倉，請採資金分批策略(預備4筆資金)"];
-  let exitRule = "跌破今日開盤價或停損點出場";
+  let strategyNotes = ["??桃???隢鞈??蝑(??4蝑???"];
+  let exitRule = "頝隞??寞???暺??;
   let canEnter = false;
   
   if (isEtf) {
-    strategy = "定期定額 / 大跌分批佈局";
-    entryRange = "不預設高低點，每月固定買進或大跌加碼";
+    strategy = "摰?摰? / 憭扯??雿?";
+    entryRange = "銝?閮剝?雿?嚗??摰眺?脫?憭扯??Ⅳ";
     strategyNotes = [
-      "適合大多散戶/存股族",
-      "能有效分散風險並平均成本",
-      "當市場自高點回檔10~20%可分批進場承接"
+      "?拙?憭批???/摮??,
+      "?賣?????◢?芯蒂撟喳??",
+      "?嗅??渲擃???10~20%?臬??寥脣?踵"
     ];
-    exitRule = "長線投資，依個人財務規劃出場";
+    exitRule = "?瑞???嚗??犖鞎∪?閬??箏";
     canEnter = true;
-    stopLoss = "無(長線存股)";
+    stopLoss = "???瑞?摮)";
   } else {
     let goodFundamentals = false;
     if (currentPe > 0 && currentPe < 15) {
-      strategyNotes.push("本益比偏低，具長線估值優勢");
+      strategyNotes.push("?祉?瘥?雿??琿蝺摯?澆??);
       goodFundamentals = true;
     }
     if (currentYield >= 5.0) {
-      strategyNotes.push("殖利率大於5%，逢低布局首選");
+      strategyNotes.push("畾?之??%嚗Ｖ?撣?擐");
       goodFundamentals = true;
     }
     if (netBuy3d > 0) {
-      strategyNotes.push("近期法人偏多買超，跟隨主力勝率較高");
+      strategyNotes.push("餈?瘜犖??鞎瑁?嚗??其蜓????擃?);
     }
 
     if (close > ma60 && close <= ma60 * 1.05 && ma20 > ma60) {
-      strategy = "技術面買點";
-      entryRange = `季線支撐附近 (${Math.round(ma60 * 100) / 100}) 伺機進場`;
+      strategy = "?銵鞎琿?";
+      entryRange = `摮???舀??? (${Math.round(ma60 * 100) / 100}) 隡箸??脣`;
       stopLoss = Math.round(ma60 * 0.98 * 100) / 100;
-      strategyNotes.push("多頭格局中回檔季線獲支撐");
+      strategyNotes.push("憭?澆?銝剖?瑼迤蝺?舀?");
       canEnter = true;
     } else if (bias20 > 8) {
-      strategy = "正乖離過大";
-      entryRange = "短線過熱，不建議追高";
-      strategyNotes.push("短線暴漲遠離均線，容易引發獲利了結");
+      strategy = "甇???ａ?憭?;
+      entryRange = "?剔??嚗?撱箄降餈賡?";
+      strategyNotes.push("?剔??湔撞???嚗捆???潛?拐?蝯?);
       canEnter = false;
     } else if (bias20 < -8) {
-      strategy = "負乖離過大";
-      entryRange = `現價 ${close} 附近分批低接`;
-      strategyNotes.push("短線急跌導致負乖離過大，容易出現反彈");
+      strategy = "鞎??ａ?憭?;
+      entryRange = `?曉 ${close} ???雿`;
+      strategyNotes.push("?剔??亥?撠鞎??ａ?憭改?摰寞??箇??");
       canEnter = true;
     } else if (close >= upper[upper.length - 1] * 0.98 && volRatio > 1.3) {
-      strategy = "強勢突破";
-      entryRange = "現價進場";
+      strategy = "撘瑕蝒";
+      entryRange = "?曉?脣";
       stopLoss = Math.round(close * 0.95 * 100) / 100;
-      strategyNotes.push("帶量突破，具爆發潛力");
+      strategyNotes.push("撣園?蝒嚗?瞏?");
       canEnter = true;
     } else if (goodFundamentals && close < ma20) {
-      strategy = "價值低估底倉";
-      entryRange = `均線下彎，建議等候 ${Math.round(close * 0.95 * 100) / 100} 分批買進`;
+      strategy = "?孵潔?隡啣???;
+      entryRange = `??銝?嚗遣霅啁???${Math.round(close * 0.95 * 100) / 100} ?鞎琿深;
       canEnter = true;
     }
     
     if (intradaySnapshot && intradaySnapshot.open) {
       if (close < intradaySnapshot.open) {
-        strategy = "立刻退場";
-        entryRange = "觀望";
+        strategy = "蝡???;
+        entryRange = "閫??;
         canEnter = false;
-        strategyNotes.push("!!! 已跌破今日開盤價，符合強制出場條件 !!!");
+        strategyNotes.push("!!! 撌脰??港??仿??文嚗泵?撥?嗅?湔?隞?!!!");
       }
     }
   }
@@ -357,20 +357,20 @@ function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradayS
 }
 
 export function analyzeStockData(payload) {
-  const { stock_id, stock_name, category, price_data, chip_data, margin_data, per_data, intraday, news_data, revenue_data, dividend_data, financial_data } = payload;
+  const { stock_id, stock_name, category, price_data, chip_data, margin_data, per_data, intraday } = payload;
   
   if (!price_data || price_data.length < 35) {
-    return { error: "資料不足" };
+    return { error: "鞈?銝雲" };
   }
 
   // Parse fundamental data
-  let currentPe = "-";
-  let currentYield = "-";
-  let currentRoe = "-";
+  let currentPe = 15.0;
+  let currentYield = 4.0;
+  let currentRoe = 10.0;
   if (per_data && per_data.length > 0) {
     let latestPer = per_data[per_data.length - 1];
-    currentPe = latestPer.PER || "-";
-    currentYield = latestPer.dividend_yield || "-";
+    currentPe = latestPer.PER || 15.0;
+    currentYield = latestPer.dividend_yield || 0.0;
     if (latestPer.PER > 0 && latestPer.PBR > 0) {
       // Approximate ROE = (P/B) / (P/E) * 100
       currentRoe = (latestPer.PBR / latestPer.PER) * 100;
@@ -392,37 +392,6 @@ export function analyzeStockData(payload) {
     lowSeries.push(row.min || row.low || row.Low);
     closeSeries.push(row.close || row.Close);
     volumeSeries.push(row.Trading_Volume || row.Volume);
-  }
-
-  // Inject real-time intraday data into the series
-  if (intraday && intraday.price && intraday.price > 0) {
-    let lastFinMindClose = closeSeries[closeSeries.length - 1];
-    let isSameDay = false;
-    
-    // Check if FinMind already includes today's data
-    // If FinMind's last close is NOT yesterday's close (from intraday snapshot), 
-    // it likely means FinMind has already updated for today.
-    if (Math.abs(lastFinMindClose - intraday.yesterday_close) >= 0.01) {
-      isSameDay = true; 
-    }
-
-    if (isSameDay) {
-      // Update the last element (today)
-      closeSeries[closeSeries.length - 1] = intraday.price;
-      if (intraday.open) openSeries[openSeries.length - 1] = intraday.open;
-      if (intraday.high) highSeries[highSeries.length - 1] = intraday.high;
-      if (intraday.low) lowSeries[lowSeries.length - 1] = intraday.low;
-      if (intraday.volume) volumeSeries[volumeSeries.length - 1] = intraday.volume;
-    } else {
-      // Append a new element (today)
-      let todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Taipei'}); // YYYY-MM-DD
-      dateSeries.push(todayStr);
-      openSeries.push(intraday.open || intraday.yesterday_close);
-      highSeries.push(intraday.high || intraday.price);
-      lowSeries.push(intraday.low || intraday.price);
-      closeSeries.push(intraday.price);
-      volumeSeries.push(intraday.volume || 0);
-    }
   }
 
   let chipNetBuyMap = {};
@@ -462,7 +431,6 @@ export function analyzeStockData(payload) {
   let prevClose = closeSeries[prevIdx];
   let changePct = ((lastClose - prevClose) / prevClose) * 100;
   
-  let categoryStr = category || classifyCategory(stock_id, stock_name, "未知", 20);
   let isEtf = categoryStr.includes("ETF") || stock_name.includes("ETF") || stock_id.startsWith("00");
   
   let stRes = evaluateShortTerm(closeSeries, volumeSeries, false, false);
@@ -475,42 +443,41 @@ export function analyzeStockData(payload) {
   let dayTradeCdpRes = evaluateDayTradeCdp(closeSeries, changePct >= 9.7, changePct <= -9.7, cdpRes, volumeSeries, highSeries, lowSeries, openSeries);
 
   let diag = [];
-  // 1. 均線診斷
-  if (lastClose > ma60[lastIdx]) diag.push("均線診斷：站上季線(生命線)");
-  if (ma5[lastIdx] > ma10[lastIdx] && ma10[lastIdx] > ma20[lastIdx]) diag.push("均線診斷：短中期均線呈多頭排列");
+  // 1. ??閮箸
+  if (lastClose > ma60[lastIdx]) diag.push("??閮箸嚗?銝迤蝺??蝺?");
+  if (ma5[lastIdx] > ma10[lastIdx] && ma10[lastIdx] > ma20[lastIdx]) diag.push("??閮箸嚗銝剜??????剜???);
   
-  // 2. K線型態與位階
+  // 2. K蝺???雿?
   let recentHigh20 = Math.max(...highSeries.slice(Math.max(0, highSeries.length - 20)));
-  if (lastClose >= recentHigh20 * 0.98) diag.push("位階診斷：挑戰前高 (" + Math.round(recentHigh20*100)/100 + ")");
+  if (lastClose >= recentHigh20 * 0.98) diag.push("雿?閮箸嚗??啣?擃?(" + Math.round(recentHigh20*100)/100 + ")");
   
-  // 3. MACD 診斷
-  if (macd.macdHist[lastIdx] > 0 && macd.macdHist[prevIdx] <= 0) diag.push("MACD診斷：紅柱剛翻紅，轉強訊號");
-  else if (macd.macdHist[lastIdx] > 0) diag.push("MACD診斷：維持多方格局");
-  else diag.push("MACD診斷：空方格局");
+  // 3. MACD 閮箸
+  if (macd.macdHist[lastIdx] > 0 && macd.macdHist[prevIdx] <= 0) diag.push("MACD閮箸嚗??勗?蝧餌?嚗?撘瑁???);
+  else if (macd.macdHist[lastIdx] > 0) diag.push("MACD閮箸嚗雁???寞撅");
+  else diag.push("MACD閮箸嚗征?寞撅");
 
-  // 4. 趨勢強度 (DMI)
-  if (dmi.adx[lastIdx] > 25) diag.push("趨勢確認：目前為強勢趨勢 (ADX=" + Math.round(dmi.adx[lastIdx]*10)/10 + ")");
-  else if (dmi.adx[lastIdx] < 20) diag.push("盤整特徵：目前趨勢不明確，建議觀望 (ADX=" + Math.round(dmi.adx[lastIdx]*10)/10 + ")");
+  // 4. 頞典撘瑕漲 (DMI)
+  if (dmi.adx[lastIdx] > 25) diag.push("頞典蝣箄?嚗?撘瑕頞典 (ADX=" + Math.round(dmi.adx[lastIdx]*10)/10 + ")");
+  else if (dmi.adx[lastIdx] < 20) diag.push("?斗?孵噩嚗?隅?Ｖ??Ⅱ嚗遣霅啗???(ADX=" + Math.round(dmi.adx[lastIdx]*10)/10 + ")");
 
-  // 5. 乖離率診斷
-  if (bias20[lastIdx] > 5) diag.push("乖離過大 (20MA：" + Math.round(bias20[lastIdx]*10)/10 + "%)，防追高");
-  else if (bias20[lastIdx] < -5) diag.push("超賣訊號 (20MA：" + Math.round(bias20[lastIdx]*10)/10 + "%)，醞釀反彈");
+  // 5. 銋?那??  if (bias20[lastIdx] > 5) diag.push("銋?之 (20MA嚗? + Math.round(bias20[lastIdx]*10)/10 + "%)嚗餈賡?");
+  else if (bias20[lastIdx] < -5) diag.push("頞都閮? (20MA嚗? + Math.round(bias20[lastIdx]*10)/10 + "%)嚗????");
 
-  // 6. 年線診斷
+  // 6. 撟渡?閮箸
   if (ma240[lastIdx]) {
-    if (lastClose > ma240[lastIdx]) diag.push("長線趨勢偏多 (站上年線)");
-    else diag.push("長線趨勢偏弱 (年線之下)");
+    if (lastClose > ma240[lastIdx]) diag.push("?瑞?頞典?? (蝡?撟渡?)");
+    else diag.push("?瑞?頞典?摹 (撟渡?銋?)");
   }
 
-  // 7. 盤中檢核
+  // 7. ?支葉瑼Ｘ
   if (openingChecklist) {
-    if (openingChecklist.score >= 40) diag.push("開盤檢核：" + openingChecklist.status + " (" + openingChecklist.score + "分)");
-    if (openingChecklist.signals.includes("觸發強制出場條件")) diag.push("!!! 警告：股價跌破開盤價，請嚴守紀律停損 !!!");
+    if (openingChecklist.score >= 40) diag.push("?瑼Ｘ嚗? + openingChecklist.status + " (" + openingChecklist.score + "??");
+    if (openingChecklist.signals.includes("閫貊撘瑕?箏璇辣")) diag.push("!!! 霅血?嚗?寡??湧??文嚗??游?蝝敺???!!!");
   }
 
-  // 8. 策略與CDP訊號
-  if (bottomFishingRes.score >= 50) diag.push("抄底訊號：" + bottomFishingRes.status);
-  if (stBurstRes.score >= 60) diag.push("短線爆發：" + stBurstRes.status);
+  // 8. 蝑?DP閮?
+  if (bottomFishingRes.score >= 50) diag.push("??閮?嚗? + bottomFishingRes.status);
+  if (stBurstRes.score >= 60) diag.push("?剔??嚗? + stBurstRes.status);
   if (cdpRes.signals && cdpRes.signals.length > 0) diag.push(...cdpRes.signals);
 
   let chartData = [];
@@ -528,7 +495,7 @@ export function analyzeStockData(payload) {
 
   return {
     stock_id: stock_id,
-    stock_name: stock_name || "未知標的", 
+    stock_name: stock_name || "?芰璅?", 
     is_etf: isEtf,
     category: categoryStr,
     total_score: stRes.score,
@@ -539,7 +506,7 @@ export function analyzeStockData(payload) {
     vol_ratio: stRes.vol_ratio,
     kd: (Math.round(k[lastIdx] * 10) / 10) + "/" + (Math.round(d[lastIdx] * 10) / 10),
     rsi: Math.round(rsi[lastIdx] * 10) / 10,
-    macd: macd.macdHist[lastIdx] > 0 ? "多方" : "空方",
+    macd: macd.macdHist[lastIdx] > 0 ? "憭" : "蝛箸",
     ma5: Math.round(ma5[lastIdx] * 100) / 100,
     ma20: Math.round(ma20[lastIdx] * 100) / 100,
     ma60: Math.round(ma60[lastIdx] * 100) / 100,
@@ -554,7 +521,7 @@ export function analyzeStockData(payload) {
     pe: currentPe,
     yield: currentYield,
     roe: currentRoe,
-    debt_ratio: "-",
+    debt_ratio: 50.0,
     entry_range: stratRes.entry_range,
     stop_loss: stratRes.stop_loss,
     take_profit: stratRes.take_profit,
@@ -565,20 +532,14 @@ export function analyzeStockData(payload) {
     short_term_rec: evaluateShortTermRecommendation(closeSeries, volumeSeries, chipNetBuy),
     cdp: cdpRes,
     day_trade_cdp_rec: dayTradeCdpRes,
-    low_pe_rec: { score: 40, status: "未達條件", signals: [] },
+    low_pe_rec: { score: 40, status: "?芷?璇辣", signals: [] },
     bottom_fishing_rec: bottomFishingRes,
     short_term_burst_rec: stBurstRes,
-    etf_rec: { score: 0, status: "非ETF", signals: [] },
+    etf_rec: { score: 0, status: "?TF", signals: [] },
     opening_checklist: openingChecklist,
     volume_patterns: [],
     entry_notes: [],
     exit_rule: stratRes.exit_rule,
-    chart_data: chartData,
-    
-    // Export raw payload arrays for UI consumption
-    news_data: news_data || [],
-    revenue_data: revenue_data || [],
-    dividend_data: dividend_data || [],
-    financial_data: financial_data || []
+    chart_data: chartData
   };
 }
