@@ -426,13 +426,46 @@ export function analyzeStockData(payload) {
   }
 
   let chipNetBuyMap = {};
+  let chipProcessed = [];
   if (chip_data) {
+    let chipByDate = {};
     for (let row of chip_data) {
       if (!chipNetBuyMap[row.date]) chipNetBuyMap[row.date] = 0;
       chipNetBuyMap[row.date] += (row.buy - row.sell);
+      
+      if (!chipByDate[row.date]) {
+        chipByDate[row.date] = { date: row.date, foreign_buy: 0, foreign_sell: 0, foreign_net: 0, trust_buy: 0, trust_sell: 0, trust_net: 0 };
+      }
+      if (row.name === 'Foreign_Investor' || row.name === 'Foreign_Dealer_Self') {
+        chipByDate[row.date].foreign_buy += row.buy;
+        chipByDate[row.date].foreign_sell += row.sell;
+        chipByDate[row.date].foreign_net += (row.buy - row.sell);
+      } else if (row.name === 'Investment_Trust') {
+        chipByDate[row.date].trust_buy += row.buy;
+        chipByDate[row.date].trust_sell += row.sell;
+        chipByDate[row.date].trust_net += (row.buy - row.sell);
+      }
     }
+    chipProcessed = Object.values(chipByDate).sort((a, b) => a.date.localeCompare(b.date));
   }
   let chipNetBuy = dateSeries.map(d => chipNetBuyMap[d] || 0);
+
+  let marginProcessed = [];
+  if (payload.margin_data && payload.margin_data.length > 0) {
+    marginProcessed = payload.margin_data.map(row => ({
+      date: row.date,
+      margin_bal: row.MarginPurchaseTodayBalance,
+      short_bal: row.ShortSaleTodayBalance
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  let shareholdingProcessed = [];
+  if (payload.shareholding_data && payload.shareholding_data.length > 0) {
+    shareholdingProcessed = payload.shareholding_data.map(row => ({
+      date: row.date,
+      ratio: row.ForeignInvestmentRemainRatio
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  }
 
   let ma5 = sma(closeSeries, 5);
   let ma10 = sma(closeSeries, 10);
@@ -579,6 +612,9 @@ export function analyzeStockData(payload) {
     news_data: news_data || [],
     revenue_data: revenue_data || [],
     dividend_data: dividend_data || [],
-    financial_data: financial_data || []
+    financial_data: financial_data || [],
+    chip_processed: chipProcessed,
+    margin_processed: marginProcessed,
+    shareholding_processed: shareholdingProcessed
   };
 }

@@ -834,6 +834,12 @@ async def get_raw_data(query: str):
                 return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
             except: return []
 
+        def get_shareholding():
+            try:
+                df = fetcher.fm_loader.taiwan_stock_shareholding(stock_id=sid, start_date=d_chip)
+                return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
+            except: return []
+
         with ThreadPoolExecutor(max_workers=8) as ex:
             fut_price = ex.submit(get_price)
             fut_chip = ex.submit(get_chip)
@@ -843,6 +849,7 @@ async def get_raw_data(query: str):
             fut_rev = ex.submit(get_revenue)
             fut_div = ex.submit(get_dividend)
             fut_fin = ex.submit(get_financials)
+            fut_share = ex.submit(get_shareholding)
 
             price_data = fut_price.result()
             chip_data = fut_chip.result()
@@ -852,6 +859,7 @@ async def get_raw_data(query: str):
             revenue_data = fut_rev.result()
             dividend_data = fut_div.result()
             financial_data = fut_fin.result()
+            shareholding_data = fut_share.result()
 
         category = "未知"
         if fetcher._stock_info_df is not None:
@@ -871,7 +879,8 @@ async def get_raw_data(query: str):
             "news_data": news_data,
             "revenue_data": revenue_data,
             "dividend_data": dividend_data,
-            "financial_data": financial_data
+            "financial_data": financial_data,
+            "shareholding_data": shareholding_data
         }
 
     def get_raw_data_sync():
