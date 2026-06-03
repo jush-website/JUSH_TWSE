@@ -32,11 +32,12 @@ class DataFetcher:
             
         # Check for FinMind token
         token = os.environ.get("FINMIND_API_TOKEN", "")
-        if not token:
+        if token and self.fm_loader:
             try:
-                # Try to get token from SDK's internal state if possible, or just log missing
-                pass
-            except: pass
+                self.fm_loader.login_by_token(api_token=token)
+                print("FinMind DataLoader logged in successfully using token.")
+            except Exception as e:
+                print(f"Failed to login FinMind with token: {e}")
         
         self._session = requests.Session()
         self._session.verify = False
