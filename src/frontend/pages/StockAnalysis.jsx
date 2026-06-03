@@ -430,6 +430,13 @@ const StockAnalysis = () => {
 
           {activeTab === 'chips' && (
             <div className="space-y-4 sm:space-y-6">
+              {(!data.chip_processed?.length && !data.margin_processed?.length && !data.shareholding_processed?.length) && (
+                <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl">
+                  <Info className="w-12 h-12 text-gray-500 mb-4" />
+                  <p className="text-gray-400 text-lg font-bold">此標的目前無相關籌碼資料</p>
+                  <p className="text-gray-500 text-sm mt-2">可能是 ETF、新上市或目前尚無歷史數據</p>
+                </div>
+              )}
               {/* 法人買賣超 */}
               {data.chip_processed && data.chip_processed.length > 0 && (
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
@@ -492,6 +499,13 @@ const StockAnalysis = () => {
 
           {activeTab === 'fundamentals' && (
             <div className="space-y-4 sm:space-y-6">
+              {(!data.revenue_data?.length && !data.financial_data?.length) && (
+                <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl">
+                  <Info className="w-12 h-12 text-gray-500 mb-4" />
+                  <p className="text-gray-400 text-lg font-bold">此標的目前無相關基本面資料</p>
+                  <p className="text-gray-500 text-sm mt-2">可能是 ETF 等不適用一般財報分析之標的</p>
+                </div>
+              )}
               {/* 月營收 */}
               {data.revenue_data && data.revenue_data.length > 0 && (
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
