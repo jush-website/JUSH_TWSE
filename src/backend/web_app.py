@@ -202,11 +202,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 掛載前端靜態檔案
-# 在 Vercel 環境中，路徑會從根目錄開始計算
+# 設定前端靜態檔路徑
+# 在 Vercel 環境中，路徑會從專案根目錄開始
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
-frontend_path = os.path.join(root_dir, "frontend", "dist")
+project_root = os.path.dirname(root_dir)
+frontend_path = os.path.join(project_root, "dist")
 
 if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
