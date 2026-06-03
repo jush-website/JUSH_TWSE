@@ -434,51 +434,57 @@ const StockAnalysis = () => {
               {data.chip_processed && data.chip_processed.length > 0 && (
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">三大法人買賣超 (張)</h2>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chip_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
-                      <Legend />
-                      <Bar dataKey="foreign_net" name="外資淨買賣" fill="#3B82F6" />
-                      <Bar dataKey="trust_net" name="投信淨買賣" fill="#10B981" />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <div className="h-[280px] sm:h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={data.chip_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                        <YAxis stroke="#9CA3AF" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
+                        <Legend />
+                        <Bar dataKey="foreign_net" name="外資淨買賣" fill="#3B82F6" />
+                        <Bar dataKey="trust_net" name="投信淨買賣" fill="#10B981" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
               {/* 資券變化 */}
               {data.margin_processed && data.margin_processed.length > 0 && (
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">融資融券餘額 (張)</h2>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.margin_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis yAxisId="left" stroke="#F87171" fontSize={10} />
-                      <YAxis yAxisId="right" orientation="right" stroke="#60A5FA" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
-                      <Legend />
-                      <Line yAxisId="left" type="monotone" dataKey="margin_bal" name="融資餘額" stroke="#F87171" dot={false} strokeWidth={2} />
-                      <Line yAxisId="right" type="monotone" dataKey="short_bal" name="融券餘額" stroke="#60A5FA" dot={false} strokeWidth={2} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <div className="h-[280px] sm:h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={data.margin_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                        <YAxis yAxisId="left" stroke="#F87171" fontSize={10} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#60A5FA" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
+                        <Legend />
+                        <Line yAxisId="left" type="monotone" dataKey="margin_bal" name="融資餘額" stroke="#F87171" dot={false} strokeWidth={2} />
+                        <Line yAxisId="right" type="monotone" dataKey="short_bal" name="融券餘額" stroke="#60A5FA" dot={false} strokeWidth={2} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
               {/* 外資持股比例 */}
               {data.shareholding_processed && data.shareholding_processed.length > 0 && (
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">外資持股比例 (%)</h2>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.shareholding_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis domain={['auto', 'auto']} stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
-                      <Legend />
-                      <Line type="monotone" dataKey="ratio" name="持股比例" stroke="#A78BFA" dot={false} strokeWidth={2} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <div className="h-[280px] sm:h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={data.shareholding_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                        <YAxis domain={['auto', 'auto']} stroke="#9CA3AF" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
+                        <Legend />
+                        <Line type="monotone" dataKey="ratio" name="持股比例" stroke="#A78BFA" dot={false} strokeWidth={2} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
             </div>
@@ -490,34 +496,38 @@ const StockAnalysis = () => {
               {data.revenue_data && data.revenue_data.length > 0 && (
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">月營收與年增率</h2>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.revenue_data.slice(-36).map(d => ({ date: d.date, rev: d.revenue/100000000, yoy: d.revenue_year_on_year }))} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} />
-                      <YAxis yAxisId="right" orientation="right" stroke="#F59E0B" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
-                      <Legend />
-                      <Bar yAxisId="left" dataKey="rev" name="月營收(億)" fill="#3B82F6" opacity={0.8} />
-                      <Line yAxisId="right" type="monotone" dataKey="yoy" name="年增率(%)" stroke="#F59E0B" strokeWidth={2} dot={true} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <div className="h-[280px] sm:h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={data.revenue_data.slice(-36).map(d => ({ date: d.date, rev: d.revenue/100000000, yoy: d.revenue_year_on_year }))} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                        <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#F59E0B" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
+                        <Legend />
+                        <Bar yAxisId="left" dataKey="rev" name="月營收(億)" fill="#3B82F6" opacity={0.8} />
+                        <Line yAxisId="right" type="monotone" dataKey="yoy" name="年增率(%)" stroke="#F59E0B" strokeWidth={2} dot={true} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
               {/* EPS */}
               {data.financial_data && data.financial_data.filter(d => d.type === 'EPS').length > 0 && (
                 <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 sm:p-6 shadow-xl h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">每股盈餘 (EPS)</h2>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.financial_data.filter(d => d.type === 'EPS').slice(-12)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
-                      <Legend />
-                      <Bar dataKey="value" name="EPS(元)" fill="#10B981" opacity={0.8} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <div className="h-[280px] sm:h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={data.financial_data.filter(d => d.type === 'EPS').slice(-12)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
+                        <YAxis stroke="#9CA3AF" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
+                        <Legend />
+                        <Bar dataKey="value" name="EPS(元)" fill="#10B981" opacity={0.8} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
               {/* 財報 Table */}
