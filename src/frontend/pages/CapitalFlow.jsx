@@ -177,27 +177,67 @@ const CapitalFlow = () => {
       </div>
 
       {marketStats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
-            <div className="text-gray-400 text-xs mb-1">上漲家數</div>
-            <div className="text-red-400 font-bold text-lg">{marketStats.up}</div>
-          </div>
-          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
-            <div className="text-gray-400 text-xs mb-1 flex items-center justify-center"><Flame size={12} className="mr-1 text-red-500"/>漲停家數</div>
-            <div className="text-red-500 font-black text-lg">{marketStats.limit_up}</div>
-          </div>
-          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
-            <div className="text-gray-400 text-xs mb-1">平盤家數</div>
-            <div className="text-gray-300 font-bold text-lg">{marketStats.unchanged}</div>
-          </div>
-          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
-            <div className="text-gray-400 text-xs mb-1">下跌家數</div>
-            <div className="text-green-400 font-bold text-lg">{marketStats.down}</div>
-          </div>
-          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center col-span-2 md:col-span-1">
-            <div className="text-gray-400 text-xs mb-1">跌停家數</div>
-            <div className="text-green-500 font-black text-lg">{marketStats.limit_down}</div>
-          </div>
+        <div className="bg-gray-800/60 rounded-3xl border border-gray-700/50 p-5 sm:p-6 mb-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-gray-500 to-red-500 opacity-50"></div>
+          
+          <h2 className="text-lg font-bold text-gray-200 mb-6 flex items-center">
+            <BarChart3 className="w-5 h-5 text-purple-400 mr-2" />
+            市場多空儀表板
+          </h2>
+          
+          {(() => {
+            const total = marketStats.up + marketStats.down + marketStats.unchanged + marketStats.limit_up + marketStats.limit_down;
+            const limitUpPct = (marketStats.limit_up / total) * 100 || 0;
+            const upPct = (marketStats.up / total) * 100 || 0;
+            const unchangedPct = (marketStats.unchanged / total) * 100 || 0;
+            const downPct = (marketStats.down / total) * 100 || 0;
+            const limitDownPct = (marketStats.limit_down / total) * 100 || 0;
+            
+            return (
+              <div className="space-y-6">
+                {/* Horizontal Bar */}
+                <div className="relative h-6 w-full rounded-full overflow-hidden flex bg-gray-900 border border-gray-700/50">
+                  <div style={{width: `${limitDownPct}%`}} className="h-full bg-green-600 transition-all duration-700 hover:brightness-125" title={`跌停: ${marketStats.limit_down}`}></div>
+                  <div style={{width: `${downPct}%`}} className="h-full bg-green-400 transition-all duration-700 hover:brightness-125" title={`下跌: ${marketStats.down}`}></div>
+                  <div style={{width: `${unchangedPct}%`}} className="h-full bg-gray-500 transition-all duration-700 hover:brightness-125" title={`平盤: ${marketStats.unchanged}`}></div>
+                  <div style={{width: `${upPct}%`}} className="h-full bg-red-400 transition-all duration-700 hover:brightness-125" title={`上漲: ${marketStats.up}`}></div>
+                  <div style={{width: `${limitUpPct}%`}} className="h-full bg-red-600 transition-all duration-700 hover:brightness-125" title={`漲停: ${marketStats.limit_up}`}></div>
+                </div>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-5 gap-2 sm:gap-4 text-center">
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">跌停</div>
+                    <div className="text-green-500 font-black text-lg sm:text-2xl drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]">{marketStats.limit_down}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{limitDownPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">下跌</div>
+                    <div className="text-green-400 font-bold text-lg sm:text-2xl">{marketStats.down}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{downPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">平盤</div>
+                    <div className="text-gray-300 font-bold text-lg sm:text-2xl">{marketStats.unchanged}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{unchangedPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">上漲</div>
+                    <div className="text-red-400 font-bold text-lg sm:text-2xl">{marketStats.up}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{upPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1 flex items-center justify-center">
+                      <Flame size={12} className="text-red-500 mr-0.5 sm:mr-1" />
+                      漲停
+                    </div>
+                    <div className="text-red-500 font-black text-lg sm:text-2xl drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]">{marketStats.limit_up}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{limitUpPct.toFixed(1)}%</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
