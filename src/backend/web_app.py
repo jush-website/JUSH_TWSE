@@ -174,6 +174,13 @@ async def background_strategies_sync():
 
                 await loop.run_in_executor(None, update_doc, 'etf', etf)
                 await loop.run_in_executor(None, update_doc, 'capital_flow', capital_flow)
+                
+                try:
+                    institutional_flow = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
+                    await loop.run_in_executor(None, update_doc, 'institutional_flow', institutional_flow)
+                except Exception as e:
+                    print(f"[系統] 同步 institutional_flow 失敗: {e}")
+
                 print("[系統] 背景深度策略分析完成，已同步寫入 Firebase Firestore！")
             else:
                 print("[系統] 背景深度策略分析完成 (已快取)，但未同步至 Firebase (無金鑰)")
@@ -386,6 +393,18 @@ executor = ThreadPoolExecutor(max_workers=3)
 def analyze_wrap(sid):
     return analyzer.analyze(sid)
 
+
+@app.get("/api/institutional-flow")
+async def get_institutional_flow_api(force: bool = False):
+    if not force:
+        cached = get_cached_response("institutional_flow")
+        if cached: return cached
+    
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
+    final_res = sanitize_data(res)
+    set_cached_response("institutional_flow", final_res)
+    return final_res
 
 @app.get("/api/long-term-recommendations")
 async def get_long_term_recommendations(force: bool = False):

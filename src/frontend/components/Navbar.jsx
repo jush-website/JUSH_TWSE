@@ -86,6 +86,18 @@ const Navbar = ({ status }) => {
             </Link>
             
             <div className="h-4 w-px bg-white/20 mx-1"></div>
+
+            <Link 
+              to="/institutional-flow" 
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
+                location.pathname === '/institutional-flow' ? 'bg-purple-500/20 text-purple-400 font-bold shadow-[0_0_10px_rgba(168,85,247,0.3)]' : 'hover:bg-gray-800 text-gray-300'
+              }`}
+            >
+              <BarChart2 size={16} />
+              <span className="text-sm">法人動向</span>
+            </Link>
+            
+            <div className="h-4 w-px bg-white/20 mx-1"></div>
             
             <Link 
               to="/analyze" 
@@ -156,6 +168,13 @@ const Navbar = ({ status }) => {
               <Flame size={20} />
             </Link>
 
+            <Link 
+              to="/institutional-flow" 
+              className={`p-1 rounded-md transition-all ${location.pathname === '/institutional-flow' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-white/5 text-gray-300 hover:text-purple-400 border border-white/5'}`}
+            >
+              <BarChart2 size={20} />
+            </Link>
+
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-300 hover:text-white focus:outline-none p-1 border border-white/5 rounded-md bg-white/5">
               {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -186,7 +205,11 @@ const Navbar = ({ status }) => {
           </Link>
 
           <Link to="/capital-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><Flame size={18} className="text-orange-400" /><span className="text-orange-400 font-bold">資金流向</span></div>
+            <div className="flex items-center space-x-3"><Flame size={18} className={location.pathname === '/capital-flow' ? "text-orange-400" : ""} /><span className={location.pathname === '/capital-flow' ? "text-orange-400 font-bold" : ""}>資金流向</span></div>
+          </Link>
+          
+          <Link to="/institutional-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
+            <div className="flex items-center space-x-3"><BarChart2 size={18} className={location.pathname === '/institutional-flow' ? "text-purple-400" : ""} /><span className={location.pathname === '/institutional-flow' ? "text-purple-400 font-bold" : ""}>法人動向</span></div>
           </Link>
           
           <div className="py-2">

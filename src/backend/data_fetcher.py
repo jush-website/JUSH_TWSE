@@ -1536,3 +1536,53 @@ class DataFetcher:
         # 依成交比重降序排列
         results = sorted(results, key=lambda x: x["value_ratio"], reverse=True)
         return results
+
+    def get_institutional_flow(self, days=30):
+        """
+        獲取大盤三大法人買賣超 (法人資金動向) 歷史資料 (近N天)
+        """
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        try:
+            df = self.fm_loader.taiwan_stock_institutional_investors_total(start_date=start_date)
+            if df is None or df.empty: return []
+            
+            # DataFrame cols: buy, date, name, sell
+            # We want to group by date and pivot names: 'Dealer_Hedging', 'Foreign_Investor', 'Dealer_self', 'Foreign_Dealer_Self', 'total'
+            # (or we can just group by date)
+            results = []
+            
+            # map finmind names to readable chinese names
+            name_map = {
+                'Foreign_Investor': '外資及陸資',
+                'Investment_Trust': '投信',
+                'Dealer_self': '自營商(自行買賣)',
+                'Dealer_Hedging': '自營商(避險)',
+                'Foreign_Dealer_Self': '外資自營商',
+                'total': '合計'
+            }
+            
+            for date_val, group in df.groupby('date'):
+                day_data = {'date': str(date_val)}
+                for _, row in group.iterrows():
+                    nm = row['name']
+                    buy = int(row.get('buy', 0))
+                    sell = int(row.get('sell', 0))
+                    net = buy - sell
+                    if nm in name_map:
+                        ch_name = name_map[nm]
+                        day_data[ch_name] = net
+                    else:
+                        day_data[nm] = net
+                
+                # merge dealers if both exist (or keep them separated, up to UI)
+                dealer_total = day_data.get('自營商(自行買賣)', 0) + day_data.get('自營商(避險)', 0)
+                day_data['自營商'] = dealer_total
+                
+                results.append(day_data)
+                
+            # sort by date ascending
+            results = sorted(results, key=lambda x: x['date'])
+            return results
+        except Exception as e:
+            logger.error(f"Error fetching institutional flow: {e}")
+            return []
