@@ -962,17 +962,17 @@ async def serve_react_app(full_path: str):
     if full_path.startswith("api/"):
         raise HTTPException(status_code=404)
         
-    # Serve assets manually to avoid StaticFiles anyio bug
-    if full_path.startswith("assets/"):
-        file_path = os.path.join(frontend_path, full_path)
-        if os.path.exists(file_path):
-            import mimetypes
-            mime_type, _ = mimetypes.guess_type(file_path)
-            with open(file_path, "rb") as f:
-                from fastapi.responses import Response
-                return Response(content=f.read(), media_type=mime_type or "application/octet-stream")
-        raise HTTPException(status_code=404)
-        
+    file_path = os.path.join(frontend_path, full_path)
+    
+    # If the requested file actually exists in dist, serve it directly
+    if os.path.isfile(file_path):
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(file_path)
+        with open(file_path, "rb") as f:
+            from fastapi.responses import Response
+            return Response(content=f.read(), media_type=mime_type or "application/octet-stream")
+            
+    # Otherwise, fallback to index.html for React Router
     index_path = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
