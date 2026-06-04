@@ -218,8 +218,9 @@ project_root = os.path.dirname(root_dir)
 frontend_path = os.path.join(project_root, "dist")
 
 if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
-    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
-
+    # Do not use StaticFiles due to anyio.NoEventLoopError bug on some environments
+    # app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
+    pass
 # 簡單的 API 快取機制，避免頻繁計算導致超時
 API_CACHE = {}
 
@@ -959,6 +960,17 @@ async def sync_data(mode: str = "1"):
 async def serve_react_app(full_path: str):
     # 如果路徑包含 api，則不處理 (交給其他 route)
     if full_path.startswith("api/"):
+        raise HTTPException(status_code=404)
+        
+    # Serve assets manually to avoid StaticFiles anyio bug
+    if full_path.startswith("assets/"):
+        file_path = os.path.join(frontend_path, full_path)
+        if os.path.exists(file_path):
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(file_path)
+            with open(file_path, "rb") as f:
+                from fastapi.responses import Response
+                return Response(content=f.read(), media_type=mime_type or "application/octet-stream")
         raise HTTPException(status_code=404)
         
     index_path = os.path.join(frontend_path, "index.html")
