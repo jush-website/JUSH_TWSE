@@ -58,7 +58,7 @@ export const getEtfRecommendations = () => fetchFromFirestore('recommendations',
 export const getCapitalFlow = async () => {
   try {
     const res = await fetchFromFirestore('recommendations', 'capital_flow');
-    if (res && res.data && res.data.length > 0) return res;
+    if (res && res.data && (res.data.length > 0 || res.data.industries)) return res;
   } catch (err) {
     console.warn("Firestore capital_flow fetch failed, falling back to API", err);
   }
