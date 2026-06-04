@@ -6,6 +6,7 @@ import RecommendationPage from './pages/RecommendationPage';
 import StockAnalysis from './pages/StockAnalysis';
 import CapitalFlow from './pages/CapitalFlow';
 import InstitutionalFlow from './pages/InstitutionalFlow';
+import MarketBreadth from './pages/MarketBreadth';
 import { getShortTermRecommendations } from './services/api';
 
 // 簡易錯誤邊界組件
@@ -64,6 +65,7 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/recommendations/:type" element={<RecommendationPage />} />
                 <Route path="/capital-flow" element={<CapitalFlow />} />
+                <Route path="/market-breadth" element={<MarketBreadth />} />
                 <Route path="/institutional-flow" element={<InstitutionalFlow />} />
                 <Route path="/analyze" element={<StockAnalysis />} />
                 <Route path="/analyze/:query" element={<StockAnalysis />} />

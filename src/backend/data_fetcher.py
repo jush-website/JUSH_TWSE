@@ -1563,6 +1563,55 @@ class DataFetcher:
             results[0]["_market_stats"] = market_stats
             
         return results
+
+    def get_market_breadth(self):
+        """
+        計算大盤多空寬度 (漲跌家數分佈與平盤統計)
+        """
+        import math
+        if not self._official_cache: self.fetch_twse_openapi(fetch_all=False)
+        
+        # Initialize buckets from -10 to 10
+        histogram_map = {i: 0 for i in range(-10, 11)}
+        summary = {"up": 0, "down": 0, "limit_up": 0, "limit_down": 0, "unchanged": 0}
+        
+        for sid, info in self._official_cache.items():
+            if sid == "TAIEX": continue
+            # Only count regular stocks and ETFs (length 4 or starts with 00)
+            if len(sid) != 4 and not sid.startswith("00"): continue
+            
+            cpct = info.get("change_pct", 0)
+            
+            # Update summary
+            if cpct >= 9.5:
+                summary["limit_up"] += 1
+                summary["up"] += 1
+                bucket = 10
+            elif cpct <= -9.5:
+                summary["limit_down"] += 1
+                summary["down"] += 1
+                bucket = -10
+            elif cpct > 0:
+                summary["up"] += 1
+                bucket = int(math.ceil(cpct))
+                if bucket > 9: bucket = 9
+            elif cpct < 0:
+                summary["down"] += 1
+                bucket = int(math.floor(cpct))
+                if bucket < -9: bucket = -9
+            else:
+                summary["unchanged"] += 1
+                bucket = 0
+                
+            histogram_map[bucket] += 1
+            
+        # Format for Recharts
+        histogram = [{"range": k, "count": v} for k, v in sorted(histogram_map.items())]
+        
+        return {
+            "histogram": histogram,
+            "summary": summary
+        }
     def get_institutional_flow(self, days=30):
         """
         獲取大盤三大法人買賣超 (法人資金動向) 歷史資料 (近N天)

@@ -670,6 +670,12 @@ async def get_etf_recommendations(force: bool = False):
     set_cached_response("etf", final_res)
     return final_res
 
+@app.get("/api/market-breadth")
+async def get_market_breadth_api():
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(executor, fetcher.get_market_breadth)
+    return res
+
 @app.get("/api/capital-flow")
 async def get_capital_flow_recommendations(force: bool = False):
     if not force:

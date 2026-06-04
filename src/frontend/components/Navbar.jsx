@@ -84,6 +84,16 @@ const Navbar = ({ status }) => {
               <Flame size={16} />
               <span className="text-sm">資金流向</span>
             </Link>
+
+            <Link 
+              to="/market-breadth" 
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
+                location.pathname === '/market-breadth' ? 'bg-pink-500/20 text-pink-400 font-bold shadow-[0_0_10px_rgba(236,72,153,0.3)]' : 'hover:bg-gray-800 text-gray-300'
+              }`}
+            >
+              <Activity size={16} />
+              <span className="text-sm">多空分佈</span>
+            </Link>
             
             <div className="h-4 w-px bg-white/20 mx-1"></div>
 
@@ -167,6 +177,13 @@ const Navbar = ({ status }) => {
             >
               <Flame size={20} />
             </Link>
+            
+            <Link 
+              to="/market-breadth" 
+              className={`p-1 rounded-md transition-all ${location.pathname === '/market-breadth' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-white/5 text-gray-300 hover:text-pink-400 border border-white/5'}`}
+            >
+              <Activity size={20} />
+            </Link>
 
             <Link 
               to="/institutional-flow" 
@@ -206,6 +223,10 @@ const Navbar = ({ status }) => {
 
           <Link to="/capital-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
             <div className="flex items-center space-x-3"><Flame size={18} className={location.pathname === '/capital-flow' ? "text-orange-400" : ""} /><span className={location.pathname === '/capital-flow' ? "text-orange-400 font-bold" : ""}>資金流向</span></div>
+          </Link>
+          
+          <Link to="/market-breadth" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
+            <div className="flex items-center space-x-3"><Activity size={18} className={location.pathname === '/market-breadth' ? "text-pink-400" : ""} /><span className={location.pathname === '/market-breadth' ? "text-pink-400 font-bold" : ""}>多空分佈</span></div>
           </Link>
           
           <Link to="/institutional-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">

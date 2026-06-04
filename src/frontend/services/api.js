@@ -66,6 +66,11 @@ export const getCapitalFlow = async () => {
   return { data: apiRes.data, updated_at: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
 };
 
+export const getMarketBreadth = async () => {
+  const apiRes = await api.get('/api/market-breadth');
+  return { data: apiRes.data, updated_at: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
+};
+
 export const getInstitutionalFlow = async () => {
   try {
     const res = await fetchFromFirestore('recommendations', 'institutional_flow');
