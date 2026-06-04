@@ -57,7 +57,8 @@ const InstitutionalFlow = () => {
 
   if (loading) return <ProgressLoader text="正在載入法人資金動向..." />;
   if (error) return <div className="text-center py-20 text-red-400 font-bold flex flex-col items-center"><ShieldAlert size={48} className="mb-4" />{error}</div>;
-  if (!data || data.length === 0) return <div className="text-center py-20 text-gray-400">目前沒有法人買賣超資料</div>;
+  if (data && data.error) return <div className="text-center py-20 text-red-400 font-bold flex flex-col items-center"><ShieldAlert size={48} className="mb-4" />FinMind API 錯誤或達到呼叫上限，請稍後再試。<br/><span className="text-sm mt-2 font-normal text-red-400/70">({data.error})</span></div>;
+  if (!data || !Array.isArray(data) || data.length === 0) return <div className="text-center py-20 text-gray-400">目前沒有法人買賣超資料</div>;
 
   const latestData = data[data.length - 1];
   

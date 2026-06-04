@@ -1659,5 +1659,5 @@ class DataFetcher:
             results = sorted(results, key=lambda x: x['date'])
             return results
         except Exception as e:
-            logger.error(f"Error fetching institutional flow: {e}")
-            return []
+            print(f"Error fetching institutional flow: {e}")
+            return {"error": str(e)}

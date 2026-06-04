@@ -86,6 +86,44 @@ const MarketBreadth = () => {
         )}
       </div>
 
+      {/* Top Level Statistics Dashboard Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg text-center transform transition-transform hover:scale-105">
+          <div className="text-gray-400 text-sm mb-2 font-medium">漲停家數</div>
+          <div className="text-3xl font-bold text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]">
+            {limit_up} <span className="text-sm text-red-500/70 font-normal">家</span>
+          </div>
+        </div>
+        
+        <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg text-center transform transition-transform hover:scale-105">
+          <div className="text-gray-400 text-sm mb-2 font-medium">上漲家數</div>
+          <div className="text-3xl font-bold text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.3)]">
+            {up} <span className="text-sm text-red-400/70 font-normal">家</span>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg text-center transform transition-transform hover:scale-105 col-span-2 md:col-span-1">
+          <div className="text-gray-400 text-sm mb-2 font-medium">平盤家數</div>
+          <div className="text-3xl font-bold text-gray-300 drop-shadow-[0_0_8px_rgba(156,163,175,0.3)]">
+            {unchanged} <span className="text-sm text-gray-500 font-normal">家</span>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg text-center transform transition-transform hover:scale-105">
+          <div className="text-gray-400 text-sm mb-2 font-medium">下跌家數</div>
+          <div className="text-3xl font-bold text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.3)]">
+            {down} <span className="text-sm text-green-400/70 font-normal">家</span>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg text-center transform transition-transform hover:scale-105">
+          <div className="text-gray-400 text-sm mb-2 font-medium">跌停家數</div>
+          <div className="text-3xl font-bold text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]">
+            {limit_down} <span className="text-sm text-green-500/70 font-normal">家</span>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-gray-800/60 rounded-3xl border border-gray-700/50 p-4 sm:p-8 shadow-xl">
         <h2 className="text-xl font-bold text-gray-200 mb-8 text-center hidden sm:block">
           市場漲跌家數分佈圖
@@ -163,30 +201,6 @@ const MarketBreadth = () => {
             >
               {upPct > 5 && `${upPct.toFixed(1)}%`}
             </div>
-          </div>
-        </div>
-
-        {/* Statistics Text */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6 pt-6 border-t border-gray-700/50">
-          <div className="text-center">
-            <div className="text-gray-400 text-sm mb-1">跌停家數</div>
-            <div className="text-2xl font-bold text-green-400">{limit_down} <span className="text-xs text-green-500/70 font-normal">家</span></div>
-          </div>
-          <div className="text-center">
-            <div className="text-gray-400 text-sm mb-1">下跌家數</div>
-            <div className="text-2xl font-bold text-green-400">{down} <span className="text-xs text-green-500/70 font-normal">家</span></div>
-          </div>
-          <div className="text-center col-span-2 md:col-span-1 border-x-0 md:border-x border-gray-700/50">
-            <div className="text-gray-400 text-sm mb-1">平盤家數</div>
-            <div className="text-2xl font-bold text-gray-300">{unchanged} <span className="text-xs text-gray-500 font-normal">家</span></div>
-          </div>
-          <div className="text-center">
-            <div className="text-gray-400 text-sm mb-1">上漲家數</div>
-            <div className="text-2xl font-bold text-red-400">{up} <span className="text-xs text-red-500/70 font-normal">家</span></div>
-          </div>
-          <div className="text-center">
-            <div className="text-gray-400 text-sm mb-1">漲停家數</div>
-            <div className="text-2xl font-bold text-red-400">{limit_up} <span className="text-xs text-red-500/70 font-normal">家</span></div>
           </div>
         </div>
       </div>
