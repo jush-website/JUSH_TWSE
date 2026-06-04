@@ -173,6 +173,7 @@ async def background_strategies_sync():
                     print(f"[系統] 同步 day_trade_cdp 失敗: {e}")
 
                 await loop.run_in_executor(None, update_doc, 'etf', etf)
+                await loop.run_in_executor(None, update_doc, 'capital_flow', capital_flow)
                 print("[系統] 背景深度策略分析完成，已同步寫入 Firebase Firestore！")
             else:
                 print("[系統] 背景深度策略分析完成 (已快取)，但未同步至 Firebase (無金鑰)")
