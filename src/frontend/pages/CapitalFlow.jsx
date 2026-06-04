@@ -186,12 +186,18 @@ const CapitalFlow = () => {
           </h2>
           
           {(() => {
-            const total = marketStats.up + marketStats.down + marketStats.unchanged + marketStats.limit_up + marketStats.limit_down;
-            const limitUpPct = (marketStats.limit_up / total) * 100 || 0;
-            const upPct = (marketStats.up / total) * 100 || 0;
-            const unchangedPct = (marketStats.unchanged / total) * 100 || 0;
-            const downPct = (marketStats.down / total) * 100 || 0;
-            const limitDownPct = (marketStats.limit_down / total) * 100 || 0;
+            const up = Number(marketStats?.up || 0);
+            const down = Number(marketStats?.down || 0);
+            const unchanged = Number(marketStats?.unchanged || 0);
+            const limitUp = Number(marketStats?.limit_up || 0);
+            const limitDown = Number(marketStats?.limit_down || 0);
+            const total = up + down + unchanged + limitUp + limitDown;
+            
+            const limitUpPct = total ? (limitUp / total) * 100 : 0;
+            const upPct = total ? (up / total) * 100 : 0;
+            const unchangedPct = total ? (unchanged / total) * 100 : 0;
+            const downPct = total ? (down / total) * 100 : 0;
+            const limitDownPct = total ? (limitDown / total) * 100 : 0;
             
             return (
               <div className="space-y-6">
