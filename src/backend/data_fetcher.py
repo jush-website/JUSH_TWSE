@@ -1533,10 +1533,33 @@ class DataFetcher:
                 "top_stocks": top_stocks
             })
             
+        market_stats = {"up": 0, "down": 0, "limit_up": 0, "limit_down": 0, "unchanged": 0}
+        
+        for sid, info in self._official_cache.items():
+            if sid == "TAIEX": continue
+            # Only count regular stocks and ETFs (length 4 or starts with 00)
+            if len(sid) != 4 and not sid.startswith("00"): continue
+            
+            cpct = info.get("change_pct", 0)
+            if cpct >= 9.5:
+                market_stats["limit_up"] += 1
+                market_stats["up"] += 1
+            elif cpct <= -9.5:
+                market_stats["limit_down"] += 1
+                market_stats["down"] += 1
+            elif cpct > 0:
+                market_stats["up"] += 1
+            elif cpct < 0:
+                market_stats["down"] += 1
+            else:
+                market_stats["unchanged"] += 1
+                
         # 依成交比重降序排列
         results = sorted(results, key=lambda x: x["value_ratio"], reverse=True)
-        return results
-
+        return {
+            "industries": results,
+            "market_stats": market_stats
+        }
     def get_institutional_flow(self, days=30):
         """
         獲取大盤三大法人買賣超 (法人資金動向) 歷史資料 (近N天)

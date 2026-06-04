@@ -10,18 +10,26 @@ const CapitalFlow = () => {
   const [error, setError] = useState(null);
   const [selectedIndustry, setSelectedIndustry] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [marketStats, setMarketStats] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const res = await getCapitalFlow();
-        setData(res.data || []);
+        if (Array.isArray(res.data)) {
+          // Backward compatibility
+          setData(res.data);
+        } else {
+          setData(res.data.industries || []);
+          setMarketStats(res.data.market_stats || null);
+        }
         setLastUpdated(res.updated_at);
-        if (res.data && res.data.length > 0) {
+        const indData = Array.isArray(res.data) ? res.data : res.data.industries;
+        if (indData && indData.length > 0) {
           // 在電腦版 (>=1024px) 預設選中第一筆，手機版則不選中，避免直接跳出彈窗
           if (window.innerWidth >= 1024) {
-            setSelectedIndustry(res.data[0]);
+            setSelectedIndustry(indData[0]);
           }
         }
       } catch (err) {
@@ -167,6 +175,31 @@ const CapitalFlow = () => {
           </div>
         )}
       </div>
+
+      {marketStats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
+            <div className="text-gray-400 text-xs mb-1">上漲家數</div>
+            <div className="text-red-400 font-bold text-lg">{marketStats.up}</div>
+          </div>
+          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
+            <div className="text-gray-400 text-xs mb-1 flex items-center justify-center"><Flame size={12} className="mr-1 text-red-500"/>漲停家數</div>
+            <div className="text-red-500 font-black text-lg">{marketStats.limit_up}</div>
+          </div>
+          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
+            <div className="text-gray-400 text-xs mb-1">平盤家數</div>
+            <div className="text-gray-300 font-bold text-lg">{marketStats.unchanged}</div>
+          </div>
+          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center">
+            <div className="text-gray-400 text-xs mb-1">下跌家數</div>
+            <div className="text-green-400 font-bold text-lg">{marketStats.down}</div>
+          </div>
+          <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-3 text-center col-span-2 md:col-span-1">
+            <div className="text-gray-400 text-xs mb-1">跌停家數</div>
+            <div className="text-green-500 font-black text-lg">{marketStats.limit_down}</div>
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Heatmap Section */}
