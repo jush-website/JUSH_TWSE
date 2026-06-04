@@ -18,9 +18,14 @@ const CapitalFlow = () => {
         setLoading(true);
         const res = await getCapitalFlow();
         if (Array.isArray(res.data)) {
-          // Backward compatibility
+          // Backward compatibility: res.data is a list of industries
           setData(res.data);
+          // New backend embeds _market_stats in the first element to preserve array structure
+          if (res.data.length > 0 && res.data[0]._market_stats) {
+            setMarketStats(res.data[0]._market_stats);
+          }
         } else {
+          // Fallback just in case some cached data is still in dictionary format
           setData(res.data.industries || []);
           setMarketStats(res.data.market_stats || null);
         }

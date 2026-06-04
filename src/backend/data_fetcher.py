@@ -1556,10 +1556,13 @@ class DataFetcher:
                 
         # 依成交比重降序排列
         results = sorted(results, key=lambda x: x["value_ratio"], reverse=True)
-        return {
-            "industries": results,
-            "market_stats": market_stats
-        }
+        
+        # BACKWARD COMPATIBILITY: Return a list to prevent old clients from crashing
+        # We attach market_stats to a special attribute on the first element so new clients can extract it
+        if results:
+            results[0]["_market_stats"] = market_stats
+            
+        return results
     def get_institutional_flow(self, days=30):
         """
         獲取大盤三大法人買賣超 (法人資金動向) 歷史資料 (近N天)
