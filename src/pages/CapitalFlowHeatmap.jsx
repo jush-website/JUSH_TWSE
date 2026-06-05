@@ -10,7 +10,6 @@ const CapitalFlowHeatmap = () => {
   const [error, setError] = useState(null);
   const [selectedIndustry, setSelectedIndustry] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [marketStats, setMarketStats] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -20,14 +19,9 @@ const CapitalFlowHeatmap = () => {
         if (Array.isArray(res.data)) {
           // Backward compatibility: res.data is a list of industries
           setData(res.data);
-          // New backend embeds _market_stats in the first element to preserve array structure
-          if (res.data.length > 0 && res.data[0]._market_stats) {
-            setMarketStats(res.data[0]._market_stats);
-          }
         } else {
           // Fallback just in case some cached data is still in dictionary format
           setData(res.data.industries || []);
-          setMarketStats(res.data.market_stats || null);
         }
         setLastUpdated(res.updated_at);
         const indData = Array.isArray(res.data) ? res.data : res.data.industries;
@@ -181,76 +175,6 @@ const CapitalFlowHeatmap = () => {
         )}
       </div>
 
-      {marketStats && (
-        <div className="bg-gray-800/60 rounded-3xl border border-gray-700/50 p-5 sm:p-6 mb-6 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-gray-500 to-red-500 opacity-50"></div>
-          
-          <h2 className="text-lg font-bold text-gray-200 mb-6 flex items-center">
-            <BarChart3 className="w-5 h-5 text-purple-400 mr-2" />
-            市場多空儀表板
-          </h2>
-          
-          {(() => {
-            const up = Number(marketStats?.up || 0);
-            const down = Number(marketStats?.down || 0);
-            const unchanged = Number(marketStats?.unchanged || 0);
-            const limitUp = Number(marketStats?.limit_up || 0);
-            const limitDown = Number(marketStats?.limit_down || 0);
-            const total = up + down + unchanged + limitUp + limitDown;
-            
-            const limitUpPct = total ? (limitUp / total) * 100 : 0;
-            const upPct = total ? (up / total) * 100 : 0;
-            const unchangedPct = total ? (unchanged / total) * 100 : 0;
-            const downPct = total ? (down / total) * 100 : 0;
-            const limitDownPct = total ? (limitDown / total) * 100 : 0;
-            
-            return (
-              <div className="space-y-6">
-                {/* Horizontal Bar */}
-                <div className="relative h-6 w-full rounded-full overflow-hidden flex bg-gray-900 border border-gray-700/50">
-                  <div style={{width: `${limitDownPct}%`}} className="h-full bg-green-600 transition-all duration-700 hover:brightness-125" title={`跌停: ${marketStats.limit_down}`}></div>
-                  <div style={{width: `${downPct}%`}} className="h-full bg-green-400 transition-all duration-700 hover:brightness-125" title={`下跌: ${marketStats.down}`}></div>
-                  <div style={{width: `${unchangedPct}%`}} className="h-full bg-gray-500 transition-all duration-700 hover:brightness-125" title={`平盤: ${marketStats.unchanged}`}></div>
-                  <div style={{width: `${upPct}%`}} className="h-full bg-red-400 transition-all duration-700 hover:brightness-125" title={`上漲: ${marketStats.up}`}></div>
-                  <div style={{width: `${limitUpPct}%`}} className="h-full bg-red-600 transition-all duration-700 hover:brightness-125" title={`漲停: ${marketStats.limit_up}`}></div>
-                </div>
-                
-                {/* Stats Grid */}
-                <div className="grid grid-cols-5 gap-2 sm:gap-4 text-center">
-                  <div className="flex flex-col items-center">
-                    <div className="text-xs text-gray-400 mb-1">跌停</div>
-                    <div className="text-green-500 font-black text-lg sm:text-2xl drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]">{marketStats.limit_down}</div>
-                    <div className="text-[10px] text-gray-500 mt-1">{limitDownPct.toFixed(1)}%</div>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="text-xs text-gray-400 mb-1">下跌</div>
-                    <div className="text-green-400 font-bold text-lg sm:text-2xl">{marketStats.down}</div>
-                    <div className="text-[10px] text-gray-500 mt-1">{downPct.toFixed(1)}%</div>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="text-xs text-gray-400 mb-1">平盤</div>
-                    <div className="text-gray-300 font-bold text-lg sm:text-2xl">{marketStats.unchanged}</div>
-                    <div className="text-[10px] text-gray-500 mt-1">{unchangedPct.toFixed(1)}%</div>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="text-xs text-gray-400 mb-1">上漲</div>
-                    <div className="text-red-400 font-bold text-lg sm:text-2xl">{marketStats.up}</div>
-                    <div className="text-[10px] text-gray-500 mt-1">{upPct.toFixed(1)}%</div>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="text-xs text-gray-400 mb-1 flex items-center justify-center">
-                      <Flame size={12} className="text-red-500 mr-0.5 sm:mr-1" />
-                      漲停
-                    </div>
-                    <div className="text-red-500 font-black text-lg sm:text-2xl drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]">{marketStats.limit_up}</div>
-                    <div className="text-[10px] text-gray-500 mt-1">{limitUpPct.toFixed(1)}%</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Heatmap Section */}
