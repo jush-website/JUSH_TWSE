@@ -771,7 +771,7 @@ async def analyze_stock(query: str):
 async def proxy_finmind(dataset: str, data_id: str, start_date: str):
     import requests
     loop = asyncio.get_event_loop()
-    token = os.environ.get("FINMIND_API_TOKEN", "")
+    token = os.environ.get("FINMIND_API_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoianVzaCIsImVtYWlsIjoiamltNjM1MjQxQGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjB9.arNTZscwqHiuFln_wO7ufKR03KQ9OQZyGk2l_pM2UN4")
     url = f"https://api.finmindtrade.com/api/v4/data?dataset={dataset}&data_id={data_id}&start_date={start_date}"
     if token:
         url += f"&token={token}"

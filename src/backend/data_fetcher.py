@@ -1642,7 +1642,14 @@ class DataFetcher:
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         try:
             df = self.fm_loader.taiwan_stock_institutional_investors_total(start_date=start_date)
-            if df is None or df.empty: return []
+            if df is None or df.empty:
+                import pandas as pd
+                cache_path = os.path.join(os.path.dirname(__file__), "..", "assets", "finmind_cache_fallback.json")
+                if os.path.exists(cache_path):
+                    df = pd.read_json(cache_path)
+                    df = df[df['date'] >= start_date]
+                else:
+                    return []
             
             # DataFrame cols: buy, date, name, sell
             # We want to group by date and pivot names: 'Dealer_Hedging', 'Foreign_Investor', 'Dealer_self', 'Foreign_Dealer_Self', 'total'
@@ -1683,4 +1690,43 @@ class DataFetcher:
             return results
         except Exception as e:
             print(f"Error fetching institutional flow: {e}")
+            import pandas as pd
+            cache_path = os.path.join(os.path.dirname(__file__), "..", "assets", "finmind_cache_fallback.json")
+            if os.path.exists(cache_path):
+                try:
+                    df = pd.read_json(cache_path)
+                    df = df[df['date'] >= start_date]
+                    
+                    results = []
+                    name_map = {
+                        'Foreign_Investor': '外資及陸資',
+                        'Investment_Trust': '投信',
+                        'Dealer_self': '自營商(自行買賣)',
+                        'Dealer_Hedging': '自營商(避險)',
+                        'Foreign_Dealer_Self': '外資自營商',
+                        'total': '合計'
+                    }
+                    
+                    for date_val, group in df.groupby('date'):
+                        day_data = {'date': str(date_val)}
+                        for _, row in group.iterrows():
+                            nm = row['name']
+                            buy = int(row.get('buy', 0))
+                            sell = int(row.get('sell', 0))
+                            net = buy - sell
+                            if nm in name_map:
+                                ch_name = name_map[nm]
+                                day_data[ch_name] = net
+                            else:
+                                day_data[nm] = net
+                        
+                        dealer_total = day_data.get('自營商(自行買賣)', 0) + day_data.get('自營商(避險)', 0)
+                        day_data['自營商'] = dealer_total
+                        
+                        results.append(day_data)
+                        
+                    results = sorted(results, key=lambda x: x['date'])
+                    return results
+                except:
+                    pass
             return {"error": str(e)}
