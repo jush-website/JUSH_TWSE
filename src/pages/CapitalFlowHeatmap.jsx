@@ -1,0 +1,336 @@
+import React, { useState, useEffect } from 'react';
+import { getCapitalFlow } from '../services/api';
+import { Link } from 'react-router-dom';
+import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X } from 'lucide-react';
+import ProgressLoader from '../components/ProgressLoader';
+
+const CapitalFlow = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedIndustry, setSelectedIndustry] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [marketStats, setMarketStats] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await getCapitalFlow();
+        if (Array.isArray(res.data)) {
+          // Backward compatibility: res.data is a list of industries
+          setData(res.data);
+          // New backend embeds _market_stats in the first element to preserve array structure
+          if (res.data.length > 0 && res.data[0]._market_stats) {
+            setMarketStats(res.data[0]._market_stats);
+          }
+        } else {
+          // Fallback just in case some cached data is still in dictionary format
+          setData(res.data.industries || []);
+          setMarketStats(res.data.market_stats || null);
+        }
+        setLastUpdated(res.updated_at);
+        const indData = Array.isArray(res.data) ? res.data : res.data.industries;
+        if (indData && indData.length > 0) {
+          // 在電腦版 (>=1024px) 預設選中第一筆，手機版則不選中，避免直接跳出彈窗
+          if (window.innerWidth >= 1024) {
+            setSelectedIndustry(indData[0]);
+          }
+        }
+      } catch (err) {
+        setError(err.message || '無法取得資金流向資料');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-20 space-y-4">
+      <ProgressLoader progress={50} status="載入資金流向資料中..." />
+    </div>
+  );
+  
+  if (error) return (
+    <div className="text-center py-20 text-red-400">
+      <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+      <p>{error}</p>
+    </div>
+  );
+  if (!data || data.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-gray-300">目前尚無資金流向資料</h2>
+        <p className="text-gray-400 mt-2">請稍後再試，或確認後端排程是否已執行</p>
+      </div>
+    );
+  }
+
+  // Helper to determine block color based on performance (Taiwan: Red = Up, Green = Down)
+  const getBlockColor = (changePct) => {
+    if (changePct >= 3) return 'bg-red-600 border-red-500';
+    if (changePct >= 1) return 'bg-red-500/80 border-red-400/50';
+    if (changePct > 0) return 'bg-red-400/50 border-red-300/30';
+    if (changePct <= -3) return 'bg-green-600 border-green-500';
+    if (changePct <= -1) return 'bg-green-500/80 border-green-400/50';
+    if (changePct < 0) return 'bg-green-400/50 border-green-300/30';
+    return 'bg-gray-700 border-gray-600';
+  };
+
+  // Helper to determine block size based on volume ratio
+  const getBlockSize = (ratio) => {
+    if (ratio >= 15) return 'col-span-2 row-span-2 md:col-span-3 md:row-span-2 min-h-[160px]';
+    if (ratio >= 8) return 'col-span-2 row-span-1 min-h-[120px]';
+    if (ratio >= 4) return 'col-span-1 row-span-2 min-h-[120px]';
+    return 'col-span-1 row-span-1 min-h-[80px]';
+  };
+
+  // Format money
+  const formatMoney = (val) => {
+    if (val >= 100000000) return `${(val / 100000000).toFixed(2)}億`;
+    if (val >= 10000) return `${(val / 10000).toFixed(0)}萬`;
+    return val.toString();
+  };
+
+  const industryDetailsContent = selectedIndustry ? (
+    <>
+      <div className="flex justify-between items-start mb-4 pb-4 border-b border-gray-700/50 pr-8">
+        <div>
+          <h2 className="text-xl font-bold text-white">{selectedIndustry.industry}</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            市場資金佔比 {selectedIndustry.value_ratio}%
+          </p>
+        </div>
+        <div className={`text-xl font-bold ${selectedIndustry.avg_change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+          {selectedIndustry.avg_change_pct > 0 ? '+' : ''}{selectedIndustry.avg_change_pct}%
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center">
+          <TrendingUp className="w-4 h-4 mr-1.5" />
+          板塊代表標的 (依成交值)
+        </h3>
+        <div className="space-y-3">
+          {selectedIndustry.top_stocks?.map((stock, idx) => (
+            <Link 
+              to={`/analyze/${stock.id}`} 
+              key={idx}
+              className="group flex items-center justify-between p-3 rounded-xl bg-gray-900/50 border border-gray-700/50 hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
+            >
+              <div>
+                <div className="font-bold text-gray-200 group-hover:text-blue-400 transition-colors flex items-center">
+                  {stock.name} 
+                  <span className="text-xs text-gray-500 ml-2">{stock.id}</span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  成交值: {formatMoney(stock.value)}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-300">
+                  ${stock.price}
+                </div>
+                <div className={`text-xs font-bold mt-1 ${stock.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  {stock.change_pct > 0 ? '+' : ''}{stock.change_pct}%
+                </div>
+              </div>
+            </Link>
+          ))}
+          {(!selectedIndustry.top_stocks || selectedIndustry.top_stocks.length === 0) && (
+            <div className="text-center py-6 text-gray-500 text-sm">
+              無代表標的資料
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-3 bg-blue-900/20 border border-blue-800/30 rounded-lg">
+        <p className="text-xs text-blue-200 leading-relaxed">
+          <strong>分析提示：</strong> 若某產業的「資金佔比」連續幾日放大，且「平均漲幅」維持正值，代表法人與熱錢正積極流入該板塊，是短波段操作的首選目標。反之若資金佔比極高但漲勢停滯，需留意高檔出貨風險。
+        </p>
+      </div>
+    </>
+  ) : null;
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-20">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
+              <Layers className="text-blue-400 w-6 h-6" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+              資金流向板塊 (Heatmap)
+            </h1>
+          </div>
+          <p className="text-gray-400 text-sm">
+            掌握台股熱錢動向，尋找資金匯聚的核心主流產業。色塊大小代表成交比重，顏色深淺代表平均漲跌幅。
+          </p>
+        </div>
+        
+        {lastUpdated && (
+          <div className="flex items-center text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-700/50 w-fit">
+            <RefreshCw size={12} className="mr-1.5" />
+            資料時間：{lastUpdated}
+          </div>
+        )}
+      </div>
+
+      {marketStats && (
+        <div className="bg-gray-800/60 rounded-3xl border border-gray-700/50 p-5 sm:p-6 mb-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-gray-500 to-red-500 opacity-50"></div>
+          
+          <h2 className="text-lg font-bold text-gray-200 mb-6 flex items-center">
+            <BarChart3 className="w-5 h-5 text-purple-400 mr-2" />
+            市場多空儀表板
+          </h2>
+          
+          {(() => {
+            const up = Number(marketStats?.up || 0);
+            const down = Number(marketStats?.down || 0);
+            const unchanged = Number(marketStats?.unchanged || 0);
+            const limitUp = Number(marketStats?.limit_up || 0);
+            const limitDown = Number(marketStats?.limit_down || 0);
+            const total = up + down + unchanged + limitUp + limitDown;
+            
+            const limitUpPct = total ? (limitUp / total) * 100 : 0;
+            const upPct = total ? (up / total) * 100 : 0;
+            const unchangedPct = total ? (unchanged / total) * 100 : 0;
+            const downPct = total ? (down / total) * 100 : 0;
+            const limitDownPct = total ? (limitDown / total) * 100 : 0;
+            
+            return (
+              <div className="space-y-6">
+                {/* Horizontal Bar */}
+                <div className="relative h-6 w-full rounded-full overflow-hidden flex bg-gray-900 border border-gray-700/50">
+                  <div style={{width: `${limitDownPct}%`}} className="h-full bg-green-600 transition-all duration-700 hover:brightness-125" title={`跌停: ${marketStats.limit_down}`}></div>
+                  <div style={{width: `${downPct}%`}} className="h-full bg-green-400 transition-all duration-700 hover:brightness-125" title={`下跌: ${marketStats.down}`}></div>
+                  <div style={{width: `${unchangedPct}%`}} className="h-full bg-gray-500 transition-all duration-700 hover:brightness-125" title={`平盤: ${marketStats.unchanged}`}></div>
+                  <div style={{width: `${upPct}%`}} className="h-full bg-red-400 transition-all duration-700 hover:brightness-125" title={`上漲: ${marketStats.up}`}></div>
+                  <div style={{width: `${limitUpPct}%`}} className="h-full bg-red-600 transition-all duration-700 hover:brightness-125" title={`漲停: ${marketStats.limit_up}`}></div>
+                </div>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-5 gap-2 sm:gap-4 text-center">
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">跌停</div>
+                    <div className="text-green-500 font-black text-lg sm:text-2xl drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]">{marketStats.limit_down}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{limitDownPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">下跌</div>
+                    <div className="text-green-400 font-bold text-lg sm:text-2xl">{marketStats.down}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{downPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">平盤</div>
+                    <div className="text-gray-300 font-bold text-lg sm:text-2xl">{marketStats.unchanged}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{unchangedPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1">上漲</div>
+                    <div className="text-red-400 font-bold text-lg sm:text-2xl">{marketStats.up}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{upPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-gray-400 mb-1 flex items-center justify-center">
+                      <Flame size={12} className="text-red-500 mr-0.5 sm:mr-1" />
+                      漲停
+                    </div>
+                    <div className="text-red-500 font-black text-lg sm:text-2xl drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]">{marketStats.limit_up}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{limitUpPct.toFixed(1)}%</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Heatmap Section */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-gray-800/40 rounded-2xl border border-gray-700/50 p-4 sm:p-5">
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center">
+              <Flame className="w-5 h-5 text-orange-400 mr-2" />
+              產業熱力圖
+            </h2>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 auto-rows-min">
+              {data.map((ind, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedIndustry(ind)}
+                  className={`
+                    cursor-pointer rounded-xl border p-3 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20 hover:z-10 relative overflow-hidden
+                    ${getBlockColor(ind.avg_change_pct)}
+                    ${getBlockSize(ind.value_ratio)}
+                    ${selectedIndustry?.industry === ind.industry ? 'ring-2 ring-white shadow-[0_0_15px_rgba(255,255,255,0.3)]' : ''}
+                  `}
+                >
+                  <div className="relative z-10">
+                    <div className="font-bold text-white text-sm sm:text-base leading-tight drop-shadow-md truncate">
+                      {ind.industry}
+                    </div>
+                    <div className="text-white/90 text-xs sm:text-sm font-medium mt-1">
+                      {ind.value_ratio}%
+                    </div>
+                  </div>
+                  <div className="relative z-10 flex justify-between items-end mt-2">
+                    <div className="text-xs text-white/70 drop-shadow-sm hidden sm:block">
+                      {formatMoney(ind.total_value_ntd)}
+                    </div>
+                    <div className="text-white font-bold drop-shadow-md text-sm">
+                      {ind.avg_change_pct > 0 ? '+' : ''}{ind.avg_change_pct}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Legend */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-400">
+              <span>跌</span>
+              <div className="w-4 h-4 bg-green-600 rounded"></div>
+              <div className="w-4 h-4 bg-green-500/80 rounded"></div>
+              <div className="w-4 h-4 bg-green-400/50 rounded"></div>
+              <div className="w-4 h-4 bg-gray-700 rounded mx-1"></div>
+              <div className="w-4 h-4 bg-red-400/50 rounded"></div>
+              <div className="w-4 h-4 bg-red-500/80 rounded"></div>
+              <div className="w-4 h-4 bg-red-600 rounded"></div>
+              <span>漲</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Selected Industry Detail Section (Desktop) */}
+        <div className="hidden lg:block lg:col-span-1 space-y-4">
+          <div className="bg-gray-800/40 rounded-2xl border border-gray-700/50 p-4 sm:p-5 sticky top-20">
+            {selectedIndustry ? industryDetailsContent : (
+              <div className="text-center py-10 text-gray-500">
+                點擊左側熱力圖查看產業細節
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Selected Industry Modal (Mobile) */}
+      <div className={`lg:hidden fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${selectedIndustry ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedIndustry(null)}></div>
+        <div className={`bg-gray-900 rounded-2xl border border-gray-700 p-5 relative z-10 w-full max-w-md max-h-[85vh] overflow-y-auto transform transition-transform duration-300 shadow-2xl ${selectedIndustry ? 'scale-100 translate-y-0' : 'scale-95 translate-y-10'}`}>
+          <button onClick={() => setSelectedIndustry(null)} className="absolute top-4 right-4 text-gray-400 hover:text-white p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors">
+            <X size={20} />
+          </button>
+          {industryDetailsContent}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CapitalFlow;
