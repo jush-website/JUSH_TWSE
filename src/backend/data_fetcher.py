@@ -653,9 +653,13 @@ class DataFetcher:
                     df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
                     df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
             else:
-                # Use FinMind API instead of Yahoo Finance to ensure consistency and avoid missing data
+                # Use FinMind API primarily
                 start = (datetime.now() - timedelta(days=days * 2 + 10)).strftime("%Y-%m-%d")
-                df = self.fm_loader.taiwan_stock_daily(stock_id=stock_id, start_date=start)
+                df = None
+                try:
+                    df = self.fm_loader.taiwan_stock_daily(stock_id=stock_id, start_date=start)
+                except Exception as fm_err:
+                    if self.logger: self.logger.warning(f"FinMind fetch failed for {stock_id}, falling back to yfinance: {fm_err}")
                 
                 if df is not None and not df.empty:
                     df = df.rename(columns={'date': 'Date', 'open': 'Open', 'max': 'High', 'min': 'Low', 'close': 'Close', 'Trading_Volume': 'Volume'})
@@ -665,6 +669,25 @@ class DataFetcher:
                     df = df.dropna(subset=['Close'])
                     df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
                     df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+                else:
+                    symbols = []
+                    sym_map_val = self.get_symbol_map().get(stock_id)
+                    if sym_map_val: symbols.append(sym_map_val)
+                    symbols.extend([f"{stock_id}.TW", f"{stock_id}.TWO"])
+                    for sym in symbols:
+                        try:
+                            import yfinance as yf
+                            t = yf.Ticker(sym)
+                            yf_df = t.history(period="1y", interval="1d", auto_adjust=False)
+                            if yf_df is not None and not yf_df.empty:
+                                for col in ['Open', 'High', 'Low', 'Close']: yf_df[col] = yf_df[col].round(2)
+                                yf_df = yf_df.dropna(subset=['Close']).reset_index()
+                                yf_df = yf_df.rename(columns={"Date": "Date"})
+                                yf_df['Date'] = pd.to_datetime(yf_df['Date']).dt.tz_localize(None)
+                                df = yf_df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+                                break
+                        except:
+                            pass
 
             if df is None or df.empty:
                 with self._lock:
