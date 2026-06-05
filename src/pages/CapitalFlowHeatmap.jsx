@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 
-const CapitalFlow = () => {
+const CapitalFlowHeatmap = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -333,4 +333,4 @@ const CapitalFlow = () => {
   );
 };
 
-export default CapitalFlow;
+export default CapitalFlowHeatmap;
