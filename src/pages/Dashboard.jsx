@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getGlobalMarket, getNews, getFutures, getMarketOutlook } from '../services/api';
 import { Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown, Activity, BarChart2, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import ProgressLoader from '../components/ProgressLoader';
 
 const Dashboard = () => {
   const [markets, setMarkets] = useState({});
@@ -31,7 +32,7 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) return <div className="text-center py-20 text-gray-400">載入中...</div>;
+  if (loading) return <ProgressLoader text="正在載入最新市場概況..." />;
 
   const trendColor = outlook?.trend === '偏多' || outlook?.trend === '微多' ? 'text-red-400' 
                    : outlook?.trend === '偏空' || outlook?.trend === '微空' ? 'text-green-400' 
