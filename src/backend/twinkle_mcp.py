@@ -20,6 +20,7 @@ def _send_mcp_request(method: str, params: dict = None):
         payload["params"] = params
 
     res = requests.post(TWINKLE_SSE_URL, headers=headers, json=payload, timeout=30)
+    res.encoding = 'utf-8'  # 強制使用 UTF-8 解析回應
     res.raise_for_status()
 
     # Parse SSE response
