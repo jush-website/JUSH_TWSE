@@ -962,6 +962,66 @@ async def sync_data(mode: str = "1"):
     await loop.run_in_executor(executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
     return {"status": "success"}
 
+from pydantic import BaseModel
+from typing import Dict, Any
+
+class AIAnalyzeRequest(BaseModel):
+    stock_id: str
+    stock_name: str
+    data: Dict[str, Any]
+
+@app.post("/api/ai-analyze")
+async def ai_analyze(req: AIAnalyzeRequest):
+    loop = asyncio.get_event_loop()
+    
+    def fetch_ai():
+        import requests
+        import json
+        
+        # 準備資料摘要
+        data_summary = {
+            "個股": f"{req.stock_name} ({req.stock_id})",
+            "最新價格": req.data.get("price"),
+            "漲跌幅": f"{req.data.get('change_percent')}%",
+            "綜合評分": req.data.get("total_score"),
+            "建議狀態": req.data.get("recommend_status"),
+            "技術指標": {
+                "KD": req.data.get("kd"),
+                "RSI": req.data.get("rsi"),
+                "MACD": req.data.get("macd"),
+                "量能比": req.data.get("vol_ratio")
+            },
+            "基本面": {
+                "本益比": req.data.get("pe"),
+                "殖利率": req.data.get("yield"),
+                "ROE": req.data.get("roe")
+            },
+            "系統診斷": req.data.get("diagnosis")
+        }
+        
+        prompt = f"""你是一位專業的台股分析師。請根據以下系統提供的技術面與基本面數據，為這檔股票寫一份大約 300~500 字的「AI 深度診斷報告」。
+請使用繁體中文，並使用 Markdown 格式排版。請給出明確的【多空趨勢判斷】與【操作建議】。
+
+數據：
+{json.dumps(data_summary, ensure_ascii=False, indent=2)}
+"""
+        
+        url = "https://bonding-malt-nimbly.ngrok-free.dev/api/generate"
+        payload = {
+            "model": "gemma4:12b",
+            "prompt": prompt,
+            "stream": False
+        }
+        try:
+            res = requests.post(url, json=payload, timeout=60)
+            res.raise_for_status()
+            return res.json().get("response", "AI 沒有回傳結果")
+        except Exception as e:
+            return f"連線至 AI 伺服器失敗，請確認您的 ngrok 與 Ollama 服務是否正常運作。錯誤詳情：{str(e)}"
+            
+    result = await loop.run_in_executor(executor, fetch_ai)
+    return {"analysis": result}
+
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
     # 如果路徑包含 api，則不處理 (交給其他 route)

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { analyzeStockRaw } from '../services/api';
+import { getAIAnalysis } from '../services/api';
+import ReactMarkdown from 'react-markdown';
 import { 
   TrendingUp, TrendingDown, AlertCircle, CheckCircle, 
   Target, ShieldAlert, BarChart, PieChart, Info, Search
@@ -17,6 +19,9 @@ const StockAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [aiReport, setAiReport] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   const fetchAnalysis = async (searchQuery) => {
     if (!searchQuery) return;
@@ -31,6 +36,8 @@ const StockAnalysis = () => {
       setData(null);
     } finally {
       setLoading(false);
+      setAiReport(null);
+      setAiError(null);
     }
   };
 
@@ -48,6 +55,25 @@ const StockAnalysis = () => {
   };
 
   const isPositive = data?.change_percent >= 0;
+
+  const handleGenerateAI = async () => {
+    if (!data) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const payload = {
+        stock_id: data.stock_id,
+        stock_name: data.stock_name,
+        data: data
+      };
+      const res = await getAIAnalysis(payload);
+      setAiReport(res.data.analysis);
+    } catch (err) {
+      setAiError(err.message || '產生報告失敗');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // Process data for charts
   const epsData = data?.financial_data?.filter(d => d.type === 'EPS') || [];
@@ -148,7 +174,8 @@ const StockAnalysis = () => {
               { id: 'dashboard', label: '綜合分析' },
               { id: 'chips', label: '籌碼分析' },
               { id: 'fundamentals', label: '基本面' },
-              { id: 'news', label: '個股新聞' }
+              { id: 'news', label: '個股新聞' },
+              { id: 'ai', label: 'AI 深度診斷' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -775,6 +802,58 @@ const StockAnalysis = () => {
                   </div>
                 ) : (
                   <div className="text-gray-500 text-center py-10">暫無近期新聞</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'ai' && (
+            <div className="space-y-4 sm:space-y-6">
+              <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                  <div className="flex items-center space-x-2 text-gray-300">
+                    <Activity size={24} className="text-purple-400" />
+                    <h2 className="text-xl font-bold">Gemma AI 深度診斷</h2>
+                  </div>
+                  <button
+                    onClick={handleGenerateAI}
+                    disabled={aiLoading}
+                    className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-xl font-bold transition disabled:bg-gray-700 flex items-center shadow-lg hover:shadow-purple-500/20"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                        分析中...
+                      </>
+                    ) : (
+                      '產生 AI 深度報告'
+                    )}
+                  </button>
+                </div>
+
+                {aiError && (
+                  <div className="bg-red-900/30 border border-red-800 text-red-200 p-4 rounded-xl flex items-center space-x-3 mb-4">
+                    <AlertCircle size={20} />
+                    <span>{aiError}</span>
+                  </div>
+                )}
+
+                {aiReport ? (
+                  <div className="prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-gray-100 prose-li:text-gray-300 prose-strong:text-purple-300">
+                    <ReactMarkdown>{aiReport}</ReactMarkdown>
+                  </div>
+                ) : (
+                  !aiLoading && (
+                    <div className="text-center py-16 bg-gray-900/40 rounded-xl border border-gray-700 border-dashed">
+                      <div className="text-gray-500 mb-4">
+                        <Activity size={48} className="mx-auto opacity-50" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-400 mb-2">準備好進行深度分析</h3>
+                      <p className="text-sm text-gray-500 max-w-md mx-auto">
+                        點擊上方按鈕，將會結合本檔股票的籌碼面、技術面與基本面數據，並透過 AI 模型自動生成總結報告與操作建議。
+                      </p>
+                    </div>
+                  )
                 )}
               </div>
             </div>
