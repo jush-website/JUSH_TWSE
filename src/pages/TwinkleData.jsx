@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { Database, Search, Play, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 
 const TwinkleData = () => {
@@ -20,7 +20,7 @@ const TwinkleData = () => {
   const fetchTools = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/twinkle/tools');
+      const res = await api.get('/api/twinkle/tools');
       setTools(res.data.tools || []);
     } catch (err) {
       setError(err.response?.data?.detail || err.message || '無法載入工具列表');
@@ -60,7 +60,7 @@ const TwinkleData = () => {
     }
     
     try {
-      const res = await axios.post('/api/twinkle/call', {
+      const res = await api.post('/api/twinkle/call', {
         tool_name: selectedTool.name,
         arguments: parsedArgs
       });
