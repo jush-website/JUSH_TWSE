@@ -2,30 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Building2, MapPin, Users, Calendar, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 
-const CompanyProfile = ({ stockName }) => {
+const CompanyProfile = ({ stockId }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchCompanyData = async () => {
-      if (!stockName) return;
+      if (!stockId) return;
       setLoading(true);
       setError(null);
       try {
-        const res = await api.post('/api/twinkle/call', {
-          tool_name: 'twtools-search_company_by_name',
-          arguments: { name: stockName }
-        });
-        
-        // Twinkle Hub 回傳的通常是陣列，取第一個結果的 text
-        if (res.data?.result?.length > 0 && res.data.result[0].text) {
-          const parsedData = JSON.parse(res.data.result[0].text);
-          if (parsedData.found && parsedData.candidates && parsedData.candidates.length > 0) {
-            setData(parsedData.candidates[0]);
-          } else {
-            setError('在公開資料庫中找不到符合的公司註冊資訊');
-          }
+        const res = await api.get(`/api/twinkle/company/${stockId}`);
+        if (res.data?.result) {
+          setData(res.data.result);
         } else {
           setError('獲取資料失敗，回傳格式異常');
         }
@@ -37,7 +27,7 @@ const CompanyProfile = ({ stockName }) => {
     };
 
     fetchCompanyData();
-  }, [stockName]);
+  }, [stockId]);
 
   if (loading) {
     return (

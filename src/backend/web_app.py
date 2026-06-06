@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from src.backend.analyzer import StockAnalyzer
 from src.backend.data_fetcher import DataFetcher
+from src.backend.company_registry import get_tax_id
 
 import math
 
@@ -978,12 +979,42 @@ async def api_twinkle_tools():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class CallToolRequest(BaseModel):
+    tool_name: str
+    arguments: dict
+
 @app.post("/api/twinkle/call")
-async def api_twinkle_call(req: TwinkleCallRequest):
-    from src.backend.twinkle_mcp import call_twinkle_tool
+async def call_tool(req: CallToolRequest):
     try:
+        from src.backend.twinkle_mcp import call_twinkle_tool
         result = await call_twinkle_tool(req.tool_name, req.arguments)
         return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/twinkle/company/{stock_id}")
+async def get_twinkle_company(stock_id: str):
+    tax_id = get_tax_id(stock_id)
+    if not tax_id:
+        raise HTTPException(status_code=404, detail=f"找不到代號 {stock_id} 的統一編號。可能該公司未上市或沒有對應的公開資料。")
+    
+    try:
+        from src.backend.twinkle_mcp import call_twinkle_tool
+        import json
+        result = await call_twinkle_tool('twtools-lookup_company_by_tax_id', {'tax_id': tax_id})
+        
+        # 嘗試解析回傳的結果 (Twinkle Hub 回傳 text)
+        if result and len(result) > 0 and 'text' in result[0]:
+            try:
+                parsed_data = json.loads(result[0]['text'])
+                if parsed_data.get('found'):
+                    return {"result": parsed_data.get('company', {})}
+                else:
+                    raise HTTPException(status_code=404, detail="Twinkle Hub 無法透過此統一編號找到公司資料")
+            except json.JSONDecodeError:
+                pass
+        
+        raise HTTPException(status_code=500, detail="Twinkle Hub 回傳格式異常")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
