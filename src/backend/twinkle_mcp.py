@@ -24,42 +24,42 @@ def _send_mcp_request(method: str, params: dict = None):
     res.raise_for_status()
 
     # Parse SSE response
-    for line in res.text.split("\n"):
+    full_data = []
+    for line in res.text.splitlines():
         if line.startswith("data: "):
-            try:
-                data_json = json.loads(line[6:])
-                if "error" in data_json:
-                    raise Exception(data_json["error"])
-                return data_json.get("result", {})
-            except json.JSONDecodeError:
-                pass
-    return {}
+            full_data.append(line[6:])
+    
+    if not full_data:
+        print(f"Twinkle Hub API HTTP {res.status_code} Response: {res.text}")
+        raise Exception("Twinkle Hub 未回傳任何 data 事件")
+        
+    merged_data = "".join(full_data)
+    try:
+        data_json = json.loads(merged_data)
+        if "error" in data_json:
+            raise Exception(str(data_json["error"]))
+        return data_json.get("result", {})
+    except json.JSONDecodeError as e:
+        print(f"Twinkle Hub SSE JSON 解析失敗: {e}. 原始字串: {merged_data[:200]}...")
+        raise Exception("Twinkle Hub 回傳的資料無法解析為 JSON")
 
 async def get_twinkle_tools():
     """獲取 Twinkle Hub 提供的所有工具列表"""
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, _send_mcp_request, "tools/list")
-        
-        tools = []
-        for t in result.get("tools", []):
-            tools.append({
-                "name": t.get("name"),
-                "description": t.get("description"),
-                "inputSchema": t.get("inputSchema")
-            })
-        return tools
-    except Exception as e:
-        print(f"Error fetching Twinkle Hub tools: {e}")
-        raise e
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, _send_mcp_request, "tools/list")
+    
+    tools = []
+    for t in result.get("tools", []):
+        tools.append({
+            "name": t.get("name"),
+            "description": t.get("description"),
+            "inputSchema": t.get("inputSchema")
+        })
+    return tools
 
 async def call_twinkle_tool(name: str, arguments: dict):
     """執行特定 Twinkle Hub 工具"""
-    try:
-        loop = asyncio.get_event_loop()
-        params = {"name": name, "arguments": arguments}
-        result = await loop.run_in_executor(None, _send_mcp_request, "tools/call", params)
-        return result.get("content", [])
-    except Exception as e:
-        print(f"Error calling Twinkle Hub tool '{name}': {e}")
-        raise e
+    loop = asyncio.get_event_loop()
+    params = {"name": name, "arguments": arguments}
+    result = await loop.run_in_executor(None, _send_mcp_request, "tools/call", params)
+    return result.get("content", [])
