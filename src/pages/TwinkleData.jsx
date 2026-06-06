@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Database, Search, Play, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Database, Search, Play, AlertCircle, ListPlus } from 'lucide-react';
+import TwinkleResultViewer from '../components/DataRenderer';
 
 const TwinkleData = () => {
   const [tools, setTools] = useState([]);
@@ -8,7 +9,7 @@ const TwinkleData = () => {
   const [error, setError] = useState(null);
   
   const [selectedTool, setSelectedTool] = useState(null);
-  const [argsInput, setArgsInput] = useState('{}');
+  const [argsObj, setArgsObj] = useState({});
   const [callLoading, setCallLoading] = useState(false);
   const [callResult, setCallResult] = useState(null);
   const [callError, setCallError] = useState(null);
@@ -33,14 +34,17 @@ const TwinkleData = () => {
     setSelectedTool(tool);
     setCallResult(null);
     setCallError(null);
-    // 預填空參數 JSON
     const defaultArgs = {};
     if (tool.inputSchema?.properties) {
       Object.keys(tool.inputSchema.properties).forEach(key => {
         defaultArgs[key] = "";
       });
     }
-    setArgsInput(JSON.stringify(defaultArgs, null, 2));
+    setArgsObj(defaultArgs);
+  };
+
+  const handleArgChange = (key, value) => {
+    setArgsObj(prev => ({ ...prev, [key]: value }));
   };
 
   const handleCallTool = async () => {
@@ -50,19 +54,18 @@ const TwinkleData = () => {
     setCallError(null);
     setCallResult(null);
     
-    let parsedArgs = {};
-    try {
-      parsedArgs = JSON.parse(argsInput);
-    } catch (e) {
-      setCallError('參數 JSON 格式錯誤');
-      setCallLoading(false);
-      return;
-    }
-    
+    // 移除空字串的選填參數
+    const cleanedArgs = {};
+    Object.entries(argsObj).forEach(([k, v]) => {
+      if (v !== "") {
+        cleanedArgs[k] = isNaN(v) ? v : Number(v);
+      }
+    });
+
     try {
       const res = await api.post('/api/twinkle/call', {
         tool_name: selectedTool.name,
-        arguments: parsedArgs
+        arguments: cleanedArgs
       });
       setCallResult(res.data.result);
     } catch (err) {
@@ -71,6 +74,7 @@ const TwinkleData = () => {
       setCallLoading(false);
     }
   };
+
 
   return (
     <div className="space-y-6">
@@ -139,26 +143,33 @@ const TwinkleData = () => {
                 <p className="text-gray-400 text-sm">{selectedTool.description}</p>
               </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-300 mb-2">
-                  執行參數 (JSON 格式)
+              <div className="mb-6 bg-gray-900/50 p-5 rounded-2xl border border-gray-700/50">
+                <label className="block text-sm font-bold text-gray-300 mb-4 flex items-center">
+                  <ListPlus size={18} className="mr-2 text-indigo-400" />
+                  填寫執行參數
                 </label>
-                <textarea
-                  value={argsInput}
-                  onChange={(e) => setArgsInput(e.target.value)}
-                  className="w-full h-32 bg-gray-900 text-gray-300 p-3 rounded-xl border border-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono text-sm"
-                  placeholder='{"param": "value"}'
-                />
                 
-                {selectedTool.inputSchema?.properties && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    <strong>可用欄位：</strong>
+                {selectedTool.inputSchema?.properties ? (
+                  <div className="space-y-4">
                     {Object.entries(selectedTool.inputSchema.properties).map(([key, prop]) => (
-                      <span key={key} className="ml-2 inline-block bg-gray-800 px-2 py-1 rounded">
-                        {key} ({prop.type})
-                      </span>
+                      <div key={key}>
+                        <label className="block text-xs font-bold text-gray-400 mb-1">
+                          {key} {prop.type && <span className="ml-1 text-gray-600 font-mono">({prop.type})</span>}
+                          {selectedTool.inputSchema?.required?.includes(key) && <span className="text-red-400 ml-1">*</span>}
+                        </label>
+                        <input
+                          type={prop.type === 'number' || prop.type === 'integer' ? 'number' : 'text'}
+                          value={argsObj[key] || ''}
+                          onChange={(e) => handleArgChange(key, e.target.value)}
+                          placeholder={prop.description || `輸入 ${key}...`}
+                          className="w-full bg-gray-900/80 text-gray-300 px-4 py-2.5 rounded-xl border border-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm"
+                        />
+                        {prop.description && <div className="text-[10px] text-gray-500 mt-1">{prop.description}</div>}
+                      </div>
                     ))}
                   </div>
+                ) : (
+                  <div className="text-sm text-gray-500 italic">此工具不需要參數。</div>
                 )}
               </div>
 
@@ -186,13 +197,7 @@ const TwinkleData = () => {
                     {callError}
                   </div>
                 )}
-                <div className="bg-gray-900 flex-grow rounded-xl border border-gray-700 p-4 overflow-auto font-mono text-sm text-gray-300 whitespace-pre-wrap">
-                  {callResult ? (
-                    JSON.stringify(callResult, null, 2)
-                  ) : (
-                    <span className="text-gray-600">等待執行...</span>
-                  )}
-                </div>
+                <TwinkleResultViewer rawResult={callResult} />
               </div>
             </>
           ) : (
