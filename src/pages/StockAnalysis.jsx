@@ -782,11 +782,9 @@ const StockAnalysis = () => {
             </div>
           )}
 
-          {activeTab === 'twinkle' && (
-            <div className="space-y-4 sm:space-y-6">
-              <CompanyProfile stockId={data.stock_id} />
-            </div>
-          )}
+          <div className={`space-y-4 sm:space-y-6 ${activeTab === 'twinkle' ? 'block' : 'hidden'}`}>
+            <CompanyProfile stockId={data.stock_id} />
+          </div>
 
         </div>
       )}
