@@ -85,6 +85,16 @@ const Navbar = ({ status }) => {
               <span className="text-sm">資金流向</span>
             </Link>
 
+            <Link 
+              to="/twinkle" 
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
+                location.pathname === '/twinkle' ? 'bg-indigo-500/20 text-indigo-400 font-bold shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'hover:bg-gray-800 text-gray-300'
+              }`}
+            >
+              <Activity size={16} />
+              <span className="text-sm">Twinkle Hub</span>
+            </Link>
+
             <div className="h-4 w-px bg-white/20 mx-1"></div>
             
             <Link 
@@ -154,6 +164,13 @@ const Navbar = ({ status }) => {
               className={`p-1 rounded-md transition-all ${location.pathname === '/capital-flow' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-white/5 text-gray-300 hover:text-orange-400 border border-white/5'}`}
             >
               <Flame size={20} />
+            </Link>
+
+            <Link 
+              to="/twinkle" 
+              className={`p-1 rounded-md transition-all ${location.pathname === '/twinkle' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-white/5 text-gray-300 hover:text-indigo-400 border border-white/5'}`}
+            >
+              <Activity size={20} />
             </Link>
 
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-300 hover:text-white focus:outline-none p-1 border border-white/5 rounded-md bg-white/5">

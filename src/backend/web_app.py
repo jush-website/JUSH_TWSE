@@ -962,6 +962,31 @@ async def sync_data(mode: str = "1"):
     await loop.run_in_executor(executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
     return {"status": "success"}
 
+from pydantic import BaseModel
+from typing import Dict, Any
+
+class TwinkleCallRequest(BaseModel):
+    tool_name: str
+    arguments: Dict[str, Any]
+
+@app.get("/api/twinkle/tools")
+async def api_twinkle_tools():
+    from src.backend.twinkle_mcp import get_twinkle_tools
+    try:
+        tools = await get_twinkle_tools()
+        return {"tools": tools}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/twinkle/call")
+async def api_twinkle_call(req: TwinkleCallRequest):
+    from src.backend.twinkle_mcp import call_twinkle_tool
+    try:
+        result = await call_twinkle_tool(req.tool_name, req.arguments)
+        return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
     # 如果路徑包含 api，則不處理 (交給其他 route)
