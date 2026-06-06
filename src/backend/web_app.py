@@ -389,8 +389,8 @@ async def get_news():
     return res
 
 
-
-executor = ThreadPoolExecutor(max_workers=3)
+bg_executor = ThreadPoolExecutor(max_workers=3)
+api_executor = ThreadPoolExecutor(max_workers=10)
 
 def analyze_wrap(sid):
     return analyzer.analyze(sid)
@@ -416,12 +416,12 @@ async def get_long_term_recommendations(force: bool = False):
     
     loop = asyncio.get_event_loop()
     sids = config.LONG_TERM_STOCK_IDS
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -437,13 +437,13 @@ async def get_hot_stocks(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     results = await asyncio.gather(*tasks)
     final_res = sanitize_data([res for res in results if res and "error" not in res])
@@ -457,13 +457,13 @@ async def get_short_term_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res and res['price'] <= config.MAX_STOCK_PRICE_FOR_ST_REC]
@@ -479,13 +479,13 @@ async def get_bottom_fishing_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -504,13 +504,13 @@ async def get_short_term_burst_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -530,13 +530,13 @@ async def get_day_trade_cdp_recommendations(force: bool = False):
     
     loop = asyncio.get_event_loop()
     # 擴大範圍掃描，因為符合當沖條件的股票可能不多
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res and "day_trade_cdp_rec" in res]
@@ -582,9 +582,9 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
         combined = list(dict.fromkeys(hold_ids + hot_ids))
         return combined[:60] # 最多分析 60 檔以控制效能
         
-    sids = await loop.run_in_executor(executor, get_custom_overnight_ids)
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(bg_executor, get_custom_overnight_ids)
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     def analyze_overnight(sid):
         snapshot = fetcher.get_intraday_data(sid)
@@ -593,7 +593,7 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
 
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_overnight, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_overnight, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res and res['price'] < 1000]
@@ -628,9 +628,9 @@ async def get_cdp_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     def analyze_cdp_wrap(sid):
         snapshot = fetcher.get_intraday_data(sid)
@@ -639,7 +639,7 @@ async def get_cdp_recommendations(force: bool = False):
 
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_cdp_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_cdp_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -656,13 +656,13 @@ async def get_etf_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, fetcher.get_popular_etf_ids)
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(api_executor, fetcher.get_popular_etf_ids)
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
@@ -674,7 +674,7 @@ async def get_etf_recommendations(force: bool = False):
 @app.get("/api/market-breadth")
 async def get_market_breadth_api():
     loop = asyncio.get_event_loop()
-    res = await loop.run_in_executor(executor, fetcher.get_market_breadth)
+    res = await loop.run_in_executor(api_executor, fetcher.get_market_breadth)
     return res
 
 @app.get("/api/capital-flow")
@@ -684,7 +684,7 @@ async def get_capital_flow_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(executor, fetcher.get_capital_flow)
+    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
     final_res = sanitize_data(cf_data)
     set_cached_response("capital_flow", final_res)
     return final_res
@@ -692,18 +692,18 @@ async def get_capital_flow_recommendations(force: bool = False):
 @app.get("/api/industries")
 async def get_industries():
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(executor, fetcher.get_industry_list)
+    return await loop.run_in_executor(api_executor, fetcher.get_industry_list)
 
 @app.get("/api/industry/{name}")
 async def get_industry_stocks(name: str):
     loop = asyncio.get_event_loop()
-    sids = await loop.run_in_executor(executor, fetcher.search_stocks_by_industry, name)
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_data(sids))
-    await loop.run_in_executor(executor, lambda: fetcher.prefetch_intraday_data(sids))
+    sids = await loop.run_in_executor(api_executor, fetcher.search_stocks_by_industry, name)
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
     
     tasks = []
     for sid in sids:
-        tasks.append(loop.run_in_executor(executor, analyze_wrap, sid))
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
     return sanitize_data([res for res in all_res if res and "error" not in res])
@@ -711,7 +711,7 @@ async def get_industry_stocks(name: str):
 @app.get("/api/resolve/{query}")
 async def resolve_stock(query: str):
     loop = asyncio.get_event_loop()
-    sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
+    sid = await loop.run_in_executor(api_executor, fetcher.resolve_stock_id, query)
     if not sid:
         raise HTTPException(status_code=404, detail="找不到對應的股票代碼")
         
@@ -751,7 +751,7 @@ async def analyze_raw_data(payload: RawDataPayload):
             intraday_snapshot=payload.intraday
         )
         
-    res = await loop.run_in_executor(executor, analyze_from_raw)
+    res = await loop.run_in_executor(api_executor, analyze_from_raw)
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
     return sanitize_data(res)
@@ -759,11 +759,11 @@ async def analyze_raw_data(payload: RawDataPayload):
 @app.get("/api/analyze/{query}")
 async def analyze_stock(query: str):
     loop = asyncio.get_event_loop()
-    sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
+    sid = await loop.run_in_executor(api_executor, fetcher.resolve_stock_id, query)
     if not sid:
         raise HTTPException(status_code=404, detail="找不到對應股票代碼")
     
-    res = await loop.run_in_executor(executor, analyze_wrap, sid)
+    res = await loop.run_in_executor(api_executor, analyze_wrap, sid)
     if not res:
         raise HTTPException(status_code=404, detail="無法分析該股票")
     return sanitize_data(res)
@@ -782,7 +782,7 @@ async def proxy_finmind(dataset: str, data_id: str, start_date: str):
         return res.json()
     
     try:
-        data = await loop.run_in_executor(executor, fetch)
+        data = await loop.run_in_executor(api_executor, fetch)
         return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -794,7 +794,7 @@ async def get_raw_data(query: str):
     利用 Firebase 快取 FinMind 重裝資料 (避免 600次/小時 限制)，並即時拉取 Yahoo 報價。
     """
     loop = asyncio.get_event_loop()
-    sid = await loop.run_in_executor(executor, fetcher.resolve_stock_id, query)
+    sid = await loop.run_in_executor(api_executor, fetcher.resolve_stock_id, query)
     if not sid:
         raise HTTPException(status_code=404, detail="找不到對應股票代碼")
         
@@ -941,7 +941,7 @@ async def get_raw_data(query: str):
         return cached_data
 
     try:
-        finmind_task = loop.run_in_executor(executor, get_raw_data_sync)
+        finmind_task = loop.run_in_executor(api_executor, get_raw_data_sync)
         
         def safe_get_intraday():
             try: return fetcher.get_intraday_data(sid)
@@ -949,7 +949,7 @@ async def get_raw_data(query: str):
                 print(f"Intraday fetch error: {e}")
                 return {}
                 
-        intraday_task = loop.run_in_executor(executor, safe_get_intraday)
+        intraday_task = loop.run_in_executor(api_executor, safe_get_intraday)
         
         data, intraday = await asyncio.gather(finmind_task, intraday_task)
         data["intraday"] = intraday
@@ -960,7 +960,7 @@ async def get_raw_data(query: str):
 @app.post("/api/sync")
 async def sync_data(mode: str = "1"):
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
     return {"status": "success"}
 
 from pydantic import BaseModel
