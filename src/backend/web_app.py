@@ -1008,7 +1008,8 @@ async def get_twinkle_company(stock_id: str):
             try:
                 parsed_data = json.loads(result[0]['text'])
                 if parsed_data.get('found'):
-                    return {"result": parsed_data.get('company', {})}
+                    # The company details are at the root level of parsed_data
+                    return {"result": parsed_data}
                 else:
                     raise HTTPException(status_code=404, detail="Twinkle Hub 無法透過此統一編號找到公司資料")
             except json.JSONDecodeError:
