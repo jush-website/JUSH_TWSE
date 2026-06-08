@@ -233,7 +233,44 @@ async def background_strategies_sync():
             print(f"[系統] 背景策略分析與同步錯誤: {e}")
             await asyncio.sleep(600)
 
+from fastapi.middleware.cors import CORSMiddleware
+app = FastAPI(title="台股偵測系統 Web 版 (Optimized)", lifespan=lifespan)
 
+# 加入 CORS 設定，允許前端跨域存取
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # 生產環境建議設定為您的 Vercel 網址
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 設定前端靜態檔路徑
+# 在 Vercel 環境中，路徑會從專案根目錄開始
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(root_dir)
+frontend_path = os.path.join(project_root, "dist")
+
+if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
+    # Do not use StaticFiles due to anyio.NoEventLoopError bug on some environments
+    # app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
+    pass
+# 簡單的 API 快取機制，避免頻繁計算導致超時
+API_CACHE = {}
+
+def set_cached_response(key, data, expiry=None):
+    # 如果未指定 expiry，預設給予極長時間，由背景程式負責更新
+    API_CACHE[key] = (time.time() + (expiry or 86400), data)
+
+def get_cached_response(key):
+    if key in API_CACHE:
+        expire_ts, data = API_CACHE[key]
+        if time.time() < expire_ts:
+            return data
+    return None
+
+@app.get("/api/status")
 async def get_status():
     cached = get_cached_response("status")
     if cached: return cached
