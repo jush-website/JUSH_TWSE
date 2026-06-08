@@ -55,12 +55,12 @@ class DataFetcher:
         
         self._official_cache = {} 
         self._taiex_cache = None 
-        self._revenue_cache = {} 
-        self._history_cache = {}
+        self._revenue_cache = LRUCache(maxsize=50) 
+        self._history_cache = LRUCache(maxsize=50)
         self._history_cache_ts = {}
-        self._chip_cache = {}
-        self._broker_cache = {}
-        self._intraday_cache = {} 
+        self._chip_cache = LRUCache(maxsize=50)
+        self._broker_cache = LRUCache(maxsize=50)
+        self._intraday_cache = LRUCache(maxsize=50) 
         self._hot_ids_cache = None 
         self._last_sync_time = 0 # 紀錄最後同步時間 (timestamp)
         self._lock = threading.RLock()
@@ -71,6 +71,7 @@ class DataFetcher:
         self._load_local_stock_info()
         self._load_persistent_caches()
 
+
     def _load_persistent_caches(self):
         """從硬碟載入快取"""
         for cache_name in ["history", "chip", "revenue", "official"]:
@@ -79,9 +80,12 @@ class DataFetcher:
                 try:
                     with open(path, "rb") as f:
                         data = pickle.load(f)
-                        if cache_name == "history": self._history_cache = data
-                        elif cache_name == "chip": self._chip_cache = data
-                        elif cache_name == "revenue": self._revenue_cache = data
+                        if cache_name == "history": 
+                            self._history_cache.update(data)
+                        elif cache_name == "chip": 
+                            self._chip_cache.update(data)
+                        elif cache_name == "revenue": 
+                            self._revenue_cache.update(data)
                         elif cache_name == "official": 
                             self._official_cache = data
                             # 如果有舊數據，將最後同步時間設為檔案修改時間
