@@ -874,41 +874,16 @@ async def get_raw_data(query: str):
 
         def get_news():
             try:
-                import requests
-                from bs4 import BeautifulSoup
-                res = requests.get(f"https://tw.stock.yahoo.com/quote/{sid}/news", headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-                res.encoding = 'utf-8'
-                if res.status_code == 200:
-                    soup = BeautifulSoup(res.text, 'html.parser')
-                    items = []
-                    seen = set()
-                    for a in soup.find_all('a'):
-                        if 'href' in a.attrs and '/news/' in a['href']:
-                            title = a.text.strip()
-                            if len(title) > 8 and title not in seen:
-                                seen.add(title)
-                                link = a['href']
-                                if not link.startswith('http'): link = "https://tw.stock.yahoo.com" + link
-                                
-                                time_tag = a.parent.parent.find('time')
-                                time_str = time_tag.text if time_tag else datetime.now().strftime("%Y-%m-%d")
-                                
-                                items.append({
-                                    "title": title,
-                                    "link": link,
-                                    "date": time_str
-                                })
-                                if len(items) >= 20: break
-                    if items:
-                        return list(reversed(items))
-            except Exception as e:
-                pass
-            
-            # Fallback to FinMind
-            try:
                 df = fetcher.fm_loader.get_data(dataset='TaiwanStockNews', data_id=sid, start_date=d_news)
-                return df.fillna("").to_dict('records') if (df is not None and not df.empty) else []
-            except: return []
+                if df is not None and not df.empty:
+                    # FinMind 回傳的資料是依時間從舊到新，且可能很多，我們反轉並取最新 20 筆
+                    records = df.fillna("").to_dict('records')
+                    records.reverse()
+                    return records[:20]
+                return []
+            except Exception as e:
+                print(f"FinMind news error: {e}")
+                return []
 
         def get_revenue():
             try:
