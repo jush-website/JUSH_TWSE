@@ -87,7 +87,7 @@ const InstitutionalFlow = () => {
         </div>
         <div className="mt-4 sm:mt-0 flex items-center space-x-2 text-xs text-gray-500 bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-700/50">
           <Clock size={12} />
-          <span>最新資料：{latestData.date}</span>
+          <span>最新資料：{latestData.date ? latestData.date.split(' ')[0] : ''}</span>
         </div>
       </div>
 
@@ -135,7 +135,7 @@ const InstitutionalFlow = () => {
                 </filter>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.4} vertical={false} />
-              <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 12 }} tickMargin={10} minTickGap={30} />
+              <XAxis dataKey="date" tickFormatter={(val) => val ? val.split(" ")[0] : ""} stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 12 }} tickMargin={10} minTickGap={30} />
               <YAxis 
                 stroke="#9CA3AF" 
                 tick={{ fill: '#9CA3AF', fontSize: 12 }} 

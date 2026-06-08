@@ -29,10 +29,16 @@ const fetchFromFirestore = async (collectionName, docId) => {
     const firestoreData = docSnap.data();
     let updatedAtStr = null;
     if (firestoreData.updated_at) {
-      const dateObj = typeof firestoreData.updated_at.toDate === 'function' 
+            const dateObj = typeof firestoreData.updated_at.toDate === 'function' 
         ? firestoreData.updated_at.toDate() 
         : new Date(firestoreData.updated_at);
-      updatedAtStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      // If base_date exists, show it along with time, else show full date
+      if (firestoreData.base_date) {
+        updatedAtStr = `${firestoreData.base_date} ${timeStr}`;
+      } else {
+        updatedAtStr = `${dateObj.toLocaleDateString('zh-TW')} ${timeStr}`;
+      }
     }
     return { 
       data: firestoreData.data || firestoreData,
@@ -63,12 +69,22 @@ export const getCapitalFlow = async () => {
     console.warn("Firestore capital_flow fetch failed, falling back to API", err);
   }
   const apiRes = await api.get('/api/capital-flow');
-  return { data: apiRes.data, updated_at: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
+  const d = apiRes.data;
+  const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+  return { 
+    data: d.data || d, 
+    updated_at: d.base_date ? `${d.base_date} ${timeStr}` : `${new Date().toLocaleDateString('zh-TW')} ${timeStr}`
+  };
 };
 
 export const getMarketBreadth = async () => {
   const apiRes = await api.get('/api/market-breadth');
-  return { data: apiRes.data, updated_at: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
+  const d = apiRes.data;
+  const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+  return { 
+    data: d.data || d, 
+    updated_at: d.base_date ? `${d.base_date} ${timeStr}` : `${new Date().toLocaleDateString('zh-TW')} ${timeStr}`
+  };
 };
 
 export const getInstitutionalFlow = async () => {
@@ -79,7 +95,7 @@ export const getInstitutionalFlow = async () => {
     console.warn("Firestore institutional_flow fetch failed, falling back to API", err);
   }
   const apiRes = await api.get('/api/institutional-flow');
-  return { data: apiRes.data, updated_at: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
+  return { data: apiRes.data, updated_at: new Date().toLocaleDateString('zh-TW') + ' ' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
 };
 export const getIndustries = () => api.get('/api/industries');
 export const getIndustryStocks = (name) => api.get(`/api/industry/${name}`);
