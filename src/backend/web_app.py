@@ -110,14 +110,337 @@ async def lifespan(app: FastAPI):
 
 async def background_sync():
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    try:
+        # 強制啟動時抓取一次台股代號列表，確保 _stock_id_map 完整，避免個股名稱顯示為「未知」
+        try:
+            await loop.run_in_executor(None, lambda: fetcher.fetch_twse_openapi(fetch_all=False))
+        except Exception as e:
+            print(f"[系統] 啟動時預載資料失敗: {e}")
+            
+        while True:
+            try:
+                await loop.run_in_executor(None, fetcher.sync_if_needed)
+            except Exception as e:
+                print(f"[系統] 背景同步發生錯誤: {e}")
+            await asyncio.sleep(3600)
+    except asyncio.CancelledError:
+        pass
+
+
+async def background_strategies_sync():
+    # 記錄當天的同步狀態
+    sync_status = {
+        "date": None,
+        "stage1_done": False,
+        "stage2_done": False,
+        "stage3_done": False,
+        "stage4_done": False
     }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+
+    await asyncio.sleep(15)
+    
+    while True:
+        try:
+            now = datetime.now(pytz.timezone("Asia/Taipei"))
+            today_str = now.strftime("%Y-%m-%d")
+            
+            if sync_status["date"] != today_str:
+                sync_status["date"] = today_str
+                sync_status["stage1_done"] = False
+                sync_status["stage2_done"] = False
+                sync_status["stage3_done"] = False
+                sync_status["stage4_done"] = False
+
+            time_int = now.hour * 100 + now.minute
+            
+            def update_doc(doc_id, data_list):
+                if firebase_db:
+                    base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+                    doc_ref = firebase_db.collection('recommendations').document(doc_id)
+                    doc_ref.set({
+                        'data': data_list,
+                        'base_date': base_date,
+                        'updated_at': firestore.SERVER_TIMESTAMP
+                    })
+
+            loop = asyncio.get_event_loop()
+            executed_any = False
+
+            if time_int >= 1430 and not sync_status["stage1_done"]:
+                print(f"[系統] 執行階段一同歩 (14:30後): 價格與大盤資料")
+                hot_stocks = await get_hot_stocks(force=True)
+                await loop.run_in_executor(None, update_doc, 'hot_stocks', hot_stocks)
+                etf = await get_etf_recommendations(force=True)
+                await loop.run_in_executor(None, update_doc, 'etf', etf)
+                capital_flow = await get_capital_flow_recommendations(force=True)
+                await loop.run_in_executor(None, update_doc, 'capital_flow', capital_flow)
+                sync_status["stage1_done"] = True
+                executed_any = True
+                print("[系統] 階段一同歩完成")
+
+            elif time_int >= 1630 and not sync_status["stage2_done"]:
+                print(f"[系統] 執行階段二同歩 (16:30後): 法人買賣超與初步策略")
+                try:
+                    institutional_flow = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
+                    await loop.run_in_executor(None, update_doc, 'institutional_flow', institutional_flow)
+                except Exception as e:
+                    print(f"[系統] 同步 institutional_flow 失敗: {e}")
+                
+                short_term_burst = await get_short_term_burst_recommendations(force=True)
+                await loop.run_in_executor(None, update_doc, 'short_term_burst', short_term_burst)
+                sync_status["stage2_done"] = True
+                executed_any = True
+                print("[系統] 階段二同歩完成")
+
+            elif time_int >= 1800 and not sync_status["stage3_done"]:
+                print(f"[系統] 執行階段三同歩 (18:00後): 主力分點資料")
+                short_term = await get_short_term_recommendations(force=True)
+                await loop.run_in_executor(None, update_doc, 'short_term', short_term)
+                overnight_1 = await get_overnight_recommendations(mode="1", force=True)
+                await loop.run_in_executor(None, update_doc, 'overnight_1', overnight_1)
+                sync_status["stage3_done"] = True
+                executed_any = True
+                print("[系統] 階段三同歩完成")
+
+            elif time_int >= 2100 and not sync_status["stage4_done"]:
+                print(f"[系統] 執行階段四同歩 (21:00後): 融資券與全策略總結算")
+                long_term = await get_long_term_recommendations(force=True)
+                await loop.run_in_executor(None, update_doc, 'long_term', long_term)
+                bottom_fishing = await get_bottom_fishing_recommendations(force=True)
+                await loop.run_in_executor(None, update_doc, 'bottom_fishing', bottom_fishing)
+                overnight_2 = await get_overnight_recommendations(mode="2", force=True)
+                await loop.run_in_executor(None, update_doc, 'overnight_2', overnight_2)
+                cdp = await get_cdp_recommendations(force=True)
+                await loop.run_in_executor(None, update_doc, 'cdp', cdp)
+                try:
+                    day_trade_cdp = await get_day_trade_cdp_recommendations(force=True)
+                    await loop.run_in_executor(None, update_doc, 'day_trade_cdp', day_trade_cdp)
+                except: pass
+                sync_status["stage4_done"] = True
+                executed_any = True
+                print("[系統] 階段四同歩完成")
+            
+            if executed_any:
+                import gc
+                gc.collect()
+            
+            # 每 10 分鐘檢查一次狀態
+            await asyncio.sleep(600)
+                
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            print(f"[系統] 背景策略分析與同步錯誤: {e}")
+            await asyncio.sleep(600)
+
+from fastapi.middleware.cors import CORSMiddleware
+app = FastAPI(title="台股偵測系統 Web 版 (Optimized)", lifespan=lifespan)
+
+# 加入 CORS 設定，允許前端跨域存取
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # 生產環境建議設定為您的 Vercel 網址
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 設定前端靜態檔路徑
+# 在 Vercel 環境中，路徑會從專案根目錄開始
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(root_dir)
+frontend_path = os.path.join(project_root, "dist")
+
+if not os.environ.get("VERCEL") and os.path.exists(frontend_path):
+    # Do not use StaticFiles due to anyio.NoEventLoopError bug on some environments
+    # app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
+    pass
+# 簡單的 API 快取機制，避免頻繁計算導致超時
+API_CACHE = {}
+
+def set_cached_response(key, data, expiry=None):
+    # 如果未指定 expiry，預設給予極長時間，由背景程式負責更新
+    API_CACHE[key] = (time.time() + (expiry or 86400), data)
+
+def get_cached_response(key):
+    if key in API_CACHE:
+        expire_ts, data = API_CACHE[key]
+        if time.time() < expire_ts:
+            return data
+    return None
+
+@app.get("/api/status")
+async def get_status():
+    cached = get_cached_response("status")
+    if cached: return cached
+    
+    current_status = fetcher.get_market_status()
+    loop = asyncio.get_event_loop()
+    
+    try:
+        sample_df = await loop.run_in_executor(None, lambda: fetcher.get_taiex_data(days=1))
+        if not sample_df.empty:
+            data_date = sample_df.index[-1].strftime("%Y-%m-%d")
+        elif fetcher._official_cache:
+            data_date = list(fetcher._official_cache.values())[0].get('date', "確認中...")
+        else:
+            data_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    except:
+        data_date = "確認中..."
+    
+    res = {
+        "market_status": current_status,
+        "data_date": data_date,
+        "server_time": time.time()
+    }
+    set_cached_response("status", res, expiry=180)
+    return res
+
+@app.get("/api/global-market")
+async def get_global_market():
+    cached = get_cached_response("global_market")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, fetcher.get_global_markets)
+    set_cached_response("global_market", res, expiry=180)
+    return res
+
+@app.get("/api/futures")
+async def get_futures():
+    cached = get_cached_response("futures")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    # Try realtime first, fallback to FinMind daily
+    result = await loop.run_in_executor(None, fetcher.get_realtime_wtx)
+    if not result:
+        result = await loop.run_in_executor(None, fetcher.get_taiwan_futures)
+    res = result or {"price": None, "change_pct": None, "session": "N/A", "date": None}
+    if res.get("price") is not None:
+        set_cached_response("futures", res, expiry=60)
+    return res
+
+@app.get("/api/market-outlook")
+async def get_market_outlook():
+    cached = get_cached_response("market_outlook")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    markets = await loop.run_in_executor(None, fetcher.get_global_markets)
+    futures = await loop.run_in_executor(None, fetcher.get_realtime_wtx) or await loop.run_in_executor(None, fetcher.get_taiwan_futures) or {}
+    
+    signals = []
+    outlook_score = 0  # positive = bullish, negative = bearish
+    
+    # 1. US tech indices
+    sox = markets.get("費半指數", {})
+    nasdaq = markets.get("那斯達克", {})
+    sp500 = markets.get("標普500", {})
+    
+    if sox.get("change_pct", 0) > 1:
+        outlook_score += 2; signals.append(f"✅ 費半指數大漲 +{sox['change_pct']}%，台股半導體族群利多")
+    elif sox.get("change_pct", 0) < -1:
+        outlook_score -= 2; signals.append(f"⚠️ 費半指數重挫 {sox['change_pct']}%，台股有補跌壓力")
+    
+    if nasdaq.get("change_pct", 0) > 0.5:
+        outlook_score += 1; signals.append(f"✅ 那斯達克收漲 +{nasdaq['change_pct']}%，科技股氣氛正面")
+    elif nasdaq.get("change_pct", 0) < -0.5:
+        outlook_score -= 1; signals.append(f"⚠️ 那斯達克下跌 {nasdaq['change_pct']}%，科技股承壓")
+    
+    # 2. Taiwan specific
+    tsm = markets.get("台積電ADR", {})
+    if tsm.get("change_pct", 0) > 1:
+        outlook_score += 2; signals.append(f"✅ 台積電ADR大漲 +{tsm['change_pct']}%，權值股強勁支撐")
+    elif tsm.get("change_pct", 0) < -1:
+        outlook_score -= 2; signals.append(f"⚠️ 台積電ADR下跌 {tsm['change_pct']}%，權值股承壓")
+    
+    # 3. Currency
+    twd = markets.get("美元/台幣", {})
+    if twd.get("change_pct", 0) < -0.3:
+        outlook_score += 1; signals.append("✅ 新台幣升值，資金流入台股")
+    elif twd.get("change_pct", 0) > 0.3:
+        outlook_score -= 1; signals.append("⚠️ 新台幣責值，外資有可能化汇出")
+    
+    # 4. Futures
+    if futures.get("change_pct") is not None:
+        fp = futures["change_pct"]
+        if fp > 0.5:
+            outlook_score += 1; signals.append(f"✅ 台指期偏多 +{fp}%，盤前氣氛正面")
+        elif fp < -0.5:
+            outlook_score -= 1; signals.append(f"⚠️ 台指期偏空 {fp}%，盤前氣氛謹慎")
+    
+    if not signals:
+        signals.append("✅ 全球市場變動不大，台股可能橫盤整理")
+    
+    if outlook_score >= 3:
+        trend = "偏多"
+        trend_desc = "美股科技股強勁，台股可望開高並向上测試壓力位"
+    elif outlook_score >= 1:
+        trend = "微多"
+        trend_desc = "國際市場氣氛偏正面，台股有機會收在紅盤"
+    elif outlook_score <= -3:
+        trend = "偏空"
+        trend_desc = "美股科技股重挫，台股開盤有補跌風險，建議觀望"
+    elif outlook_score <= -1:
+        trend = "微空"
+        trend_desc = "國際市場氣氛偏謹慎，台股開盤可能小跌"
+    else:
+        trend = "中性"
+        trend_desc = "全球市場變動不大，台股可能在平盤附近整理"
+    
+    res = {
+        "trend": trend,
+        "trend_desc": trend_desc,
+        "outlook_score": outlook_score,
+        "signals": signals
+    }
+    set_cached_response("market_outlook", res, expiry=180)
+    return res
+
+@app.get("/api/news")
+async def get_news():
+    cached = get_cached_response("news")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    # 獲取台股新聞
+    tw_news_items, _ = await loop.run_in_executor(None, fetcher.get_comprehensive_news)
+    # 獲取全球新聞
+    gl_news_items = await loop.run_in_executor(None, fetcher.get_global_news)
+    
+    valid_ids = list(fetcher._stock_id_map.keys()) if fetcher._stock_id_map else []
+    valid_ids = set(valid_ids)
+    
+    tw_result = []
+    for item in tw_news_items:
+        import re
+        found_ids = [sid for sid in re.findall(r'\d{4}', item.get("title", "")) if sid in valid_ids]
+        item["related_stocks"] = found_ids
+        tw_result.append(item)
+    
+    gl_result = gl_news_items
+        
+    res = {"taiwan": tw_result, "global": gl_result}
+    set_cached_response("news", res, expiry=300)
+    return res
+
+
+bg_executor = ThreadPoolExecutor(max_workers=3)
+api_executor = ThreadPoolExecutor(max_workers=10)
+
+def analyze_wrap(sid):
+    return analyzer.analyze(sid)
+
+
+@app.get("/api/institutional-flow")
+async def get_institutional_flow_api(force: bool = False):
+    if not force:
+        cached = get_cached_response("institutional_flow")
+        if cached: return cached
+    
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
+    final_res = sanitize_data(res)
+    set_cached_response("institutional_flow", final_res)
+    return final_res
 
 @app.get("/api/long-term-recommendations")
 async def get_long_term_recommendations(force: bool = False):
@@ -126,14 +449,20 @@ async def get_long_term_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    sids = config.LONG_TERM_STOCK_IDS
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res]
+    # 長期股通常不特別依照短線分數排序，保持原始精選順序或依照 PE 排序
+    final_res = sanitize_data(results)
+    set_cached_response("long_term", final_res)
+    return final_res
 
 @app.get("/api/hot-stocks")
 async def get_hot_stocks(force: bool = False):
@@ -142,14 +471,18 @@ async def get_hot_stocks(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
+    
+    results = await asyncio.gather(*tasks)
+    final_res = sanitize_data([res for res in results if res and "error" not in res])
+    set_cached_response("hot_stocks", final_res)
+    return final_res
 
 @app.get("/api/short-term-recommendations")
 async def get_short_term_recommendations(force: bool = False):
@@ -158,14 +491,20 @@ async def get_short_term_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:30])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res and res['price'] <= config.MAX_STOCK_PRICE_FOR_ST_REC]
+    results.sort(key=lambda x: x["short_term_rec"]["score"], reverse=True)
+    final_res = sanitize_data(results[:10])
+    set_cached_response("short_term", final_res)
+    return final_res
 
 @app.get("/api/bottom-fishing-recommendations")
 async def get_bottom_fishing_recommendations(force: bool = False):
@@ -174,14 +513,23 @@ async def get_bottom_fishing_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res]
+    results.sort(key=lambda x: x["bottom_fishing_rec"]["score"], reverse=True)
+    top = [r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20]
+    if not top and results:
+        top = [r for r in results if r["bottom_fishing_rec"]["score"] > 0][:10]
+    final_res = sanitize_data(top)
+    set_cached_response("bottom_fishing", final_res)
+    return final_res
 
 @app.get("/api/short-term-burst-recommendations")
 async def get_short_term_burst_recommendations(force: bool = False):
@@ -190,14 +538,23 @@ async def get_short_term_burst_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res]
+    results.sort(key=lambda x: x["short_term_burst_rec"]["score"], reverse=True)
+    top = [r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20]
+    if not top and results:
+        top = [r for r in results if r["short_term_burst_rec"]["score"] > 0][:10]
+    final_res = sanitize_data(top)
+    set_cached_response("short_term_burst", final_res)
+    return final_res
 
 @app.get("/api/recommendations/day-trade-cdp")
 async def get_day_trade_cdp_recommendations(force: bool = False):
@@ -206,14 +563,30 @@ async def get_day_trade_cdp_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    # 擴大範圍掃描，因為符合當沖條件的股票可能不多
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:50])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res and "day_trade_cdp_rec" in res]
+    
+    # 篩出 is_valid == True 的結果
+    valid_results = [r for r in results if r["day_trade_cdp_rec"].get("is_valid", False)]
+    valid_results.sort(key=lambda x: x["day_trade_cdp_rec"]["score"], reverse=True)
+    
+    if not valid_results and results:
+        # 如果沒有嚴格符合條件的，至少回傳最高分的
+        results.sort(key=lambda x: x["day_trade_cdp_rec"]["score"], reverse=True)
+        valid_results = [r for r in results if r["day_trade_cdp_rec"]["score"] > 0][:10]
+        
+    final_res = sanitize_data(valid_results[:15])
+    set_cached_response("day_trade_cdp", final_res)
+    return final_res
 
 @app.get("/api/overnight-recommendations")
 async def get_overnight_recommendations(mode: str = "1", force: bool = False):
@@ -222,14 +595,65 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    def get_custom_overnight_ids():
+        # 尋找當日極度強勢（大漲或鎖漲停）、具備極高熱度與大成交量的標的
+        hot_ids = fetcher.get_hot_battlefield_ids()[:30] # 原本的熱門
+        
+        hold_ids = []
+        if fetcher._official_cache:
+            # 優先從成交量大的開始找
+            sorted_cache = sorted(fetcher._official_cache.items(), key=lambda x: x[1].get('volume', 0), reverse=True)
+            for sid, info in sorted_cache:
+                if sid == "TAIEX" or fetcher.is_etf(sid): continue
+                cp = info.get("change_pct", 0)
+                price = info.get("price", 0)
+                vol = info.get("volume", 0)
+                # 漲幅 >= 7.5%，量能大於 3000 張 (因漲停常導致成交量縮)
+                if cp >= 7.5 and price <= config.MAX_STOCK_PRICE_FOR_ST_REC and vol >= 3000:
+                    hold_ids.append(sid)
+        
+        # 合併並去重，優先掃描極度強勢標的
+        combined = list(dict.fromkeys(hold_ids + hot_ids))
+        return combined[:60] # 最多分析 60 檔以控制效能
+        
+    sids = await loop.run_in_executor(bg_executor, get_custom_overnight_ids)
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    def analyze_overnight(sid):
+        snapshot = fetcher.get_intraday_data(sid)
+        if snapshot: snapshot['stock_id'] = sid
+        return analyzer.analyze(sid, intraday_snapshot=snapshot)
+
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_overnight, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res and res['price'] < 1000]
+            
+    if mode == "1": # 盤中強勢
+        results.sort(key=lambda x: x['overnight']['score'], reverse=True)
+        # 移除不可為漲停的限制，因為新的隔日沖策略明確追求漲停鎖死或極度強勢標的
+        top = [r for r in results if r['overnight']['score'] >= 40][:30]
+        if not top and results:
+            top = [r for r in results if r['overnight']['score'] > 0][:10]
+        final_res = sanitize_data(top)
+    else: # 盤後籌碼
+        # 優先依照 broker_ratio 排序
+        results.sort(key=lambda x: x['overnight'].get('broker_ratio', 0), reverse=True)
+        top = [r for r in results if r['overnight'].get('broker_ratio', 0) > 3][:30]
+        
+        # 如果沒數據 (受限)，則回退到評分
+        if not top:
+            results.sort(key=lambda x: x['overnight']['score'], reverse=True)
+            top = [r for r in results if r['overnight']['score'] >= 50][:30]
+            if not top and results:
+                top = [r for r in results if r['overnight']['score'] > 0][:10]
+        final_res = sanitize_data(top)
+        
+    set_cached_response(f"overnight_{mode}", final_res)
+    return final_res
 
 @app.get("/api/cdp-recommendations")
 async def get_cdp_recommendations(force: bool = False):
@@ -238,14 +662,26 @@ async def get_cdp_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:40])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    def analyze_cdp_wrap(sid):
+        snapshot = fetcher.get_intraday_data(sid)
+        if snapshot: snapshot['stock_id'] = sid
+        return analyzer.analyze(sid, intraday_snapshot=snapshot)
+
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_cdp_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res]
+    
+    hit_results = [r for r in results if r['cdp'].get('signals')]
+    final_res = sanitize_data(hit_results if hit_results else results[:20])
+    set_cached_response("cdp", final_res)
+    return final_res
 
 @app.get("/api/etf-recommendations")
 async def get_etf_recommendations(force: bool = False):
@@ -254,17 +690,36 @@ async def get_etf_recommendations(force: bool = False):
         if cached: return cached
     
     loop = asyncio.get_event_loop()
-    cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
-    final_res = sanitize_data(cf_data)
-    wrapper = {
-        "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-    }
-    set_cached_response("capital_flow", wrapper)
-    return wrapper
+    sids = await loop.run_in_executor(api_executor, fetcher.get_popular_etf_ids)
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+    
+    tasks = []
+    for sid in sids:
+        tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
+    
+    all_res = await asyncio.gather(*tasks)
+    results = [res for res in all_res if res and "error" not in res]
+    results.sort(key=lambda x: x['etf_rec']['score'], reverse=True)
+    final_res = sanitize_data(results)
+    set_cached_response("etf", final_res)
+    return final_res
 
 @app.get("/api/market-breadth")
 async def get_market_breadth_api():
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(api_executor, fetcher.get_market_breadth)
+    return {
+        "data": res,
+        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    }
+
+@app.get("/api/capital-flow")
+async def get_capital_flow_recommendations(force: bool = False):
+    if not force:
+        cached = get_cached_response("capital_flow")
+        if cached: return cached
+    
     loop = asyncio.get_event_loop()
     cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
     final_res = sanitize_data(cf_data)
