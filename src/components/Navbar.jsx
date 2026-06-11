@@ -85,16 +85,6 @@ const Navbar = ({ status }) => {
               <span className="text-sm">資金流向</span>
             </Link>
 
-            <Link 
-              to="/market-distribution" 
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
-                location.pathname === '/market-distribution' ? 'bg-blue-500/20 text-blue-400 font-bold shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'hover:bg-gray-800 text-gray-300'
-              }`}
-            >
-              <BarChart2 size={16} />
-              <span className="text-sm">漲跌分佈</span>
-            </Link>
-
             <div className="h-4 w-px bg-white/20 mx-1"></div>
             
             <Link 
@@ -197,10 +187,6 @@ const Navbar = ({ status }) => {
 
           <Link to="/capital-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
             <div className="flex items-center space-x-3"><Flame size={18} className={location.pathname === '/capital-flow' ? "text-orange-400" : ""} /><span className={location.pathname === '/capital-flow' ? "text-orange-400 font-bold" : ""}>資金流向</span></div>
-          </Link>
-
-          <Link to="/market-distribution" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><BarChart2 size={18} className={location.pathname === '/market-distribution' ? "text-blue-400" : ""} /><span className={location.pathname === '/market-distribution' ? "text-blue-400 font-bold" : ""}>漲跌分佈</span></div>
           </Link>
           
           <div className="py-2">

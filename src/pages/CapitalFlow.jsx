@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Layers, Activity, Users } from 'lucide-react';
 import CapitalFlowHeatmap from './CapitalFlowHeatmap';
-import MarketBreadth from './MarketBreadth';
+import MarketDistribution from './MarketDistribution';
 import InstitutionalFlow from './InstitutionalFlow';
 
 const CapitalFlow = () => {
@@ -23,9 +23,9 @@ const CapitalFlow = () => {
           <span>資金板塊 (Heatmap)</span>
         </button>
         <button
-          onClick={() => setActiveTab('market-breadth')}
+          onClick={() => setActiveTab('market-distribution')}
           className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all duration-300 ${
-            activeTab === 'market-breadth' 
+            activeTab === 'market-distribution' 
               ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
               : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-transparent'
           }`}
@@ -49,7 +49,7 @@ const CapitalFlow = () => {
       {/* Tab Content */}
       <div className="w-full">
         {activeTab === 'heatmap' && <CapitalFlowHeatmap />}
-        {activeTab === 'market-breadth' && <MarketBreadth />}
+        {activeTab === 'market-distribution' && <MarketDistribution />}
         {activeTab === 'institutional' && <InstitutionalFlow />}
       </div>
     </div>
