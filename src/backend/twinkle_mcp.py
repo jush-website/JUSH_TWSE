@@ -6,10 +6,48 @@ import asyncio
 TWINKLE_API_KEY = os.environ.get("TWINKLE_API_KEY", "sk-DFL9uXi7f_eIrGDOY6tFFA")
 TWINKLE_SSE_URL = "https://api.twinkleai.tw/mcp/"
 
-def _send_mcp_request(method: str, params: dict = None):
+_SESSION_ID = None
+
+def _get_session_id():
+    global _SESSION_ID
+    if _SESSION_ID:
+        return _SESSION_ID
+        
     headers = {
         "Authorization": f"Bearer {TWINKLE_API_KEY}",
         "Accept": "application/json, text/event-stream"
+    }
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "jush-backend", "version": "1.0"}
+        }
+    }
+    
+    res = requests.post(TWINKLE_SSE_URL, headers=headers, json=payload, timeout=30)
+    res.encoding = 'utf-8'
+    
+    if res.status_code == 200:
+        session_id = res.headers.get("mcp-session-id")
+        if session_id:
+            _SESSION_ID = session_id
+            return session_id
+            
+    res.raise_for_status()
+    raise Exception("Twinkle Hub 未回傳 mcp-session-id")
+
+def _send_mcp_request(method: str, params: dict = None, retry=True):
+    global _SESSION_ID
+    session_id = _get_session_id()
+    
+    headers = {
+        "Authorization": f"Bearer {TWINKLE_API_KEY}",
+        "Accept": "application/json, text/event-stream",
+        "mcp-session-id": session_id
     }
     payload = {
         "jsonrpc": "2.0",
@@ -20,7 +58,13 @@ def _send_mcp_request(method: str, params: dict = None):
         payload["params"] = params
 
     res = requests.post(TWINKLE_SSE_URL, headers=headers, json=payload, timeout=30)
-    res.encoding = 'utf-8'  # 強制使用 UTF-8 解析回應
+    res.encoding = 'utf-8'
+    
+    # Check if session expired or missing
+    if res.status_code in [400, 401] and retry and "session" in res.text.lower():
+        _SESSION_ID = None
+        return _send_mcp_request(method, params, retry=False)
+        
     res.raise_for_status()
 
     # Parse SSE response
