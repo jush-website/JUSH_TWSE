@@ -8,7 +8,6 @@ import {
 import { 
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, Area
 } from 'recharts';
-import CompanyProfile from '../components/CompanyProfile';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -149,8 +148,7 @@ const StockAnalysis = () => {
               { id: 'dashboard', label: '綜合分析' },
               { id: 'chips', label: '籌碼分析' },
               { id: 'fundamentals', label: '基本面' },
-              { id: 'news', label: '個股新聞' },
-              { id: 'twinkle', label: '公司基本資料 (Twinkle Hub)' }
+              { id: 'news', label: '個股新聞' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -782,9 +780,6 @@ const StockAnalysis = () => {
             </div>
           )}
 
-          <div className={`space-y-4 sm:space-y-6 ${activeTab === 'twinkle' ? 'block' : 'hidden'}`}>
-            <CompanyProfile stockId={data.stock_id} />
-          </div>
 
         </div>
       )}
