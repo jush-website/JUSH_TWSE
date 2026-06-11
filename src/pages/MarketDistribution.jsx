@@ -14,7 +14,7 @@ const MarketDistribution = () => {
     const fetchData = async () => {
       try {
         const res = await api.get('/api/market-distribution');
-        setData(res.data);
+        setData(res.data.data || res.data);
         setError(null);
       } catch (err) {
         console.error("Fetch market distribution error:", err);
