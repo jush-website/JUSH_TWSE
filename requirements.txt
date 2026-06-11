@@ -14,3 +14,4 @@ firebase-admin
  
 
 setuptools
+beautifulsoup4
