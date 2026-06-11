@@ -21,6 +21,10 @@ from src.backend.data_fetcher import DataFetcher
 import math
 
 import pandas as pd
+import warnings
+
+# Suppress pandas FutureWarning from yfinance history.py
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def sanitize_data(data):
     if isinstance(data, (pd.DataFrame, pd.Series)):
