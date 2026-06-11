@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { BarChart2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,7 @@ const MarketDistribution = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeBucket, setActiveBucket] = useState(null);
+  const timeoutRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,6 +26,17 @@ const MarketDistribution = () => {
     };
     fetchData();
   }, []);
+
+  const handleMouseEnter = (item) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setActiveBucket(item);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setActiveBucket(null);
+    }, 150);
+  };
 
   const handleStockClick = (stockId) => {
     navigate(`/analysis?q=${stockId}`);
@@ -96,8 +108,8 @@ const MarketDistribution = () => {
               <div 
                 key={item.bucket}
                 className="relative flex flex-col items-center justify-end flex-1 group h-full cursor-pointer"
-                onMouseEnter={() => setActiveBucket(item)}
-                onMouseLeave={() => setActiveBucket(null)}
+                onMouseEnter={() => handleMouseEnter(item)}
+                onMouseLeave={handleMouseLeave}
               >
                 {/* Bar */}
                 <div 
@@ -121,7 +133,11 @@ const MarketDistribution = () => {
 
         {/* Floating Hot Stocks Modal */}
         {activeBucket && activeBucket.count > 0 && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1e2329] border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden pointer-events-auto">
+          <div 
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1e2329] border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden pointer-events-auto"
+            onMouseEnter={() => handleMouseEnter(activeBucket)}
+            onMouseLeave={handleMouseLeave}
+          >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700/50 bg-[#2b3139]">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 漲跌級距 {activeBucket.bucket > 0 ? `+${activeBucket.bucket}` : activeBucket.bucket}%
