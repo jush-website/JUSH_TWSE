@@ -8,6 +8,7 @@ import {
 import { 
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, Area
 } from 'recharts';
+import BranchAnalysis from '../components/BranchAnalysis';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -147,6 +148,7 @@ const StockAnalysis = () => {
             {[
               { id: 'dashboard', label: '綜合分析' },
               { id: 'chips', label: '籌碼分析' },
+              { id: 'branch', label: '分點籌碼' },
               { id: 'fundamentals', label: '基本面' },
               { id: 'news', label: '個股新聞' }
             ].map(tab => (
@@ -630,6 +632,10 @@ const StockAnalysis = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'branch' && (
+            <BranchAnalysis stockId={data?.stock_id} />
           )}
 
           {activeTab === 'fundamentals' && (

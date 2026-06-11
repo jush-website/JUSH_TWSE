@@ -722,9 +722,15 @@ async def get_capital_flow_recommendations(force: bool = False):
     loop = asyncio.get_event_loop()
     cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
     final_res = sanitize_data(cf_data)
+    
+    # 從官方快取中獲取大盤的真實最後交易日
+    official_cache = getattr(fetcher, '_official_cache', {})
+    taiex_info = official_cache.get("TAIEX", {})
+    actual_date = taiex_info.get("date") or fetcher.get_actual_trading_date()
+    
     wrapper = {
         "data": final_res,
-        "base_date": fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+        "base_date": actual_date
     }
     set_cached_response("capital_flow", wrapper)
     return wrapper
@@ -1010,6 +1016,61 @@ async def sync_data(mode: str = "1"):
     await loop.run_in_executor(bg_executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
     return {"status": "success"}
 
+
+@app.get("/api/market-distribution")
+async def get_market_distribution():
+    # 確保有資料
+    if not fetcher._official_cache:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(api_executor, fetcher.fetch_twse_openapi, False)
+        
+    distribution = {i: {'count': 0, 'stocks': []} for i in range(-10, 11)}
+    
+    for sid, data in fetcher._official_cache.items():
+        if sid in ['TAIEX', 'TPEX']: continue
+        
+        cpct = data.get('change_pct', 0)
+        # 歸類到最接近的整數百分比
+        bucket = round(cpct)
+        if bucket > 10: bucket = 10
+        if bucket < -10: bucket = -10
+        
+        distribution[bucket]['count'] += 1
+        distribution[bucket]['stocks'].append({
+            'id': sid,
+            'name': data.get('name', ''),
+            'price': data.get('price', 0),
+            'change_pct': cpct,
+            'volume': data.get('volume', 0)
+        })
+        
+    # 各級距內依照成交量排序，並只取前 20 檔作為熱門標的
+    for b in distribution:
+        distribution[b]['stocks'].sort(key=lambda x: x.get('volume', 0), reverse=True)
+        distribution[b]['stocks'] = distribution[b]['stocks'][:20]
+        
+    # 轉換為陣列格式方便前端使用
+    result = []
+    for i in range(-10, 11):
+        result.append({
+            'bucket': i,
+            'count': distribution[i]['count'],
+            'top_stocks': distribution[i]['stocks']
+        })
+        
+    return {"data": result}
+
+@app.get("/api/stock/{stock_id}/branch-data")
+async def get_stock_branch_data(stock_id: str):
+    from src.backend.branch_scraper import fetch_branch_data
+    loop = asyncio.get_event_loop()
+    try:
+        data = await loop.run_in_executor(api_executor, fetch_branch_data, stock_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="找不到籌碼分點資料")
+        return {"data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
