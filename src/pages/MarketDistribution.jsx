@@ -39,7 +39,7 @@ const MarketDistribution = () => {
   };
 
   const handleStockClick = (stockId) => {
-    navigate(`/analysis?q=${stockId}`);
+    navigate(`/analyze/${stockId}`);
   };
 
   if (loading) {

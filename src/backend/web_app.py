@@ -1019,10 +1019,17 @@ async def sync_data(mode: str = "1"):
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(bg_executor, lambda: fetcher.fetch_twse_openapi(fetch_all=(mode == "2")))
     return {"status": "success"}
-
+_market_dist_cache = {"data": None, "timestamp": 0}
 
 @app.get("/api/market-distribution")
 async def get_market_distribution():
+    global _market_dist_cache
+    now = time.time()
+    
+    # 1. 如果有快取且在 60 秒內，直接回傳
+    if _market_dist_cache["data"] and now - _market_dist_cache["timestamp"] < 60:
+        return _market_dist_cache["data"]
+
     # 確保有資料
     if not fetcher._official_cache:
         loop = asyncio.get_event_loop()
@@ -1048,11 +1055,57 @@ async def get_market_distribution():
             'volume': data.get('volume', 0)
         })
         
+    top_sids = []
     # 各級距內依照成交量排序，並只取前 20 檔作為熱門標的
     for b in distribution:
         distribution[b]['stocks'].sort(key=lambda x: x.get('volume', 0), reverse=True)
         distribution[b]['stocks'] = distribution[b]['stocks'][:20]
+        top_sids.extend([s['id'] for s in distribution[b]['stocks']])
+
+    # 背景批次取得即時價格與昨收來計算正確的單日漲跌
+    def fetch_realtime_for_hot_stocks(sids):
+        import yfinance as yf
+        sym_map = fetcher.get_symbol_map()
+        symbols = [sym_map.get(sid, f"{sid}.TW") for sid in sids]
+        try:
+            df = yf.download(symbols, period="5d", interval="1d", group_by="ticker", threads=True, progress=False)
+            res = {}
+            if df.empty: return res
+            
+            for sid, sym in zip(sids, symbols):
+                try:
+                    if len(symbols) == 1:
+                        ticker_df = df
+                    else:
+                        ticker_df = df[sym] if sym in df.columns.levels[0] else None
+                        
+                    if ticker_df is not None and not ticker_df.empty:
+                        closes = ticker_df['Close'].dropna()
+                        if len(closes) >= 2:
+                            today_close = float(closes.iloc[-1])
+                            yday_close = float(closes.iloc[-2])
+                            change_pct = (today_close - yday_close) / yday_close * 100
+                            res[sid] = {"price": today_close, "change_pct": change_pct}
+                        elif len(closes) == 1:
+                            res[sid] = {"price": float(closes.iloc[-1])}
+                except:
+                    pass
+            return res
+        except:
+            return {}
+
+    if top_sids:
+        loop = asyncio.get_event_loop()
+        realtime_data = await loop.run_in_executor(bg_executor, fetch_realtime_for_hot_stocks, top_sids)
         
+        for b in distribution:
+            for s in distribution[b]['stocks']:
+                if s['id'] in realtime_data:
+                    rd = realtime_data[s['id']]
+                    s['price'] = round(rd['price'], 2)
+                    if 'change_pct' in rd:
+                        s['change_pct'] = round(rd['change_pct'], 2)
+
     # 轉換為陣列格式方便前端使用
     result = []
     for i in range(-10, 11):
@@ -1062,7 +1115,11 @@ async def get_market_distribution():
             'top_stocks': distribution[i]['stocks']
         })
         
-    return {"data": result}
+    final_res = {"data": result}
+    _market_dist_cache["data"] = final_res
+    _market_dist_cache["timestamp"] = now
+    
+    return final_res
 
 @app.get("/api/stock/{stock_id}/branch-data")
 async def get_stock_branch_data(stock_id: str):
