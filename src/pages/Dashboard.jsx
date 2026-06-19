@@ -12,19 +12,14 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const [mRes, nRes, fRes, oRes] = await Promise.all([
-          getGlobalMarket(), getNews(), getFutures(), getMarketOutlook()
-        ]);
-        setMarkets(mRes.data);
-        setNews(nRes.data);
-        setFutures(fRes.data);
-        setOutlook(oRes.data);
-      } catch (err) {
-        console.error('Dashboard data fetch failed', err);
-      } finally {
-        setLoading(false);
-      }
+      const [mRes, nRes, fRes, oRes] = await Promise.allSettled([
+        getGlobalMarket(), getNews(), getFutures(), getMarketOutlook()
+      ]);
+      if (mRes.status === 'fulfilled') setMarkets(mRes.value.data || {});
+      if (nRes.status === 'fulfilled') setNews(nRes.value.data || { taiwan: [], global: [] });
+      if (fRes.status === 'fulfilled') setFutures(fRes.value.data);
+      if (oRes.status === 'fulfilled') setOutlook(oRes.value.data);
+      setLoading(false);
     };
     fetchData();
     // 每 3 分鐘自動更新
@@ -119,7 +114,12 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700 max-h-[600px] overflow-y-auto">
-            {news.taiwan.map((item, idx) => (
+            {(news.taiwan || []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Newspaper size={32} className="mb-3 opacity-30" />
+                <p>目前沒有台股要跨資料</p>
+              </div>
+            ) : (news.taiwan || []).map((item, idx) => (
               <a 
                 key={idx} 
                 href={item.url} 
@@ -168,7 +168,12 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700 max-h-[600px] overflow-y-auto">
-            {news.global.map((item, idx) => (
+            {(news.global || []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Globe size={32} className="mb-3 opacity-30" />
+                <p>目前沒有國際財經資料</p>
+              </div>
+            ) : (news.global || []).map((item, idx) => (
               <a 
                 key={idx} 
                 href={item.url} 

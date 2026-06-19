@@ -125,7 +125,7 @@ async def background_sync():
                 await loop.run_in_executor(None, fetcher.sync_if_needed)
             except Exception as e:
                 print(f"[系統] 背景同步發生錯誤: {e}")
-            await asyncio.sleep(3600)
+            await asyncio.sleep(900)  # 每 15 分鐘檢查一次
     except asyncio.CancelledError:
         pass
 
@@ -157,7 +157,7 @@ async def background_strategies_sync():
             time_int = now.hour * 100 + now.minute
             
             def update_doc(doc_id, data_list):
-                if firebase_db:
+                if firebase_db and data_list is not None:
                     base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
                     doc_ref = firebase_db.collection('recommendations').document(doc_id)
                     doc_ref.set({
@@ -170,7 +170,7 @@ async def background_strategies_sync():
             executed_any = False
 
             if time_int >= 1430 and not sync_status["stage1_done"]:
-                print(f"[系統] 執行階段一同歩 (14:30後): 價格與大盤資料")
+                print(f"[系統] 執行階段一同步 (14:30後): 價格與大盤資料")
                 hot_stocks = await get_hot_stocks(force=True)
                 await loop.run_in_executor(None, update_doc, 'hot_stocks', hot_stocks)
                 etf = await get_etf_recommendations(force=True)
@@ -179,10 +179,10 @@ async def background_strategies_sync():
                 await loop.run_in_executor(None, update_doc, 'capital_flow', capital_flow)
                 sync_status["stage1_done"] = True
                 executed_any = True
-                print("[系統] 階段一同歩完成")
+                print("[系統] 階段一同步完成")
 
-            elif time_int >= 1630 and not sync_status["stage2_done"]:
-                print(f"[系統] 執行階段二同歩 (16:30後): 法人買賣超與初步策略")
+            if time_int >= 1630 and not sync_status["stage2_done"]:
+                print(f"[系統] 執行階段二同步 (16:30後): 法人買賣超與初步策略")
                 try:
                     institutional_flow = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
                     await loop.run_in_executor(None, update_doc, 'institutional_flow', institutional_flow)
@@ -195,7 +195,7 @@ async def background_strategies_sync():
                 executed_any = True
                 print("[系統] 階段二同歩完成")
 
-            elif time_int >= 1800 and not sync_status["stage3_done"]:
+            if time_int >= 1800 and not sync_status["stage3_done"]:
                 print(f"[系統] 執行階段三同歩 (18:00後): 主力分點資料")
                 short_term = await get_short_term_recommendations(force=True)
                 await loop.run_in_executor(None, update_doc, 'short_term', short_term)
@@ -205,7 +205,7 @@ async def background_strategies_sync():
                 executed_any = True
                 print("[系統] 階段三同歩完成")
 
-            elif time_int >= 2100 and not sync_status["stage4_done"]:
+            if time_int >= 2100 and not sync_status["stage4_done"]:
                 print(f"[系統] 執行階段四同歩 (21:00後): 融資券與全策略總結算")
                 long_term = await get_long_term_recommendations(force=True)
                 await loop.run_in_executor(None, update_doc, 'long_term', long_term)
@@ -503,8 +503,8 @@ async def get_short_term_recommendations(force: bool = False):
         tasks.append(loop.run_in_executor(bg_executor, analyze_wrap, sid))
     
     all_res = await asyncio.gather(*tasks)
-    results = [res for res in all_res if res and "error" not in res and res['price'] <= config.MAX_STOCK_PRICE_FOR_ST_REC]
-    results.sort(key=lambda x: x["short_term_rec"]["score"], reverse=True)
+    results = [res for res in all_res if res and "error" not in res and res.get('price', 0) <= config.MAX_STOCK_PRICE_FOR_ST_REC]
+    results.sort(key=lambda x: x.get("short_term_rec", {}).get("score", 0), reverse=True)
     final_res = sanitize_data(results[:10])
     set_cached_response("short_term", final_res)
     return final_res
@@ -526,10 +526,10 @@ async def get_bottom_fishing_recommendations(force: bool = False):
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
-    results.sort(key=lambda x: x["bottom_fishing_rec"]["score"], reverse=True)
-    top = [r for r in results if r["bottom_fishing_rec"]["score"] >= 50][:20]
+    results.sort(key=lambda x: x.get("bottom_fishing_rec", {}).get("score", 0), reverse=True)
+    top = [r for r in results if r.get("bottom_fishing_rec", {}).get("score", 0) >= 50][:20]
     if not top and results:
-        top = [r for r in results if r["bottom_fishing_rec"]["score"] > 0][:10]
+        top = [r for r in results if r.get("bottom_fishing_rec", {}).get("score", 0) > 0][:10]
     final_res = sanitize_data(top)
     set_cached_response("bottom_fishing", final_res)
     return final_res
@@ -551,10 +551,10 @@ async def get_short_term_burst_recommendations(force: bool = False):
     
     all_res = await asyncio.gather(*tasks)
     results = [res for res in all_res if res and "error" not in res]
-    results.sort(key=lambda x: x["short_term_burst_rec"]["score"], reverse=True)
-    top = [r for r in results if r["short_term_burst_rec"]["score"] >= 60][:20]
+    results.sort(key=lambda x: x.get("short_term_burst_rec", {}).get("score", 0), reverse=True)
+    top = [r for r in results if r.get("short_term_burst_rec", {}).get("score", 0) >= 60][:20]
     if not top and results:
-        top = [r for r in results if r["short_term_burst_rec"]["score"] > 0][:10]
+        top = [r for r in results if r.get("short_term_burst_rec", {}).get("score", 0) > 0][:10]
     final_res = sanitize_data(top)
     set_cached_response("short_term_burst", final_res)
     return final_res
@@ -633,7 +633,7 @@ async def get_overnight_recommendations(mode: str = "1", force: bool = False):
         tasks.append(loop.run_in_executor(bg_executor, analyze_overnight, sid))
     
     all_res = await asyncio.gather(*tasks)
-    results = [res for res in all_res if res and "error" not in res and res['price'] < 1000]
+    results = [res for res in all_res if res and "error" not in res and res.get('price', 0) < 1000]
             
     if mode == "1": # 盤中強勢
         results.sort(key=lambda x: x['overnight']['score'], reverse=True)
@@ -1009,7 +1009,10 @@ async def get_raw_data(query: str):
         intraday_task = loop.run_in_executor(api_executor, safe_get_intraday)
         
         data, intraday = await asyncio.gather(finmind_task, intraday_task)
-        data["intraday"] = intraday
+        if data is not None:
+            data["intraday"] = intraday
+        else:
+            data = {"intraday": intraday, "error": "無法取得財務資料"}
         return sanitize_data(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import RecommendationPage from './pages/RecommendationPage';
 import StockAnalysis from './pages/StockAnalysis';
 import CapitalFlow from './pages/CapitalFlow';
-import { getShortTermRecommendations } from './services/api';
+import { getStatus } from './services/api';
 
 // 簡易錯誤邊界組件
 class ErrorBoundary extends React.Component {
@@ -39,9 +39,9 @@ function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await getShortTermRecommendations();
-        if (res.updated_at) {
-          setStatus({ last_sync: res.updated_at });
+        const res = await getStatus();
+        if (res?.data?.last_sync || res?.data?.data_date) {
+          setStatus({ last_sync: res.data.data_date || res.data.last_sync });
         }
       } catch (err) {
         console.error('Failed to fetch status', err);
@@ -58,15 +58,20 @@ function App() {
         <div className="min-h-screen bg-gray-900 text-white font-sans">
           <Navbar status={status} />
           <main className="container mx-auto px-4 py-6">
-            <Suspense fallback={<div className="text-center py-20 text-gray-400">載入組件中...</div>}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/recommendations/:type" element={<RecommendationPage />} />
                 <Route path="/capital-flow" element={<CapitalFlow />} />
                 <Route path="/analyze" element={<StockAnalysis />} />
                 <Route path="/analyze/:query" element={<StockAnalysis />} />
+                <Route path="*" element={
+                  <div className="flex flex-col items-center justify-center py-32 text-gray-500">
+                    <div className="text-6xl mb-4">404</div>
+                    <p className="text-xl mb-6">找不到這個頁面</p>
+                    <a href="/" className="text-blue-400 hover:text-blue-300 underline">回到首頁</a>
+                  </div>
+                } />
               </Routes>
-            </Suspense>
           </main>
         </div>
       </Router>

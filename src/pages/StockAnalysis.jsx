@@ -179,27 +179,15 @@ const StockAnalysis = () => {
                     <ComposedChart data={data.chart_data} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       
                       <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorClose-price" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                         </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorVol-price" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
                           <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
                         </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="glow-price" x="-20%" y="-20%" width="140%" height="140%">
                           <feGaussianBlur stdDeviation="2" result="blur" />
                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>
@@ -210,8 +198,8 @@ const StockAnalysis = () => {
                       <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" fontSize={10} />
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.8)', backdropFilter: 'blur(8px)', borderColor: '#374151', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} itemStyle={{ color: '#E5E7EB' }} />
                       <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar yAxisId="right" dataKey="volume" name="成交量(張)" fill="url(#colorVol)" radius={[4, 4, 0, 0]} />
-                      <Area yAxisId="left" type="monotone" dataKey="close" name="收盤價" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorClose)" activeDot={{ r: 6, strokeWidth: 0, fill: "#60A5FA", filter: "url(#glow)" }} />
+                      <Bar yAxisId="right" dataKey="volume" name="成交量(張)" fill="url(#colorVol-price)" radius={[4, 4, 0, 0]} />
+                      <Area yAxisId="left" type="monotone" dataKey="close" name="收盤價" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorClose-price)" activeDot={{ r: 6, strokeWidth: 0, fill: "#60A5FA", filter: "url(#glow-price)" }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -225,27 +213,7 @@ const StockAnalysis = () => {
                     <ComposedChart data={data.chart_data} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                       
                       <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="glow-macd" x="-20%" y="-20%" width="140%" height="140%">
                           <feGaussianBlur stdDeviation="2" result="blur" />
                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>
@@ -260,8 +228,8 @@ const StockAnalysis = () => {
                           <Cell key={`cell-${index}`} fill={entry.macd_hist > 0 ? '#F87171' : '#34D399'} fillOpacity={0.8} />
                         ))}
                       </Bar>
-                      <Line type="monotone" dataKey="macd_line" name="DIF(快線)" stroke="#FBBF24" strokeWidth={2.5} dot={false} filter="url(#glow)" />
-                      <Line type="monotone" dataKey="macd_signal" name="DEA(慢線)" stroke="#C084FC" strokeWidth={2.5} dot={false} filter="url(#glow)" />
+                      <Line type="monotone" dataKey="macd_line" name="DIF(快線)" stroke="#FBBF24" strokeWidth={2.5} dot={false} filter="url(#glow-macd)" />
+                      <Line type="monotone" dataKey="macd_signal" name="DEA(慢線)" stroke="#C084FC" strokeWidth={2.5} dot={false} filter="url(#glow-macd)" />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -400,7 +368,7 @@ const StockAnalysis = () => {
                   <h2 className="text-lg sm:text-xl font-bold">專業診斷報告</h2>
                 </div>
                 <div className="space-y-2 sm:space-y-3">
-                  {data.diagnosis.map((line, idx) => (
+                  {(data.diagnosis || []).map((line, idx) => (
                     <div key={idx} className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-3 bg-gray-900/40 rounded-xl hover:bg-gray-900/60 transition">
                       <div className="mt-0.5 sm:mt-1">
                         {line.includes('!!!') || line.includes('警告') ? <ShieldAlert className="text-red-500 w-4 h-4 sm:w-5 sm:h-5" /> : 
@@ -423,14 +391,14 @@ const StockAnalysis = () => {
                 </div>
                 <div className="space-y-4">
                   {[
-                    { label: 'KD 指標', value: data.kd, color: 'text-orange-400' },
-                    { label: 'RSI 強度', value: data.rsi, color: data.rsi > 70 ? 'text-red-400' : 'text-blue-400' },
-                    { label: 'MACD 趨勢', value: data.macd, color: data.macd.includes('多') ? 'text-red-400' : 'text-green-400' },
-                    { label: '5日均線', value: data.ma5, color: 'text-gray-200' },
-                    { label: '20日月線', value: data.ma20, color: 'text-gray-200' },
-                    { label: '60日季線', value: data.ma60, color: 'text-gray-200' },
-                    { label: '量能比例', value: data.vol_ratio, color: data.vol_ratio > 1.5 ? 'text-orange-400' : 'text-gray-400' },
-                    { label: '年化波動率', value: `${data.volatility}%`, color: 'text-purple-400' }
+                    { label: 'KD 指標', value: data.kd ?? '-', color: 'text-orange-400' },
+                    { label: 'RSI 強度', value: data.rsi ?? '-', color: (data.rsi ?? 0) > 70 ? 'text-red-400' : 'text-blue-400' },
+                    { label: 'MACD 趨勢', value: data.macd ?? '-', color: data.macd?.includes('多') ? 'text-red-400' : 'text-green-400' },
+                    { label: '5日均線', value: data.ma5 ?? '-', color: 'text-gray-200' },
+                    { label: '20日月線', value: data.ma20 ?? '-', color: 'text-gray-200' },
+                    { label: '60日季線', value: data.ma60 ?? '-', color: 'text-gray-200' },
+                    { label: '量能比例', value: data.vol_ratio ?? '-', color: (data.vol_ratio ?? 0) > 1.5 ? 'text-orange-400' : 'text-gray-400' },
+                    { label: '年化波動率', value: data.volatility != null ? `${data.volatility}%` : '-', color: 'text-purple-400' }
                   ].map(item => (
                     <div key={item.label} className="flex justify-between items-center border-b border-gray-700 pb-2">
                       <span className="text-gray-400 text-sm">{item.label}</span>
@@ -502,27 +470,7 @@ const StockAnalysis = () => {
                       <ComposedChart data={data.chip_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="glow-chip" x="-20%" y="-20%" width="140%" height="140%">
                           <feGaussianBlur stdDeviation="2" result="blur" />
                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>
@@ -548,27 +496,15 @@ const StockAnalysis = () => {
                       <ComposedChart data={data.margin_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorMargin-margin" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
                         </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorShort-margin" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
                         </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="glow-margin" x="-20%" y="-20%" width="140%" height="140%">
                           <feGaussianBlur stdDeviation="2" result="blur" />
                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>
@@ -579,8 +515,8 @@ const StockAnalysis = () => {
                         <YAxis yAxisId="right" orientation="right" stroke="#60A5FA" fontSize={10} />
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.8)', backdropFilter: 'blur(8px)', borderColor: '#374151', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                         <Legend />
-                        <Area yAxisId="left" type="monotone" dataKey="margin_bal" name="融資餘額" stroke="#F87171" strokeWidth={2.5} fillOpacity={1} fill="url(#colorMargin)" activeDot={{ r: 5, strokeWidth: 0, fill: "#FCA5A5", filter: "url(#glow)" }} />
-                        <Area yAxisId="right" type="monotone" dataKey="short_bal" name="融券餘額" stroke="#60A5FA" strokeWidth={2.5} fillOpacity={1} fill="url(#colorShort)" activeDot={{ r: 5, strokeWidth: 0, fill: "#93C5FD", filter: "url(#glow)" }} />
+                        <Area yAxisId="left" type="monotone" dataKey="margin_bal" name="融資餘額" stroke="#F87171" strokeWidth={2.5} fillOpacity={1} fill="url(#colorMargin-margin)" activeDot={{ r: 5, strokeWidth: 0, fill: "#FCA5A5", filter: "url(#glow-margin)" }} />
+                        <Area yAxisId="right" type="monotone" dataKey="short_bal" name="融券餘額" stroke="#60A5FA" strokeWidth={2.5} fillOpacity={1} fill="url(#colorShort-margin)" activeDot={{ r: 5, strokeWidth: 0, fill: "#93C5FD", filter: "url(#glow-margin)" }} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
@@ -595,27 +531,11 @@ const StockAnalysis = () => {
                       <ComposedChart data={data.shareholding_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorRatio-share" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
                         </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="glow-share" x="-20%" y="-20%" width="140%" height="140%">
                           <feGaussianBlur stdDeviation="2" result="blur" />
                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>
@@ -625,7 +545,7 @@ const StockAnalysis = () => {
                         <YAxis domain={['auto', 'auto']} stroke="#9CA3AF" fontSize={10} />
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.8)', backdropFilter: 'blur(8px)', borderColor: '#374151', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                         <Legend />
-                        <Area type="monotone" dataKey="ratio" name="持股比例" stroke="#A78BFA" strokeWidth={3} fillOpacity={1} fill="url(#colorRatio)" activeDot={{ r: 6, strokeWidth: 0, fill: "#C4B5FD", filter: "url(#glow)" }} />
+                        <Area type="monotone" dataKey="ratio" name="持股比例" stroke="#A78BFA" strokeWidth={3} fillOpacity={1} fill="url(#colorRatio-share)" activeDot={{ r: 6, strokeWidth: 0, fill: "#C4B5FD", filter: "url(#glow-share)" }} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
@@ -656,27 +576,7 @@ const StockAnalysis = () => {
                       <ComposedChart data={data.revenue_data.slice(-36).map(d => ({ date: d.date, rev: d.revenue/100000000, yoy: d.revenue_year_on_year }))} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="glow-rev" x="-20%" y="-20%" width="140%" height="140%">
                           <feGaussianBlur stdDeviation="2" result="blur" />
                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>
@@ -688,7 +588,7 @@ const StockAnalysis = () => {
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.8)', backdropFilter: 'blur(8px)', borderColor: '#374151', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                         <Legend />
                         <Bar yAxisId="left" dataKey="rev" name="月營收(億)" fill="#3B82F6" opacity={0.85} radius={[4, 4, 0, 0]} />
-                        <Line yAxisId="right" type="monotone" dataKey="yoy" name="年增率(%)" stroke="#FBBF24" strokeWidth={3} dot={{ r: 4, fill: "#FBBF24", strokeWidth: 0 }} activeDot={{ r: 6, filter: "url(#glow)" }} filter="url(#glow)" />
+                        <Line yAxisId="right" type="monotone" dataKey="yoy" name="年增率(%)" stroke="#FBBF24" strokeWidth={3} dot={{ r: 4, fill: "#FBBF24", strokeWidth: 0 }} activeDot={{ r: 6, filter: "url(#glow-rev)" }} filter="url(#glow-rev)" />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
@@ -703,27 +603,7 @@ const StockAnalysis = () => {
                       <ComposedChart data={data.financial_data.filter(d => d.type === 'EPS').slice(-12)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="glow-eps" x="-20%" y="-20%" width="140%" height="140%">
                           <feGaussianBlur stdDeviation="2" result="blur" />
                           <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>

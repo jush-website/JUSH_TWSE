@@ -147,9 +147,9 @@ const MarketDistribution = () => {
             
             <div className="p-4 bg-[#1e2329]">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {activeBucket.top_stocks.map((stock) => {
-                  const isUp = stock.change_pct > 0;
-                  const isDown = stock.change_pct < 0;
+                {(activeBucket.top_stocks || []).map((stock) => {
+                  const isUp = (stock.change_pct ?? 0) > 0;
+                  const isDown = (stock.change_pct ?? 0) < 0;
                   const colorClass = isUp ? 'text-red-500' : (isDown ? 'text-green-500' : 'text-gray-300');
                   
                   return (
@@ -161,12 +161,12 @@ const MarketDistribution = () => {
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-white font-bold text-sm truncate pr-2">{stock.name}</span>
                         <span className={`text-sm font-semibold ${colorClass}`}>
-                          {stock.change_pct > 0 ? '+' : ''}{stock.change_pct.toFixed(2)}%
+                          {(stock.change_pct ?? 0) > 0 ? '+' : ''}{(stock.change_pct ?? 0).toFixed(2)}%
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400 text-xs">{stock.id}</span>
-                        <span className="text-gray-300 text-sm">{stock.price.toFixed(2)}</span>
+                        <span className="text-gray-300 text-sm">{(stock.price ?? 0).toFixed(2)}</span>
                       </div>
                     </div>
                   );
