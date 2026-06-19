@@ -79,8 +79,8 @@ const BranchAnalysis = ({ stockId, stockName }) => {
                     buy_branches.map((branch, idx) => (
                       <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-200">{branch.name}</td>
-                        <td className="px-4 py-3 text-right text-red-400 font-bold">+{(branch.net_buy ?? 0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right text-gray-400">{(branch.price ?? 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right text-red-400 font-bold">+{branch.net_buy.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right text-gray-400">{branch.price.toFixed(2)}</td>
                       </tr>
                     ))
                   )}
@@ -113,8 +113,8 @@ const BranchAnalysis = ({ stockId, stockName }) => {
                     sell_branches.map((branch, idx) => (
                       <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-200">{branch.name}</td>
-                        <td className="px-4 py-3 text-right text-green-400 font-bold">{(branch.net_buy ?? 0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right text-gray-400">{(branch.price ?? 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right text-green-400 font-bold">{branch.net_buy.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right text-gray-400">{branch.price.toFixed(2)}</td>
                       </tr>
                     ))
                   )}

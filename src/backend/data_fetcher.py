@@ -514,7 +514,7 @@ class DataFetcher:
             if stock_id in self._intraday_cache:
                 cache_time, data = self._intraday_cache[stock_id]
                 # 使用帶時區的比較
-                if (datetime.now(pytz.timezone("Asia/Taipei")) - cache_time.astimezone(pytz.timezone("Asia/Taipei"))).total_seconds() < config.INTRADAY_CACHE_EXPIRY:
+                if (datetime.now(pytz.timezone("Asia/Taipei")) - cache_time.astimezone(pytz.timezone("Asia/Taipei"))).seconds < config.INTRADAY_CACHE_EXPIRY:
                     return data
         
         try:
@@ -547,9 +547,6 @@ class DataFetcher:
             else:
                 price_df = df[df.index.normalize() == all_dates[-1]]
                 
-            if price_df.empty:
-                with self._lock: self._intraday_cache[stock_id] = (datetime.now(pytz.timezone("Asia/Taipei")), None)
-                return None
             is_last_data_today = (price_df.index[-1].date() == now.date())
             is_during_market = is_market_hours and is_last_data_today
             
@@ -594,8 +591,6 @@ class DataFetcher:
                 ref_for_cdp = price_df
 
             # 決定 CDP 基準資料
-            if ref_for_cdp.empty:
-                ref_for_cdp = price_df
             ref_date_str = ref_for_cdp.index[-1].strftime("%Y-%m-%d")
             
             # CDP 基準優先從歷史數據抓取 (確保 H, L, C 準確)
