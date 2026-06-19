@@ -241,26 +241,16 @@ class DataFetcher:
     def get_last_expected_trading_date(self):
         """根據目前時間，計算最後一個應該擁有的交易日期"""
         now = datetime.now(pytz.timezone("Asia/Taipei"))
-        weekday = now.weekday() # 0=Mon, 6=Sun
-        hour = now.hour
-        
-        # 規則：週末與週一 09:00 前 -> 應為週五
-        if weekday >= 5 or (weekday == 0 and hour < 9):
-            # 往前找最近的週五
-            days_to_friday = (weekday - 4) if weekday >= 4 else (weekday + 3)
-            if weekday == 0: days_to_friday = 3
-            target = now - timedelta(days=days_to_friday)
-            return target.date()
-        
-        # 其他日 09:00 前 -> 應為前一交易日
-        if hour < 9:
-            target = now - timedelta(days=1)
-            # 如果昨天是週日，再往前推
-            if target.weekday() == 6: target -= timedelta(days=2)
-            return target.date()
+        target = now
+        # 09:00 前視為尚未開盤，基準日至少得是昨天
+        if now.hour < 9:
+            target = target - timedelta(days=1)
             
-        # 盤中或盤後 -> 應為今日
-        return now.date()
+        # 往前尋找最近的交易日 (排除週末與假日)
+        while target.weekday() >= 5 or target.strftime("%Y-%m-%d") in config.TW_HOLIDAYS_2026:
+            target = target - timedelta(days=1)
+            
+        return target.date()
 
     def prefetch_data(self, sids, fetch_chip=True, fetch_revenue=False, fetch_broker=False, fetch_fs=True):
         if not sids: return
@@ -943,7 +933,7 @@ class DataFetcher:
         need_sync = False
         now = datetime.now(pytz.timezone("Asia/Taipei"))
         now_ts = now.timestamp()
-        now_date_str = now.strftime("%Y-%m-%d")
+        expected_date_str = self.get_last_expected_trading_date().strftime("%Y-%m-%d")
         
         with self._lock:
             if not self._official_cache:
@@ -954,9 +944,12 @@ class DataFetcher:
                 sample_sids = ["2330", "2317", "TAIEX"]
                 cache_dates = [self._official_cache[sid].get('date', "") for sid in sample_sids if sid in self._official_cache]
                 
-                # 如果採樣標的中有人不是今天的日期，且現在是開盤後 (09:00+)
-                if now.hour >= 9 and any(d != now_date_str for d in cache_dates):
-                    need_sync = True
+                # 如果採樣標的中有人不是期望的交易日期，且現在是開盤後 (09:00+)
+                if now.hour >= 9 and any(d != expected_date_str for d in cache_dates):
+                    # 避免在假日時瘋狂發送請求到 OpenAPI (10分鐘冷卻)
+                    if (now_ts - getattr(self, '_last_openapi_sync_time', 0)) > 600:
+                        need_sync = True
+                        self._last_openapi_sync_time = now_ts
                 
                 # 2. 檢查時間間隔 (盤中每 15 分鐘同步一次)
                 if not need_sync and (now_ts - self._last_sync_time) > config.INTRADAY_CACHE_EXPIRY:
@@ -981,10 +974,10 @@ class DataFetcher:
         now_date_str = now.strftime("%Y-%m-%d")
         
         # 判斷是否需要用 YF 強制更新
-        is_market_open = (9 <= now.hour <= 14 and now.weekday() < 5)
+        is_market_open = (9 <= now.hour <= 14 and now.weekday() < 5 and now_date_str not in config.TW_HOLIDAYS_2026)
         # 如果 OpenAPI 取到的快取還是舊的，無論時間都強制更新
         sample_cache_date = self._official_cache.get("2330", {}).get("date", "")
-        is_cache_stale = (sample_cache_date != now_date_str and sample_cache_date != "")
+        is_cache_stale = (sample_cache_date != expected_date_str and sample_cache_date != "")
         
         # 節流機制：如果在休市期間 (或假日)，避免因為 is_cache_stale 永遠為 True 而每 3 分鐘瘋狂抓取 YF
         if not hasattr(self, '_last_yf_update_time'): self._last_yf_update_time = 0
@@ -993,7 +986,8 @@ class DataFetcher:
         
         if (is_market_open or is_cache_stale) and can_run:
             self._last_yf_update_time = now_ts
-            self.update_cache_with_realtime()
+            import threading
+            threading.Thread(target=self.update_cache_with_realtime).start()
 
     def update_cache_with_realtime(self):
         """
@@ -1018,7 +1012,7 @@ class DataFetcher:
             tickers = [sym_map.get(sid, f"{sid}.TW") for sid in batch_sids]
             
             try:
-                data = yf.download(tickers, period="5d", interval="1m", group_by='ticker', threads=True, progress=False, auto_adjust=False)
+                data = yf.download(tickers, period="5d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
                 with self._lock:
                     for sid in batch_sids:
                         ticker = sym_map.get(sid, f"{sid}.TW")
