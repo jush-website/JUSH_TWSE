@@ -1558,44 +1558,81 @@ class DataFetcher:
         return None
 
     def get_global_markets(self):
-        """獲取全球主要指數行情 - 強化即時性與對位準確度"""
-        indices = {
-            "標普500": "^GSPC", "那斯達克": "^IXIC", "費半指數": "^SOX", "道瓊工業": "^DJI",
-            "輝達": "NVDA", "台積電ADR": "TSM", "美元/台幣": "TWD=X",
-            "台股大盤": "^TWII", "台股ETF(美)": "EWT"
-        }
+        """獲取全球主要指數行情 - 使用 FinMind API 確保數據最新，yfinance 作為備份"""
+        FINMIND_TOKEN = os.environ.get("FINMIND_API_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoianVzaCIsImVtYWlsIjoiamltNjM1MjQxQGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjB9.arNTZscwqHiuFln_wO7ufKR03KQ9OQZyGk2l_pM2UN4")
+        FM_API = "https://api.finmindtrade.com/api/v4/data"
+        
         results = {}
+        start_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+        
+        # FinMind 可查的美股個股/ETF (使用 USStockPrice 資料集)
+        fm_us_stocks = {
+            "輝達": "NVDA",
+            "台積電ADR": "TSM",
+            "台股ETF(美)": "EWT",
+        }
+        
+        # yfinance 查詢的美股指數 (FinMind 沒有這些)
+        yf_indices = {
+            "標普500": "^GSPC",
+            "那斯達克": "^IXIC",
+            "費半指數": "^SOX",
+            "道瓊工業": "^DJI",
+            "美元/台幣": "TWD=X",
+            "台股大盤": "^TWII",
+        }
+        
+        # 1. 使用 FinMind 抓美股個股與 ETF (最新日線數據)
+        for name, symbol in fm_us_stocks.items():
+            try:
+                params = {
+                    "dataset": "USStockPrice",
+                    "data_id": symbol,
+                    "start_date": start_date,
+                    "token": FINMIND_TOKEN
+                }
+                resp = requests.get(FM_API, params=params, timeout=10)
+                if resp.status_code == 200:
+                    raw = resp.json()
+                    rows = raw.get("data", [])
+                    if rows:
+                        rows_sorted = sorted(rows, key=lambda x: x["date"])
+                        last = rows_sorted[-1]
+                        prev = rows_sorted[-2] if len(rows_sorted) >= 2 else last
+                        price = float(last.get("close", 0))
+                        prev_price = float(prev.get("close", price))
+                        change_pct = round(((price - prev_price) / (prev_price + 1e-9)) * 100, 2) if prev_price else 0
+                        results[name] = {
+                            "price": round(price, 2),
+                            "change_pct": change_pct,
+                            "symbol": symbol,
+                            "date": last["date"]
+                        }
+            except Exception as e:
+                if self.logger: self.logger.warning(f"FinMind USStockPrice failed for {symbol}: {e}")
+        
+        # 2. 使用 yfinance 抓指數與匯率 (FinMind 免費版不提供)
         try:
-            # 使用較短天數但包含最新價格的 download
-            tickers = list(indices.values())
-            # 取 3 天數據，確保能抓到昨天收盤與今天即時
-            data = yf.download(tickers, period="5d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
+            yf_tickers = list(yf_indices.values())
+            data = yf.download(yf_tickers, period="5d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
             
-            for name, symbol in indices.items():
+            for name, symbol in yf_indices.items():
                 try:
                     if isinstance(data.columns, pd.MultiIndex):
                         if symbol not in data.columns.levels[0]: continue
                         ticker_data = data[symbol].dropna(subset=['Close'])
                     else:
-                        if len(tickers) == 1: ticker_data = data.dropna(subset=['Close'])
+                        if len(yf_tickers) == 1: ticker_data = data.dropna(subset=['Close'])
                         else: continue
                     
-                    if not ticker_data.empty and len(ticker_data) >= 1:
-                        # 最後一筆可能是今日盤中，也可能是昨日收盤
+                    if not ticker_data.empty:
                         last_row = ticker_data.iloc[-1]
                         price = float(last_row['Close'])
                         date_str = last_row.name.strftime('%Y-%m-%d')
                         
-                        # 漲跌基準：如果是多天數據，取倒數第二筆作為昨日收盤
-                        if len(ticker_data) >= 2:
-                            prev_price = float(ticker_data.iloc[-2]['Close'])
-                        else:
-                            # 只有一筆時，嘗試抓昨收數據
-                            prev_price = price # 預設不變
-                        
+                        prev_price = float(ticker_data.iloc[-2]['Close']) if len(ticker_data) >= 2 else price
                         change_pct = round(((price - prev_price) / (prev_price + 1e-9)) * 100, 2)
                         
-                        # 特殊處理：美元/台幣 (通常顯示四位)
                         if symbol == "TWD=X":
                             price = round(price, 3)
                         else:
@@ -1608,13 +1645,15 @@ class DataFetcher:
                             "date": date_str
                         }
                 except: continue
-            
-            # 如果 TAIEX 在官方快取中是最新一天的，才覆蓋它
-            if "TAIEX" in self._official_cache:
-                off = self._official_cache["TAIEX"]
-                off_date = off.get("date", "")
-                yf_taiex_date = results.get("台股大盤", {}).get("date", "")
-                # 只有當官方快取日期不早於 YF 日期時，才進行覆蓋 (避免 YF 有 18 號資料但被 17 號的快取蓋掉)
+        except Exception as e:
+            if self.logger: self.logger.error(f"yfinance indices fetch error: {e}")
+        
+        # 3. 台股大盤若官方快取比 yfinance 更新，則覆蓋
+        if "TAIEX" in self._official_cache:
+            off = self._official_cache["TAIEX"]
+            off_date = off.get("date", "")
+            yf_taiex_date = results.get("台股大盤", {}).get("date", "")
+            try:
                 if not pd.isna(off.get("price")) and not pd.isna(off.get("change_pct")):
                     if off_date >= yf_taiex_date or yf_taiex_date == "":
                         results["台股大盤"] = {
@@ -1623,10 +1662,10 @@ class DataFetcher:
                             "symbol": "^TWII",
                             "date": off_date
                         }
+            except: pass
                 
-        except Exception as e:
-            if self.logger: self.logger.error(f"Global markets fetch error: {e}")
         return results
+
 
     def get_global_news(self):
         """獲取全球財經新聞 (從主要指數 Ticker 獲取)"""
