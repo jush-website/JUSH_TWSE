@@ -1565,19 +1565,19 @@ class DataFetcher:
         results = {}
         start_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
         
-        # FinMind 可查的美股個股/ETF (使用 USStockPrice 資料集)
+        # FinMind 可查的美股個股/ETF與指數 (使用 USStockPrice 資料集)
         fm_us_stocks = {
+            "標普500": "^GSPC",
+            "那斯達克": "^IXIC",
+            "費半指數": "^SOX",
+            "道瓊工業": "^DJI",
             "輝達": "NVDA",
             "台積電ADR": "TSM",
             "台股ETF(美)": "EWT",
         }
         
-        # yfinance 查詢的美股指數 (FinMind 沒有這些)
+        # yfinance 查詢的美股指數 (FinMind 沒有這些，或使用 yf 更穩定)
         yf_indices = {
-            "標普500": "^GSPC",
-            "那斯達克": "^IXIC",
-            "費半指數": "^SOX",
-            "道瓊工業": "^DJI",
             "美元/台幣": "TWD=X",
             "台股大盤": "^TWII",
         }
@@ -1599,8 +1599,11 @@ class DataFetcher:
                         rows_sorted = sorted(rows, key=lambda x: x["date"])
                         last = rows_sorted[-1]
                         prev = rows_sorted[-2] if len(rows_sorted) >= 2 else last
-                        price = float(last.get("close", 0))
-                        prev_price = float(prev.get("close", price))
+                        
+                        # FinMind USStockPrice 欄位開頭為大寫 Close
+                        price = float(last.get("Close", last.get("close", 0)))
+                        prev_price = float(prev.get("Close", prev.get("close", price)))
+                        
                         change_pct = round(((price - prev_price) / (prev_price + 1e-9)) * 100, 2) if prev_price else 0
                         results[name] = {
                             "price": round(price, 2),
