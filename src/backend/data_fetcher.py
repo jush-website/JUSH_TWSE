@@ -978,7 +978,15 @@ class DataFetcher:
             
         # 盤中就算 TWSE OpenAPI 抓到舊資料，也用 yfinance 強制覆蓋為最新價格
         now = datetime.now(pytz.timezone("Asia/Taipei"))
-        if 9 <= now.hour <= 14 and now.weekday() < 5:
+        now_date_str = now.strftime("%Y-%m-%d")
+        
+        # 判斷是否需要用 YF 強制更新
+        is_market_open = (9 <= now.hour <= 14 and now.weekday() < 5)
+        # 如果 OpenAPI 取到的快取還是舊的，無論時間都強制更新
+        sample_cache_date = self._official_cache.get("2330", {}).get("date", "")
+        is_cache_stale = (sample_cache_date != now_date_str and sample_cache_date != "")
+        
+        if is_market_open or is_cache_stale:
             self.update_cache_with_realtime()
 
     def update_cache_with_realtime(self):
@@ -989,14 +997,14 @@ class DataFetcher:
         now_date_str = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
         
         with self._lock:
-            sids = [sid for sid in self._official_cache.keys() if sid not in ['TAIEX', 'TPEX']]
-            # 只取那些官方快取還停留在昨天的標的，或者強制全取
-            # 這裡為了保證盤中全即時，全部掃描
+            sids = [sid for sid in self._official_cache.keys() if sid not in ['TPEX']]
+            # 將 TAIEX 納入，確保大盤也即時更新
         
         if not sids: return
         
         if self.logger: self.logger.info(f"正在透過 YF 即時修正 {len(sids)} 檔標的價格...")
         sym_map = self.get_symbol_map()
+        sym_map["TAIEX"] = "^TWII"
         
         batch_size = 300
         for i in range(0, len(sids), batch_size):
@@ -1534,15 +1542,20 @@ class DataFetcher:
                         }
                 except: continue
             
-            # 如果 TAIEX 在官方快取中有更準確的，覆蓋它
+            # 如果 TAIEX 在官方快取中是最新一天的，才覆蓋它
             if "TAIEX" in self._official_cache:
                 off = self._official_cache["TAIEX"]
+                off_date = off.get("date", "")
+                yf_taiex_date = results.get("台股大盤", {}).get("date", "")
+                # 只有當官方快取日期不早於 YF 日期時，才進行覆蓋 (避免 YF 有 18 號資料但被 17 號的快取蓋掉)
                 if not pd.isna(off.get("price")) and not pd.isna(off.get("change_pct")):
-                    results["台股大盤"] = {
-                        "price": off["price"],
-                        "change_pct": off["change_pct"],
-                        "symbol": "^TWII"
-                    }
+                    if off_date >= yf_taiex_date or yf_taiex_date == "":
+                        results["台股大盤"] = {
+                            "price": off["price"],
+                            "change_pct": off["change_pct"],
+                            "symbol": "^TWII",
+                            "date": off_date
+                        }
                 
         except Exception as e:
             if self.logger: self.logger.error(f"Global markets fetch error: {e}")
