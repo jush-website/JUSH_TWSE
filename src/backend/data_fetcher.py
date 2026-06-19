@@ -986,7 +986,13 @@ class DataFetcher:
         sample_cache_date = self._official_cache.get("2330", {}).get("date", "")
         is_cache_stale = (sample_cache_date != now_date_str and sample_cache_date != "")
         
-        if is_market_open or is_cache_stale:
+        # 節流機制：如果在休市期間 (或假日)，避免因為 is_cache_stale 永遠為 True 而每 3 分鐘瘋狂抓取 YF
+        if not hasattr(self, '_last_yf_update_time'): self._last_yf_update_time = 0
+        now_ts = now.timestamp()
+        can_run = is_market_open or (now_ts - self._last_yf_update_time > 1800) # 休市時最多半小時查一次
+        
+        if (is_market_open or is_cache_stale) and can_run:
+            self._last_yf_update_time = now_ts
             self.update_cache_with_realtime()
 
     def update_cache_with_realtime(self):
@@ -1026,13 +1032,14 @@ class DataFetcher:
                         if df.empty: continue
                         
                         last_close = float(df['Close'].iloc[-1])
+                        actual_date_str = df.iloc[-1].name.strftime("%Y-%m-%d")
                         
                         # 覆蓋官方快取
                         if sid in self._official_cache:
                             # 保留昨收價來算準確的漲跌幅
                             yday_price = self._official_cache[sid].get('price', last_close)
                             # 如果官方資料還沒到今天，那它存的 price 就是昨收
-                            if self._official_cache[sid].get('date') != now_date_str:
+                            if self._official_cache[sid].get('date') != actual_date_str:
                                 yday_price = self._official_cache[sid]['price']
                             elif 'yday_price' in self._official_cache[sid]:
                                 yday_price = self._official_cache[sid]['yday_price']
@@ -1041,7 +1048,7 @@ class DataFetcher:
                             
                             self._official_cache[sid]['price'] = last_close
                             self._official_cache[sid]['change_pct'] = change_pct
-                            self._official_cache[sid]['date'] = now_date_str
+                            self._official_cache[sid]['date'] = actual_date_str
                             self._official_cache[sid]['yday_price'] = yday_price
             except Exception as e:
                 if self.logger: self.logger.warning(f"YF 即時批次修正發生錯誤: {e}")
