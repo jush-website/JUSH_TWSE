@@ -97,6 +97,24 @@ const Navbar = ({ status }) => {
 
             <div className="h-4 w-px bg-white/20 mx-1"></div>
 
+            <Link 
+              to="/macro" 
+              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname === '/macro' ? 'text-cyan-400' : 'text-gray-300'}`}
+            >
+              <Activity size={16} />
+              <span className="text-sm">總體經濟</span>
+            </Link>
+
+            <Link 
+              to="/derivatives" 
+              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname === '/derivatives' ? 'text-cyan-400' : 'text-gray-300'}`}
+            >
+              <TrendingUp size={16} />
+              <span className="text-sm">期權籌碼</span>
+            </Link>
+
+            <div className="h-4 w-px bg-white/20 mx-1"></div>
+
             <Link to="/recommendations/short-term" className={`text-sm font-medium transition-colors hover:text-blue-400 ${location.pathname.includes('short-term') ? 'text-blue-400' : 'text-gray-300'}`}>短線</Link>
             <Link to="/recommendations/overnight" className={`text-sm font-medium transition-colors hover:text-purple-400 ${location.pathname.includes('overnight') ? 'text-purple-400' : 'text-gray-300'}`}>隔日沖</Link>
             <Link to="/recommendations/burst" className={`text-sm font-medium transition-colors hover:text-orange-400 ${location.pathname.includes('burst') ? 'text-orange-400' : 'text-gray-300'}`}>爆發</Link>
@@ -187,6 +205,14 @@ const Navbar = ({ status }) => {
 
           <Link to="/capital-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
             <div className="flex items-center space-x-3"><Flame size={18} className={location.pathname === '/capital-flow' ? "text-orange-400" : ""} /><span className={location.pathname === '/capital-flow' ? "text-orange-400 font-bold" : ""}>資金流向</span></div>
+          </Link>
+
+          <Link to="/macro" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
+            <div className="flex items-center space-x-3"><Activity size={18} className={location.pathname === '/macro' ? "text-cyan-400" : ""} /><span className={location.pathname === '/macro' ? "text-cyan-400 font-bold" : ""}>總體經濟</span></div>
+          </Link>
+
+          <Link to="/derivatives" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
+            <div className="flex items-center space-x-3"><TrendingUp size={18} className={location.pathname === '/derivatives' ? "text-cyan-400" : ""} /><span className={location.pathname === '/derivatives' ? "text-cyan-400 font-bold" : ""}>期權籌碼</span></div>
           </Link>
           
           <div className="py-2">

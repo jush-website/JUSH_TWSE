@@ -9,6 +9,7 @@ import {
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, Area
 } from 'recharts';
 import BranchAnalysis from '../components/BranchAnalysis';
+import LightweightChart from '../components/LightweightChart';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -170,103 +171,10 @@ const StockAnalysis = () => {
             <div className="space-y-4 sm:space-y-6">
               {/* Charts Section */}
           {data.chart_data && data.chart_data.length > 0 && (
-            <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-              {/* Price & Volume Chart */}
-              <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[350px]">
-                <h2 className="text-lg font-bold text-gray-300 mb-4">價格與成交量</h2>
-                <div className="h-[250px] sm:h-[260px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chart_data} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
-                      
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
-<CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} opacity={0.4} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} domain={['auto', 'auto']} />
-                      <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.8)', backdropFilter: 'blur(8px)', borderColor: '#374151', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} itemStyle={{ color: '#E5E7EB' }} />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar yAxisId="right" dataKey="volume" name="成交量(張)" fill="url(#colorVol)" radius={[4, 4, 0, 0]} />
-                      <Area yAxisId="left" type="monotone" dataKey="close" name="收盤價" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorClose)" activeDot={{ r: 6, strokeWidth: 0, fill: "#60A5FA", filter: "url(#glow)" }} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
+              {/* Price, Volume & MACD Chart */}
+              <div className="col-span-1 lg:col-span-2">
+                <LightweightChart data={data.chart_data} />
               </div>
-
-              {/* MACD Chart */}
-              <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[350px]">
-                <h2 className="text-lg font-bold text-gray-300 mb-4">MACD 技術指標</h2>
-                <div className="h-[250px] sm:h-[260px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chart_data} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
-                      
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
-<CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} opacity={0.4} />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
-                      <YAxis stroke="#9CA3AF" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.8)', backdropFilter: 'blur(8px)', borderColor: '#374151', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} itemStyle={{ color: '#E5E7EB' }} />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar dataKey="macd_hist" name="MACD柱狀" radius={[2, 2, 2, 2]}>
-                        {data.chart_data.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.macd_hist > 0 ? '#F87171' : '#34D399'} fillOpacity={0.8} />
-                        ))}
-                      </Bar>
-                      <Line type="monotone" dataKey="macd_line" name="DIF(快線)" stroke="#FBBF24" strokeWidth={2.5} dot={false} filter="url(#glow)" />
-                      <Line type="monotone" dataKey="macd_signal" name="DEA(慢線)" stroke="#C084FC" strokeWidth={2.5} dot={false} filter="url(#glow)" />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
           )}
 
           <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">

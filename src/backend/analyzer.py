@@ -898,9 +898,13 @@ class StockAnalyzer:
         chart_data = []
         for index, row in price_df.tail(60).iterrows():
             chart_data.append({
+                "time": index.strftime("%Y-%m-%d"),
                 "date": index.strftime("%m-%d"),
-                "volume": int(row['Volume'] / 1000) if row['Volume'] > 0 else 0,
+                "open": round(float(row['Open']), 2) if not pd.isna(row['Open']) else 0,
+                "high": round(float(row['High']), 2) if not pd.isna(row['High']) else 0,
+                "low": round(float(row['Low']), 2) if not pd.isna(row['Low']) else 0,
                 "close": round(float(row['Close']), 2) if not pd.isna(row['Close']) else 0,
+                "volume": int(row['Volume'] / 1000) if row['Volume'] > 0 else 0,
                 "macd_hist": round(float(row['MACD_Hist']), 3) if not pd.isna(row['MACD_Hist']) else 0,
                 "macd_line": round(float(row['MACD_Line']), 3) if not pd.isna(row['MACD_Line']) else 0,
                 "macd_signal": round(float(row['MACD_Signal']), 3) if not pd.isna(row['MACD_Signal']) else 0
@@ -1261,9 +1265,13 @@ class StockAnalyzer:
         chart_data = []
         for index, row in price_df.tail(60).iterrows():
             chart_data.append({
+                "time": index.strftime("%Y-%m-%d") if not isinstance(index, str) else index,
                 "date": index.strftime("%m-%d") if not isinstance(index, str) else index,
-                "volume": int(row['Volume'] / 1000) if row['Volume'] > 0 else 0,
+                "open": round(float(row['Open']), 2) if 'Open' in row and not pd.isna(row['Open']) else 0,
+                "high": round(float(row['High']), 2) if 'High' in row and not pd.isna(row['High']) else 0,
+                "low": round(float(row['Low']), 2) if 'Low' in row and not pd.isna(row['Low']) else 0,
                 "close": round(float(row['Close']), 2) if not pd.isna(row['Close']) else 0,
+                "volume": int(row['Volume'] / 1000) if row['Volume'] > 0 else 0,
                 "macd_hist": round(float(row['MACD_Hist']), 3) if not pd.isna(row['MACD_Hist']) else 0,
                 "macd_line": round(float(row['MACD_Line']), 3) if not pd.isna(row['MACD_Line']) else 0,
                 "macd_signal": round(float(row['MACD_Signal']), 3) if not pd.isna(row['MACD_Signal']) else 0

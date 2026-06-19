@@ -125,6 +125,37 @@ class DataFetcher:
                 pickle.dump(data, f)
         except: pass
 
+    def _get_fm_cache(self, dataset, kwargs_key):
+        cache_key = f"{dataset}_{kwargs_key}_{datetime.now().strftime('%Y-%m-%d')}"
+        if cache_key in self._history_cache:
+            return self._history_cache[cache_key]
+        return None
+
+    def _set_fm_cache(self, dataset, kwargs_key, data):
+        cache_key = f"{dataset}_{kwargs_key}_{datetime.now().strftime('%Y-%m-%d')}"
+        self._history_cache[cache_key] = data
+
+    def get_finmind_dataset(self, dataset, **kwargs):
+        """Generic method to fetch and cache any FinMind dataset"""
+        if not self.fm_loader:
+            return None
+            
+        kwargs_key = str(kwargs)
+        cached = self._get_fm_cache(dataset, kwargs_key)
+        if cached is not None:
+            return cached
+            
+        try:
+            with self._lock:
+                df = self.fm_loader.get_data(dataset=dataset, **kwargs)
+                if df is not None and not df.empty:
+                    data = df.to_dict('records')
+                    self._set_fm_cache(dataset, kwargs_key, data)
+                    return data
+        except Exception as e:
+            if self.logger: self.logger.warning(f"Failed to fetch FinMind dataset {dataset}: {e}")
+        return None
+        
     def _load_local_stock_info(self):
         cache_path = os.path.join(config.CACHE_DIR, "stock_info.pkl")
         if os.path.exists(cache_path):

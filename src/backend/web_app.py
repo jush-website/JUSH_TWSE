@@ -1062,49 +1062,16 @@ async def get_market_distribution():
         distribution[b]['stocks'] = distribution[b]['stocks'][:20]
         top_sids.extend([s['id'] for s in distribution[b]['stocks']])
 
-    # 背景批次取得即時價格與昨收來計算正確的單日漲跌
-    def fetch_realtime_for_hot_stocks(sids):
-        import yfinance as yf
-        sym_map = fetcher.get_symbol_map()
-        symbols = [sym_map.get(sid, f"{sid}.TW") for sid in sids]
-        try:
-            df = yf.download(symbols, period="5d", interval="1d", group_by="ticker", threads=True, progress=False)
-            res = {}
-            if df.empty: return res
-            
-            for sid, sym in zip(sids, symbols):
-                try:
-                    if len(symbols) == 1:
-                        ticker_df = df
-                    else:
-                        ticker_df = df[sym] if sym in df.columns.levels[0] else None
-                        
-                    if ticker_df is not None and not ticker_df.empty:
-                        closes = ticker_df['Close'].dropna()
-                        if len(closes) >= 2:
-                            today_close = float(closes.iloc[-1])
-                            yday_close = float(closes.iloc[-2])
-                            change_pct = (today_close - yday_close) / yday_close * 100
-                            res[sid] = {"price": today_close, "change_pct": change_pct}
-                        elif len(closes) == 1:
-                            res[sid] = {"price": float(closes.iloc[-1])}
-                except:
-                    pass
-            return res
-        except:
-            return {}
-
+    # 直接從快取中取用最新的價格與漲跌幅
+    # 因為 data_fetcher 的背景執行緒已經幫我們更新了這些熱門股票的 yfinance 價格
     if top_sids:
-        loop = asyncio.get_event_loop()
-        realtime_data = await loop.run_in_executor(bg_executor, fetch_realtime_for_hot_stocks, top_sids)
-        
         for b in distribution:
             for s in distribution[b]['stocks']:
-                if s['id'] in realtime_data:
-                    rd = realtime_data[s['id']]
-                    s['price'] = round(rd['price'], 2)
-                    if 'change_pct' in rd:
-                        s['change_pct'] = round(rd['change_pct'], 2)
+                sid = s['id']
+                if sid in fetcher._official_cache:
+                    cached_data = fetcher._official_cache[sid]
+                    s['price'] = round(cached_data.get('price', 0), 2)
+                    s['change_pct'] = round(cached_data.get('change_pct', 0), 2)
 
     # 轉換為陣列格式方便前端使用
     result = []
@@ -1132,6 +1099,20 @@ async def get_stock_branch_data(stock_id: str):
         return {"data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/finmind/{dataset}")
+async def get_finmind_api(dataset: str, stock_id: str = None, start_date: str = None, end_date: str = None, date: str = None):
+    kwargs = {}
+    if stock_id: kwargs["stock_id"] = stock_id
+    if start_date: kwargs["start_date"] = start_date
+    if end_date: kwargs["end_date"] = end_date
+    if date: kwargs["date"] = date
+    
+    # Check rate limit to prevent abuse, maybe not strict here but we rely on data_fetcher cache
+    data = fetcher.get_finmind_dataset(dataset, **kwargs)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"No data found for dataset {dataset}")
+    return {"data": data}
 
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
