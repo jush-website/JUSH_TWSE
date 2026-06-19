@@ -35,7 +35,7 @@ const MarketDistribution = () => {
   const handleMouseLeave = () => {
     timeoutRef.current = setTimeout(() => {
       setActiveBucket(null);
-    }, 150);
+    }, 400); // Increased timeout to prevent flashing
   };
 
   const handleStockClick = (stockId) => {
@@ -74,9 +74,9 @@ const MarketDistribution = () => {
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <BarChart2 className="w-8 h-8 text-blue-500" />
-            大盤漲跌分佈圖
+            大盤多空分布
           </h1>
-          <p className="text-gray-400 mt-2">全市場上市櫃個股今日漲跌幅家數分佈與熱門標的</p>
+          <p className="text-gray-400 mt-2">全市場上市櫃個股今日多空家數分佈與熱門標的</p>
         </div>
       </div>
 

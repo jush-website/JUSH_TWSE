@@ -1068,29 +1068,52 @@ async def get_market_distribution():
     # 背景批次取得即時價格與昨收來計算正確的單日漲跌
     def fetch_realtime_for_hot_stocks(sids):
         import yfinance as yf
+        import pandas as pd
         sym_map = fetcher.get_symbol_map()
         symbols = [sym_map.get(sid, f"{sid}.TW") for sid in sids]
+        res = {}
         try:
-            df = yf.download(symbols, period="5d", interval="1d", group_by="ticker", threads=True, progress=False)
-            res = {}
-            if df.empty: return res
+            # 1. 取得最近 5 天的日 K (為了拿到確定的昨收)
+            df_day = yf.download(symbols, period="5d", interval="1d", group_by="ticker", threads=True, progress=False)
+            # 2. 取得今日的 1 分 K (為了拿到確定的現價)
+            df_min = yf.download(symbols, period="1d", interval="1m", group_by="ticker", threads=True, progress=False)
             
+            from datetime import datetime
+            import pytz
+            tz = pytz.timezone("Asia/Taipei")
+            now_date = datetime.now(tz).date()
+
             for sid, sym in zip(sids, symbols):
                 try:
-                    if len(symbols) == 1:
-                        ticker_df = df
-                    else:
-                        ticker_df = df[sym] if sym in df.columns.levels[0] else None
-                        
-                    if ticker_df is not None and not ticker_df.empty:
-                        closes = ticker_df['Close'].dropna()
-                        if len(closes) >= 2:
-                            today_close = float(closes.iloc[-1])
-                            yday_close = float(closes.iloc[-2])
-                            change_pct = (today_close - yday_close) / yday_close * 100
-                            res[sid] = {"price": today_close, "change_pct": change_pct}
-                        elif len(closes) == 1:
-                            res[sid] = {"price": float(closes.iloc[-1])}
+                    ticker_day = df_day if len(symbols) == 1 else (df_day[sym] if sym in df_day.columns.levels[0] else None)
+                    ticker_min = df_min if len(symbols) == 1 else (df_min[sym] if sym in df_min.columns.levels[0] else None)
+                    
+                    today_price = None
+                    yday_price = None
+                    
+                    if ticker_min is not None and not ticker_min.empty:
+                        closes_min = ticker_min['Close'].dropna()
+                        if not closes_min.empty:
+                            today_price = float(closes_min.iloc[-1])
+                            
+                    if ticker_day is not None and not ticker_day.empty:
+                        closes_day = ticker_day['Close'].dropna()
+                        if len(closes_day) >= 2:
+                            # 如果最後一筆是今天，倒數第二筆就是昨收
+                            if closes_day.index[-1].tz_convert(tz).date() >= now_date:
+                                yday_price = float(closes_day.iloc[-2])
+                            else:
+                                yday_price = float(closes_day.iloc[-1])
+                        elif len(closes_day) == 1:
+                            if closes_day.index[-1].tz_convert(tz).date() < now_date:
+                                yday_price = float(closes_day.iloc[-1])
+
+                    if today_price:
+                        res[sid] = {"price": today_price}
+                        if yday_price and yday_price > 0:
+                            res[sid]["change_pct"] = (today_price - yday_price) / yday_price * 100
+                    elif yday_price:
+                        res[sid] = {"price": yday_price}
                 except:
                     pass
             return res
