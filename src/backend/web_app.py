@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from typing import List, Optional
@@ -1101,12 +1101,8 @@ async def get_stock_branch_data(stock_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/finmind/{dataset}")
-async def get_finmind_api(dataset: str, stock_id: str = None, start_date: str = None, end_date: str = None, date: str = None):
-    kwargs = {}
-    if stock_id: kwargs["stock_id"] = stock_id
-    if start_date: kwargs["start_date"] = start_date
-    if end_date: kwargs["end_date"] = end_date
-    if date: kwargs["date"] = date
+async def get_finmind_api(request: Request, dataset: str):
+    kwargs = dict(request.query_params)
     
     # Check rate limit to prevent abuse, maybe not strict here but we rely on data_fetcher cache
     data = fetcher.get_finmind_dataset(dataset, **kwargs)

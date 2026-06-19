@@ -10,28 +10,38 @@ const LightweightChart = ({ data }) => {
   useEffect(() => {
     if (!data || data.length === 0 || !chartContainerRef.current || !macdContainerRef.current) return;
 
-    // --- Format Data ---
     // Ensure data is sorted by time and filter out invalid data
-    const validData = data.filter(d => d.time && d.close !== undefined);
+    const validData = data.filter(d => d.time && d.close !== undefined && !isNaN(d.close));
     const sortedData = [...validData].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-    const candleData = sortedData.map(d => ({
+    // Deduplicate and format time to 'YYYY-MM-DD'
+    const uniqueData = [];
+    let lastTime = null;
+    for (const d of sortedData) {
+      const timeStr = typeof d.time === 'string' ? d.time.split('T')[0].split(' ')[0] : d.time;
+      if (timeStr !== lastTime) {
+        uniqueData.push({ ...d, time: timeStr });
+        lastTime = timeStr;
+      }
+    }
+
+    const candleData = uniqueData.map(d => ({
       time: d.time,
-      open: d.open || d.close,
-      high: d.high || d.close,
-      low: d.low || d.close,
+      open: d.open !== undefined ? d.open : d.close,
+      high: d.high !== undefined ? d.high : d.close,
+      low: d.low !== undefined ? d.low : d.close,
       close: d.close,
     }));
 
-    const volumeData = sortedData.map(d => ({
+    const volumeData = uniqueData.map(d => ({
       time: d.time,
       value: d.volume || 0,
-      color: d.close >= (d.open || d.close) ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+      color: d.close >= (d.open !== undefined ? d.open : d.close) ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
     }));
 
-    const macdLineData = sortedData.map(d => ({ time: d.time, value: d.macd_line || 0 }));
-    const macdSignalData = sortedData.map(d => ({ time: d.time, value: d.macd_signal || 0 }));
-    const macdHistData = sortedData.map(d => ({
+    const macdLineData = uniqueData.map(d => ({ time: d.time, value: d.macd_line || 0 }));
+    const macdSignalData = uniqueData.map(d => ({ time: d.time, value: d.macd_signal || 0 }));
+    const macdHistData = uniqueData.map(d => ({
       time: d.time,
       value: d.macd_hist || 0,
       color: (d.macd_hist || 0) >= 0 ? 'rgba(38, 166, 154, 0.8)' : 'rgba(239, 83, 80, 0.8)'

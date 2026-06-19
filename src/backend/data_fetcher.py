@@ -696,41 +696,76 @@ class DataFetcher:
                     df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
                     df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
             else:
-                # Use FinMind API primarily
-                start = (datetime.now() - timedelta(days=days * 2 + 10)).strftime("%Y-%m-%d")
+                is_us_stock = stock_id.isalpha() and stock_id.isascii()
                 df = None
-                try:
-                    df = self.fm_loader.taiwan_stock_daily(stock_id=stock_id, start_date=start)
-                except Exception as fm_err:
-                    if self.logger: self.logger.warning(f"FinMind fetch failed for {stock_id}, falling back to yfinance: {fm_err}")
                 
-                if df is not None and not df.empty:
-                    df = df.rename(columns={'date': 'Date', 'open': 'Open', 'max': 'High', 'min': 'Low', 'close': 'Close', 'Trading_Volume': 'Volume'})
-                    for col in ['Open', 'High', 'Low', 'Close']:
-                        df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
-                    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
-                    df = df.dropna(subset=['Close'])
-                    df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
-                    df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
-                else:
-                    symbols = []
-                    sym_map_val = self.get_symbol_map().get(stock_id)
-                    if sym_map_val: symbols.append(sym_map_val)
-                    symbols.extend([f"{stock_id}.TW", f"{stock_id}.TWO"])
-                    for sym in symbols:
+                if is_us_stock:
+                    # 美股先抓 yfinance
+                    try:
+                        import yfinance as yf
+                        t = yf.Ticker(stock_id)
+                        yf_df = t.history(period="1y", interval="1d", auto_adjust=False)
+                        if yf_df is not None and not yf_df.empty:
+                            for col in ['Open', 'High', 'Low', 'Close']: yf_df[col] = yf_df[col].round(2)
+                            yf_df = yf_df.dropna(subset=['Close']).reset_index()
+                            yf_df = yf_df.rename(columns={"Date": "Date"})
+                            yf_df['Date'] = pd.to_datetime(yf_df['Date']).dt.tz_localize(None)
+                            df = yf_df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+                    except Exception as e:
+                        if self.logger: self.logger.warning(f"yfinance failed for US stock {stock_id}: {e}")
+                    
+                    # 如果 yfinance 抓不到或數據舊，可以嘗試 FinMind USStockPrice
+                    if df is None or df.empty:
+                        start = (datetime.now() - timedelta(days=days * 2 + 10)).strftime("%Y-%m-%d")
                         try:
-                            import yfinance as yf
-                            t = yf.Ticker(sym)
-                            yf_df = t.history(period="1y", interval="1d", auto_adjust=False)
-                            if yf_df is not None and not yf_df.empty:
-                                for col in ['Open', 'High', 'Low', 'Close']: yf_df[col] = yf_df[col].round(2)
-                                yf_df = yf_df.dropna(subset=['Close']).reset_index()
-                                yf_df = yf_df.rename(columns={"Date": "Date"})
-                                yf_df['Date'] = pd.to_datetime(yf_df['Date']).dt.tz_localize(None)
-                                df = yf_df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
-                                break
-                        except:
-                            pass
+                            fm_df = self.fm_loader.get_data(dataset='USStockPrice', data_id=stock_id, start_date=start)
+                            if fm_df is not None and not fm_df.empty:
+                                fm_df = fm_df.rename(columns={'date': 'Date', 'open': 'Open', 'max': 'High', 'min': 'Low', 'close': 'Close', 'Trading_Volume': 'Volume'})
+                                for col in ['Open', 'High', 'Low', 'Close']:
+                                    fm_df[col] = pd.to_numeric(fm_df[col], errors='coerce').round(2)
+                                fm_df['Volume'] = pd.to_numeric(fm_df['Volume'], errors='coerce')
+                                fm_df = fm_df.dropna(subset=['Close'])
+                                fm_df['Date'] = pd.to_datetime(fm_df['Date']).dt.tz_localize(None)
+                                df = fm_df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+                        except Exception as e:
+                            if self.logger: self.logger.warning(f"FinMind USStockPrice failed for {stock_id}: {e}")
+                            
+                else:
+                    # 台股優先抓 FinMind
+                    start = (datetime.now() - timedelta(days=days * 2 + 10)).strftime("%Y-%m-%d")
+                    try:
+                        df = self.fm_loader.taiwan_stock_daily(stock_id=stock_id, start_date=start)
+                    except Exception as fm_err:
+                        if self.logger: self.logger.warning(f"FinMind fetch failed for {stock_id}, falling back to yfinance: {fm_err}")
+                    
+                    if df is not None and not df.empty:
+                        df = df.rename(columns={'date': 'Date', 'open': 'Open', 'max': 'High', 'min': 'Low', 'close': 'Close', 'Trading_Volume': 'Volume'})
+                        for col in ['Open', 'High', 'Low', 'Close']:
+                            df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
+                        df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+                        df = df.dropna(subset=['Close'])
+                        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+                        df = df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+                    else:
+                        symbols = []
+                        sym_map_val = self.get_symbol_map().get(stock_id)
+                        if sym_map_val: symbols.append(sym_map_val)
+                        symbols.append(stock_id) # 允許直接傳入字串
+                        symbols.extend([f"{stock_id}.TW", f"{stock_id}.TWO"])
+                        for sym in symbols:
+                            try:
+                                import yfinance as yf
+                                t = yf.Ticker(sym)
+                                yf_df = t.history(period="1y", interval="1d", auto_adjust=False)
+                                if yf_df is not None and not yf_df.empty:
+                                    for col in ['Open', 'High', 'Low', 'Close']: yf_df[col] = yf_df[col].round(2)
+                                    yf_df = yf_df.dropna(subset=['Close']).reset_index()
+                                    yf_df = yf_df.rename(columns={"Date": "Date"})
+                                    yf_df['Date'] = pd.to_datetime(yf_df['Date']).dt.tz_localize(None)
+                                    df = yf_df[["Date", "Open", "High", "Low", "Close", "Volume"]].set_index('Date')
+                                    break
+                            except:
+                                pass
 
             if df is None or df.empty:
                 with self._lock:

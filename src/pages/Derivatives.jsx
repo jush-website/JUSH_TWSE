@@ -12,7 +12,7 @@ const Derivatives = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const futuresRes = await api.get('/api/finmind/TaiwanFuturesDaily?futures_id=TX&date=2024-01-01');
+        const futuresRes = await api.get('/api/finmind/TaiwanFuturesDaily?data_id=TX&date=2024-01-01');
         
         setData({
           futures: futuresRes.data?.data || [],
