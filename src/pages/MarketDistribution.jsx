@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { BarChart2, AlertCircle } from 'lucide-react';
+import { BarChart2, AlertCircle, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const MarketDistribution = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeBucket, setActiveBucket] = useState(null);
-  const timeoutRef = useRef(null);
+  const [selectedBucket, setSelectedBucket] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,19 +26,17 @@ const MarketDistribution = () => {
     fetchData();
   }, []);
 
-  const handleMouseEnter = (item) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setActiveBucket(item);
+  const handleBarClick = (item) => {
+    if (item.count > 0) {
+      setSelectedBucket(item);
+    }
   };
 
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setActiveBucket(null);
-    }, 150);
-  };
+  const handleClose = () => setSelectedBucket(null);
 
   const handleStockClick = (stockId) => {
     navigate(`/analyze/${stockId}`);
+    setSelectedBucket(null);
   };
 
   if (loading) {
@@ -65,7 +62,6 @@ const MarketDistribution = () => {
     );
   }
 
-  // Calculate max count to scale bars
   const maxCount = Math.max(...data.map(d => d.count), 1);
 
   return (
@@ -76,7 +72,7 @@ const MarketDistribution = () => {
             <BarChart2 className="w-8 h-8 text-blue-500" />
             大盤漲跌分佈圖
           </h1>
-          <p className="text-gray-400 mt-2">全市場上市櫃個股今日漲跌幅家數分佈與熱門標的</p>
+          <p className="text-gray-400 mt-2">全市場上市櫃個股今日漲跌幅家數分佈｜點擊長條查看熱門標的</p>
         </div>
       </div>
 
@@ -100,26 +96,28 @@ const MarketDistribution = () => {
             const isZero = item.bucket === 0;
             const heightPercent = (item.count / maxCount) * 100;
             
-            let barColor = 'bg-gray-600';
+            let barColor = 'bg-gray-600 hover:bg-gray-500';
             if (isPositive) barColor = 'bg-red-500 hover:bg-red-400';
             else if (!isZero) barColor = 'bg-green-500 hover:bg-green-400';
+
+            const isClickable = item.count > 0;
+            const isSelected = selectedBucket?.bucket === item.bucket;
 
             return (
               <div 
                 key={item.bucket}
-                className="relative flex flex-col items-center justify-end flex-1 group h-full cursor-pointer"
-                onMouseEnter={() => handleMouseEnter(item)}
-                onMouseLeave={handleMouseLeave}
+                className={`relative flex flex-col items-center justify-end flex-1 group h-full ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={() => handleBarClick(item)}
               >
                 {/* Bar */}
                 <div 
-                  className={`w-full rounded-t-sm transition-all duration-300 ${barColor}`}
+                  className={`w-full rounded-t-sm transition-all duration-300 ${barColor} ${isSelected ? 'ring-2 ring-white ring-opacity-70' : ''}`}
                   style={{ height: `${heightPercent}%`, minHeight: item.count > 0 ? '4px' : '0px' }}
                 ></div>
                 
                 {/* Count Tooltip (Top) */}
-                <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold text-white bg-gray-900 px-2 py-1 rounded">
-                  {item.count} 家
+                <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold text-white bg-gray-900 px-2 py-1 rounded whitespace-nowrap">
+                  {item.count} 家{isClickable ? ' (點擊查看)' : ''}
                 </div>
 
                 {/* X Axis Label */}
@@ -131,54 +129,67 @@ const MarketDistribution = () => {
           })}
         </div>
 
-        {/* Floating Hot Stocks Modal */}
-        {activeBucket && activeBucket.count > 0 && (
-          <div 
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1e2329] border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden pointer-events-auto"
-            onMouseEnter={() => handleMouseEnter(activeBucket)}
-            onMouseLeave={handleMouseLeave}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700/50 bg-[#2b3139]">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                漲跌級距 {activeBucket.bucket > 0 ? `+${activeBucket.bucket}` : activeBucket.bucket}%
-              </h3>
-              <span className="text-sm text-gray-400 font-medium">熱門標的 ({activeBucket.count} 家)</span>
-            </div>
-            
-            <div className="p-4 bg-[#1e2329]">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {activeBucket.top_stocks.map((stock) => {
-                  const isUp = stock.change_pct > 0;
-                  const isDown = stock.change_pct < 0;
-                  const colorClass = isUp ? 'text-red-500' : (isDown ? 'text-green-500' : 'text-gray-300');
-                  
-                  return (
-                    <div 
-                      key={stock.id}
-                      onClick={() => handleStockClick(stock.id)}
-                      className="flex flex-col p-3 rounded-lg bg-[#2b3139] hover:bg-blue-600/20 hover:border-blue-500 border border-transparent cursor-pointer transition-colors"
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-white font-bold text-sm truncate pr-2">{stock.name}</span>
-                        <span className={`text-sm font-semibold ${colorClass}`}>
-                          {stock.change_pct > 0 ? '+' : ''}{stock.change_pct.toFixed(2)}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-xs">{stock.id}</span>
-                        <span className="text-gray-300 text-sm">{stock.price.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {activeBucket.top_stocks.length === 0 && (
-                <div className="text-center py-4 text-gray-500">此區間無熱門標的</div>
-              )}
+        {/* Click instruction hint */}
+        <div className="absolute bottom-2 right-4 text-xs text-gray-600">
+          點擊長條查看熱門標的
+        </div>
+      </div>
+
+      {/* Hot Stocks Modal - appears below the chart when clicked */}
+      {selectedBucket && selectedBucket.count > 0 && (
+        <div className="mt-6 bg-[#1e2329] border border-gray-700 rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700/50 bg-[#2b3139]">
+            <h3 className="text-lg font-bold text-white flex items-center gap-3">
+              <span className={`px-3 py-1 rounded-full text-sm ${selectedBucket.bucket > 0 ? 'bg-red-500/20 text-red-400 border border-red-500/50' : selectedBucket.bucket < 0 ? 'bg-green-500/20 text-green-400 border border-green-500/50' : 'bg-gray-700 text-gray-300 border border-gray-600'}`}>
+                {selectedBucket.bucket > 0 ? `+${selectedBucket.bucket}%` : `${selectedBucket.bucket}%`}
+              </span>
+              區間熱門標的
+            </h3>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-400">{selectedBucket.count} 家</span>
+              <button
+                onClick={handleClose}
+                className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+                aria-label="關閉"
+              >
+                <X size={18} />
+              </button>
             </div>
           </div>
-        )}
-      </div>
+          
+          <div className="p-4 bg-[#1e2329]">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {selectedBucket.top_stocks?.map((stock) => {
+                const isUp = stock.change_pct > 0;
+                const isDown = stock.change_pct < 0;
+                const colorClass = isUp ? 'text-red-500' : (isDown ? 'text-green-500' : 'text-gray-300');
+                
+                return (
+                  <div 
+                    key={stock.id}
+                    onClick={() => handleStockClick(stock.id)}
+                    className="flex flex-col p-3 rounded-xl bg-[#2b3139] hover:bg-blue-600/20 hover:border-blue-500 border border-transparent cursor-pointer transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-white font-bold text-sm truncate pr-2">{stock.name}</span>
+                      <span className={`text-sm font-semibold ${colorClass}`}>
+                        {stock.change_pct > 0 ? '+' : ''}{stock.change_pct.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-xs">{stock.id}</span>
+                      <span className="text-gray-300 text-sm font-mono">{stock.price.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {(!selectedBucket.top_stocks || selectedBucket.top_stocks.length === 0) && (
+              <div className="text-center py-4 text-gray-500">此區間無熱門標的資料</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

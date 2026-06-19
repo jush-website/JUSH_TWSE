@@ -100,7 +100,7 @@ const Dashboard = () => {
                 {data.change_pct >= 0 ? <TrendingUp size={14} className="mr-1" /> : <TrendingDown size={14} className="mr-1" />}
                 {data.change_pct}%
               </div>
-              {data.date && <div className="text-[10px] text-gray-500 mt-1">{data.date}</div>}
+              {data.date && <div className="text-[10px] text-gray-500 mt-1">收盤 {data.date}</div>}
             </div>
           ))}
         </div>
