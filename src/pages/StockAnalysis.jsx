@@ -171,10 +171,9 @@ const StockAnalysis = () => {
             <div className="space-y-4 sm:space-y-6">
               {/* Charts Section */}
           {data.chart_data && data.chart_data.length > 0 && (
-              {/* Price, Volume & MACD Chart */}
-              <div className="col-span-1 lg:col-span-2">
-                <LightweightChart data={data.chart_data} />
-              </div>
+            <div className="col-span-1 lg:col-span-2">
+              <LightweightChart data={data.chart_data} />
+            </div>
           )}
 
           <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
