@@ -307,7 +307,7 @@ const StockAnalysis = () => {
                       <h2 className="text-lg sm:text-xl font-bold">專業診斷報告</h2>
                     </div>
                     <div className="space-y-2 sm:space-y-3">
-                      {data.diagnosis.map((line, idx) => (
+                      {data.diagnosis && data.diagnosis.map((line, idx) => (
                         <div key={idx} className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-3 bg-gray-900/40 rounded-xl hover:bg-gray-900/60 transition">
                           <div className="mt-0.5 sm:mt-1">
                             {line.includes('!!!') || line.includes('警告') ? <ShieldAlert className="text-red-500 w-4 h-4 sm:w-5 sm:h-5" /> : 
@@ -317,6 +317,11 @@ const StockAnalysis = () => {
                           <p className="text-gray-200 text-sm sm:text-base leading-relaxed">{line}</p>
                         </div>
                       ))}
+                      {(!data.diagnosis || data.diagnosis.length === 0) && (
+                        <div className="text-gray-400 text-sm sm:text-base p-2">
+                          目前暫無此標的的診斷報告，可能為新上市櫃或資料尚未完備。
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
