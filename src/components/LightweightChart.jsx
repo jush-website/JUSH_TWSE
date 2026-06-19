@@ -49,6 +49,7 @@ const LightweightChart = ({ data }) => {
 
     // --- Main Chart (Price + Volume) ---
     const chart = createChart(chartContainerRef.current, {
+      autoSize: true,
       layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#d1d5db' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
       crosshair: { mode: CrosshairMode.Normal },
@@ -57,68 +58,65 @@ const LightweightChart = ({ data }) => {
     });
     chartRef.current = chart;
 
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350'
-    });
-    candleSeries.setData(candleData);
+    try {
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+      });
+      candleSeries.setData(candleData);
 
-    const volumeSeries = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: '', // overlay
-    });
-    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-    volumeSeries.setData(volumeData);
+      const volumeSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '', // overlay
+      });
+      volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+      volumeSeries.setData(volumeData);
 
-    // --- MACD Chart ---
-    const macdChart = createChart(macdContainerRef.current, {
-      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#d1d5db' },
-      grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#4b5563' },
-      timeScale: { borderColor: '#4b5563', visible: true, timeVisible: false },
-    });
-    macdChartRef.current = macdChart;
+      // --- MACD Chart ---
+      const macdChart = createChart(macdContainerRef.current, {
+        autoSize: true,
+        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#d1d5db' },
+        grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
+        crosshair: { mode: CrosshairMode.Normal },
+        rightPriceScale: { borderColor: '#4b5563' },
+        timeScale: { borderColor: '#4b5563', visible: true, timeVisible: false },
+      });
+      macdChartRef.current = macdChart;
 
-    const macdHistSeries = macdChart.addHistogramSeries({
-      priceFormat: { type: 'custom', formatter: price => price.toFixed(3) },
-    });
-    macdHistSeries.setData(macdHistData);
+      const macdHistSeries = macdChart.addHistogramSeries({
+        priceFormat: { type: 'custom', formatter: price => price.toFixed(3) },
+      });
+      macdHistSeries.setData(macdHistData);
 
-    const macdLineSeries = macdChart.addLineSeries({ color: '#2962FF', lineWidth: 2 });
-    macdLineSeries.setData(macdLineData);
+      const macdLineSeries = macdChart.addLineSeries({ color: '#2962FF', lineWidth: 2 });
+      macdLineSeries.setData(macdLineData);
 
-    const macdSignalSeries = macdChart.addLineSeries({ color: '#FF6D00', lineWidth: 2 });
-    macdSignalSeries.setData(macdSignalData);
+      const macdSignalSeries = macdChart.addLineSeries({ color: '#FF6D00', lineWidth: 2 });
+      macdSignalSeries.setData(macdSignalData);
 
-    // --- Sync Charts ---
-    chart.subscribeCrosshairMove(param => {
-      if (!param.time) return;
-      macdChart.setCrosshairPosition(param.price, param.time, macdHistSeries);
-    });
-    macdChart.subscribeCrosshairMove(param => {
-      if (!param.time) return;
-      chart.setCrosshairPosition(param.price, param.time, candleSeries);
-    });
+      // --- Sync Charts ---
+      chart.subscribeCrosshairMove(param => {
+        if (!param.time) return;
+        macdChart.setCrosshairPosition(param.price, param.time, macdHistSeries);
+      });
+      macdChart.subscribeCrosshairMove(param => {
+        if (!param.time) return;
+        chart.setCrosshairPosition(param.price, param.time, candleSeries);
+      });
 
-    chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-      if (range) macdChart.timeScale().setVisibleLogicalRange(range);
-    });
-    macdChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-      if (range) chart.timeScale().setVisibleLogicalRange(range);
-    });
+      chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range) macdChart.timeScale().setVisibleLogicalRange(range);
+      });
+      macdChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range) chart.timeScale().setVisibleLogicalRange(range);
+      });
 
-    // Handle Resize
-    const handleResize = () => {
-      if (chartContainerRef.current && macdContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-        macdChart.applyOptions({ width: macdContainerRef.current.clientWidth });
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    chart.timeScale().fitContent();
+      chart.timeScale().fitContent();
+    } catch (err) {
+      chartContainerRef.current.innerHTML = `<div style="color:red; padding:20px;">Chart Error: ${err.message}</div>`;
+      console.error(err);
+    }
 
     return () => {
-      window.removeEventListener('resize', handleResize);
       chart.remove();
       macdChart.remove();
     };
