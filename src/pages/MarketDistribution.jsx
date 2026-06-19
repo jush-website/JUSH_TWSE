@@ -163,63 +163,68 @@ const MarketDistribution = () => {
         <div className="absolute top-4 right-6 text-[10px] sm:text-xs font-medium text-blue-400/80 bg-blue-900/20 px-3 py-1.5 rounded-full border border-blue-800/30">
           💡 點擊有數據的長條可查看該區間的熱門標的
         </div>
-      </div>
 
-      {/* Hot Stocks Modal - appears below the chart when clicked */}
-      {selectedBucket && selectedBucket.count > 0 && (
-        <div className="mt-6 bg-[#1e2329] border border-gray-700 rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700/50 bg-[#2b3139]">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full text-sm ${selectedBucket.bucket > 0 ? 'bg-red-500/20 text-red-400 border border-red-500/50' : selectedBucket.bucket < 0 ? 'bg-green-500/20 text-green-400 border border-green-500/50' : 'bg-gray-700 text-gray-300 border border-gray-600'}`}>
-                {selectedBucket.bucket > 0 ? `+${selectedBucket.bucket}%` : `${selectedBucket.bucket}%`}
-              </span>
-              區間熱門標的
-            </h3>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-400">{selectedBucket.count} 家</span>
-              <button
-                onClick={handleClose}
-                className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
-                aria-label="關閉"
-              >
-                <X size={18} />
-              </button>
+        {/* Hot Stocks Overlay - Displayed directly on the chart */}
+        {selectedBucket && selectedBucket.count > 0 && (
+          <div 
+            className={`absolute z-[60] top-1/2 -translate-y-1/2 w-[90%] sm:w-[320px] max-h-[85%] bg-gray-900/95 backdrop-blur-xl border border-gray-600 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col transition-all duration-300 ease-out
+              left-1/2 -translate-x-1/2 sm:translate-x-0
+              ${selectedBucket.bucket < 0 ? 'sm:left-auto sm:right-6 lg:right-10' : 'sm:left-14 lg:left-20'}
+            `}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/50 bg-[#2b3139]/80">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-xs ${selectedBucket.bucket > 0 ? 'bg-red-500/20 text-red-400 border border-red-500/50' : selectedBucket.bucket < 0 ? 'bg-green-500/20 text-green-400 border border-green-500/50' : 'bg-gray-700 text-gray-300 border border-gray-600'}`}>
+                  {selectedBucket.bucket > 0 ? `+${selectedBucket.bucket}%` : `${selectedBucket.bucket}%`}
+                </span>
+                區間熱門標的
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400 font-medium">{selectedBucket.count} 家</span>
+                <button
+                  onClick={handleClose}
+                  className="p-1 rounded-md hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                  aria-label="關閉"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-3 bg-[#1e2329]/90 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="flex flex-col gap-2">
+                {selectedBucket.top_stocks?.map((stock) => {
+                  const isUp = stock.change_pct > 0;
+                  const isDown = stock.change_pct < 0;
+                  const colorClass = isUp ? 'text-red-400' : (isDown ? 'text-green-400' : 'text-gray-300');
+                  
+                  return (
+                    <div 
+                      key={stock.id}
+                      onClick={() => handleStockClick(stock.id)}
+                      className="flex justify-between items-center p-2.5 rounded-xl bg-[#2b3139]/80 hover:bg-blue-600/20 hover:border-blue-500/50 border border-transparent cursor-pointer transition-all duration-200"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-white font-bold text-sm">{stock.name}</span>
+                        <span className="text-gray-400 text-xs">{stock.id}</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className={`text-sm font-semibold ${colorClass}`}>
+                          {stock.change_pct > 0 ? '+' : ''}{stock.change_pct.toFixed(2)}%
+                        </span>
+                        <span className="text-gray-300 text-xs font-mono">{stock.price.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {(!selectedBucket.top_stocks || selectedBucket.top_stocks.length === 0) && (
+                <div className="text-center py-6 text-gray-500 text-sm">此區間無熱門標的資料</div>
+              )}
             </div>
           </div>
-          
-          <div className="p-4 bg-[#1e2329]">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {selectedBucket.top_stocks?.map((stock) => {
-                const isUp = stock.change_pct > 0;
-                const isDown = stock.change_pct < 0;
-                const colorClass = isUp ? 'text-red-500' : (isDown ? 'text-green-500' : 'text-gray-300');
-                
-                return (
-                  <div 
-                    key={stock.id}
-                    onClick={() => handleStockClick(stock.id)}
-                    className="flex flex-col p-3 rounded-xl bg-[#2b3139] hover:bg-blue-600/20 hover:border-blue-500 border border-transparent cursor-pointer transition-all duration-200 hover:scale-[1.02]"
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-white font-bold text-sm truncate pr-2">{stock.name}</span>
-                      <span className={`text-sm font-semibold ${colorClass}`}>
-                        {stock.change_pct > 0 ? '+' : ''}{stock.change_pct.toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400 text-xs">{stock.id}</span>
-                      <span className="text-gray-300 text-sm font-mono">{stock.price.toFixed(2)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {(!selectedBucket.top_stocks || selectedBucket.top_stocks.length === 0) && (
-              <div className="text-center py-4 text-gray-500">此區間無熱門標的資料</div>
-            )}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
