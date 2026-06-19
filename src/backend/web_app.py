@@ -1100,6 +1100,28 @@ async def get_stock_branch_data(stock_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/macro/us-treasury")
+async def get_us_treasury():
+    import yfinance as yf
+    try:
+        def fetch():
+            tnx = yf.Ticker("^TNX")
+            hist = tnx.history(period="3mo")
+            data = []
+            for date, row in hist.iterrows():
+                data.append({
+                    "date": date.strftime("%Y-%m-%d"),
+                    "type": "US 10-Year",
+                    "yield_rate": round(row["Close"], 3)
+                })
+            return {"data": data}
+            
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(api_executor, fetch)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/finmind/{dataset}")
 async def get_finmind_api(request: Request, dataset: str):
     kwargs = dict(request.query_params)
