@@ -49,7 +49,7 @@ const fetchFromFirestore = async (collectionName, docId) => {
   }
 };
 
-export const getStatus = () => fetchFromFirestore('system', 'status');
+export const getStatus = () => api.get('/api/status');
 export const getGlobalMarket = () => api.get('/api/global-market');
 export const getNews = () => api.get('/api/news');
 export const getLongTermRecommendations = () => fetchFromFirestore('recommendations', 'long_term');
@@ -63,18 +63,17 @@ export const getCdpRecommendations = () => fetchFromFirestore('recommendations',
 export const getEtfRecommendations = () => fetchFromFirestore('recommendations', 'etf');
 export const getCapitalFlow = async () => {
   try {
-    const res = await fetchFromFirestore('recommendations', 'capital_flow');
-    if (res && res.data && (res.data.length > 0 || res.data.industries)) return res;
+    const apiRes = await api.get('/api/capital-flow');
+    if (apiRes && apiRes.data && apiRes.data.data) {
+      return {
+        data: apiRes.data.data,
+        updated_at: apiRes.data.base_date
+      };
+    }
   } catch (err) {
-    console.warn("Firestore capital_flow fetch failed, falling back to API", err);
+    console.warn("API capital_flow fetch failed, falling back to Firestore", err);
   }
-  const apiRes = await api.get('/api/capital-flow');
-  const d = apiRes.data;
-  const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-  return { 
-    data: d.data || d, 
-    updated_at: d.base_date ? `${d.base_date} ${timeStr}` : `${new Date().toLocaleDateString('zh-TW')} ${timeStr}`
-  };
+  return fetchFromFirestore('recommendations', 'capital_flow');
 };
 
 export const getMarketBreadth = async () => {

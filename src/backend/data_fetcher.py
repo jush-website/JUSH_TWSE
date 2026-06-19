@@ -975,6 +975,68 @@ class DataFetcher:
         
         if need_sync:
             self.fetch_twse_openapi()
+            
+        # 盤中就算 TWSE OpenAPI 抓到舊資料，也用 yfinance 強制覆蓋為最新價格
+        now = datetime.now(pytz.timezone("Asia/Taipei"))
+        if 9 <= now.hour <= 14 and now.weekday() < 5:
+            self.update_cache_with_realtime()
+
+    def update_cache_with_realtime(self):
+        """
+        強制使用 yfinance 批次取得即時股價，覆寫官方快取中可能停留在昨天的價格。
+        這保證大盤多空分布與資金板塊的資料是最即時的。
+        """
+        now_date_str = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
+        
+        with self._lock:
+            sids = [sid for sid in self._official_cache.keys() if sid not in ['TAIEX', 'TPEX']]
+            # 只取那些官方快取還停留在昨天的標的，或者強制全取
+            # 這裡為了保證盤中全即時，全部掃描
+        
+        if not sids: return
+        
+        if self.logger: self.logger.info(f"正在透過 YF 即時修正 {len(sids)} 檔標的價格...")
+        sym_map = self.get_symbol_map()
+        
+        batch_size = 300
+        for i in range(0, len(sids), batch_size):
+            batch_sids = sids[i:i+batch_size]
+            tickers = [sym_map.get(sid, f"{sid}.TW") for sid in batch_sids]
+            
+            try:
+                data = yf.download(tickers, period="5d", interval="1m", group_by='ticker', threads=True, progress=False, auto_adjust=False)
+                with self._lock:
+                    for sid in batch_sids:
+                        ticker = sym_map.get(sid, f"{sid}.TW")
+                        df = pd.DataFrame()
+                        if isinstance(data.columns, pd.MultiIndex):
+                            if ticker in data.columns.levels[0]:
+                                df = data[ticker].dropna(subset=['Close'])
+                        elif len(tickers) == 1:
+                            df = data.dropna(subset=['Close'])
+                            
+                        if df.empty: continue
+                        
+                        last_close = float(df['Close'].iloc[-1])
+                        
+                        # 覆蓋官方快取
+                        if sid in self._official_cache:
+                            # 保留昨收價來算準確的漲跌幅
+                            yday_price = self._official_cache[sid].get('price', last_close)
+                            # 如果官方資料還沒到今天，那它存的 price 就是昨收
+                            if self._official_cache[sid].get('date') != now_date_str:
+                                yday_price = self._official_cache[sid]['price']
+                            elif 'yday_price' in self._official_cache[sid]:
+                                yday_price = self._official_cache[sid]['yday_price']
+                                
+                            change_pct = round(((last_close - yday_price) / yday_price) * 100, 2) if yday_price else 0.0
+                            
+                            self._official_cache[sid]['price'] = last_close
+                            self._official_cache[sid]['change_pct'] = change_pct
+                            self._official_cache[sid]['date'] = now_date_str
+                            self._official_cache[sid]['yday_price'] = yday_price
+            except Exception as e:
+                if self.logger: self.logger.warning(f"YF 即時批次修正發生錯誤: {e}")
 
     def prefetch_intraday_data(self, sids):
         """批次下載 1m 即時行情數據 (優化分批)"""
@@ -1432,7 +1494,7 @@ class DataFetcher:
             # 使用較短天數但包含最新價格的 download
             tickers = list(indices.values())
             # 取 3 天數據，確保能抓到昨天收盤與今天即時
-            data = yf.download(tickers, period="3d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
+            data = yf.download(tickers, period="5d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
             
             for name, symbol in indices.items():
                 try:
@@ -1447,6 +1509,7 @@ class DataFetcher:
                         # 最後一筆可能是今日盤中，也可能是昨日收盤
                         last_row = ticker_data.iloc[-1]
                         price = float(last_row['Close'])
+                        date_str = last_row.name.strftime('%Y-%m-%d')
                         
                         # 漲跌基準：如果是多天數據，取倒數第二筆作為昨日收盤
                         if len(ticker_data) >= 2:
@@ -1466,7 +1529,8 @@ class DataFetcher:
                         results[name] = {
                             "price": price,
                             "change_pct": change_pct,
-                            "symbol": symbol
+                            "symbol": symbol,
+                            "date": date_str
                         }
                 except: continue
             
