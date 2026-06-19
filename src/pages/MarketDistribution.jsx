@@ -76,62 +76,92 @@ const MarketDistribution = () => {
         </div>
       </div>
 
-      <div className="bg-gray-800 rounded-3xl p-6 border border-gray-700 shadow-xl relative min-h-[500px]">
-        {/* Y Axis Grid Lines */}
-        <div className="absolute inset-0 p-6 pointer-events-none flex flex-col justify-between pt-10 pb-16 z-0">
-          {[4, 3, 2, 1, 0].map((line, i) => (
-            <div key={i} className="flex w-full items-center">
-              <span className="w-10 text-right text-xs text-gray-500 pr-2">
-                {Math.round(maxCount * (line / 4))}
+      <div className="bg-gray-800/80 backdrop-blur-xl rounded-3xl p-4 sm:p-6 lg:p-8 border border-gray-700 shadow-2xl relative">
+        <div className="relative h-[350px] sm:h-[450px] w-full mt-2 flex">
+          {/* Y-axis labels */}
+          <div className="w-10 sm:w-12 flex flex-col justify-between py-4 text-[10px] sm:text-xs text-gray-500 pr-2 sm:pr-3 text-right border-r border-gray-700/50">
+            {[4, 3, 2, 1, 0].map((line) => (
+              <span key={line}>{Math.round(maxCount * (line / 4))}</span>
+            ))}
+          </div>
+
+          {/* Bars Area */}
+          <div className="flex-1 relative pl-2 sm:pl-3">
+            {/* Y Grid Lines */}
+            <div className="absolute inset-0 pl-2 sm:pl-3 pointer-events-none flex flex-col justify-between py-4">
+              {[4, 3, 2, 1, 0].map((line) => (
+                <div key={line} className="w-full border-t border-gray-700/30"></div>
+              ))}
+            </div>
+
+            {/* Bars */}
+            <div className="absolute inset-0 pl-2 sm:pl-3 py-4 flex items-end justify-between gap-[2px] sm:gap-1.5 z-10">
+              {data.map((item) => {
+                const isPositive = item.bucket > 0;
+                const isZero = item.bucket === 0;
+                const heightPercent = (item.count / maxCount) * 100;
+
+                // Premium Gradient Colors
+                let barClass = 'bg-gradient-to-t from-gray-700/80 to-gray-500 border-t border-gray-400 hover:from-gray-600 hover:to-gray-400';
+                if (isPositive) {
+                  barClass = 'bg-gradient-to-t from-red-900/80 to-red-500 border-t border-red-400 hover:from-red-700 hover:to-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]';
+                } else if (!isZero) {
+                  barClass = 'bg-gradient-to-t from-green-900/80 to-green-500 border-t border-green-400 hover:from-green-700 hover:to-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]';
+                }
+
+                const isClickable = item.count > 0;
+                const isSelected = selectedBucket?.bucket === item.bucket;
+
+                return (
+                  <div
+                    key={item.bucket}
+                    className={`relative flex flex-col justify-end flex-1 group h-full ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
+                    onClick={() => handleBarClick(item)}
+                  >
+                    {/* The Bar */}
+                    <div
+                      className={`w-full rounded-t-sm transition-all duration-500 ease-out ${barClass} ${isSelected ? 'ring-2 ring-white ring-opacity-80 z-20 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : ''}`}
+                      style={{
+                        height: `${Math.max(heightPercent, item.count === 0 ? 0.5 : 1)}%`,
+                        opacity: item.count === 0 ? 0.2 : 1
+                      }}
+                    ></div>
+
+                    {/* Tooltip */}
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-50 text-[10px] sm:text-xs font-bold text-white bg-gray-900/90 backdrop-blur-sm px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap border border-gray-700 pointer-events-none shadow-xl flex items-center gap-1">
+                      <span className={isPositive ? 'text-red-400' : isZero ? 'text-gray-300' : 'text-green-400'}>
+                        {item.bucket > 0 ? `+${item.bucket}` : item.bucket}%
+                      </span>
+                      <span className="text-gray-500 px-0.5">|</span>
+                      <span>{item.count} 家</span>
+                      {isClickable && <span className="ml-1 text-[9px] text-blue-400">(點擊)</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* X Axis Labels */}
+        <div className="flex ml-10 sm:ml-12 pl-2 sm:pl-3 mt-3 gap-[2px] sm:gap-1.5">
+          {data.map((item) => (
+            <div key={item.bucket} className="flex-1 flex justify-center">
+              {/* Show all labels on md+ screens */}
+              <span className="text-[10px] sm:text-[11px] text-gray-400 font-medium whitespace-nowrap hidden md:block">
+                {item.bucket > 0 ? `+${item.bucket}` : item.bucket}
               </span>
-              <div className="flex-1 border-t border-gray-700/50"></div>
+              {/* Show alternating or key labels on smaller screens to prevent overlap */}
+              <span className="text-[9px] text-gray-400 font-medium whitespace-nowrap block md:hidden">
+                {item.bucket % 2 === 0 || item.bucket === 0 ? item.bucket : ''}
+              </span>
             </div>
           ))}
         </div>
 
-        {/* Bars Container */}
-        <div className="relative z-10 flex items-end justify-between h-[400px] mt-4 ml-10 mb-8 gap-1 sm:gap-2">
-          {data.map((item) => {
-            const isPositive = item.bucket > 0;
-            const isZero = item.bucket === 0;
-            const heightPercent = (item.count / maxCount) * 100;
-            
-            let barColor = 'bg-gray-600 hover:bg-gray-500';
-            if (isPositive) barColor = 'bg-red-500 hover:bg-red-400';
-            else if (!isZero) barColor = 'bg-green-500 hover:bg-green-400';
-
-            const isClickable = item.count > 0;
-            const isSelected = selectedBucket?.bucket === item.bucket;
-
-            return (
-              <div 
-                key={item.bucket}
-                className={`relative flex flex-col items-center justify-end flex-1 group h-full ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
-                onClick={() => handleBarClick(item)}
-              >
-                {/* Bar */}
-                <div 
-                  className={`w-full rounded-t-sm transition-all duration-300 ${barColor} ${isSelected ? 'ring-2 ring-white ring-opacity-70' : ''}`}
-                  style={{ height: `${heightPercent}%`, minHeight: item.count > 0 ? '4px' : '0px' }}
-                ></div>
-                
-                {/* Count Tooltip (Top) */}
-                <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold text-white bg-gray-900 px-2 py-1 rounded whitespace-nowrap">
-                  {item.count} 家{isClickable ? ' (點擊查看)' : ''}
-                </div>
-
-                {/* X Axis Label */}
-                <div className="absolute -bottom-6 text-xs sm:text-sm text-gray-400 font-medium">
-                  {item.bucket > 0 ? `+${item.bucket}` : item.bucket}%
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
         {/* Click instruction hint */}
-        <div className="absolute bottom-2 right-4 text-xs text-gray-600">
-          點擊長條查看熱門標的
+        <div className="absolute top-4 right-6 text-[10px] sm:text-xs font-medium text-blue-400/80 bg-blue-900/20 px-3 py-1.5 rounded-full border border-blue-800/30">
+          💡 點擊有數據的長條可查看該區間的熱門標的
         </div>
       </div>
 
