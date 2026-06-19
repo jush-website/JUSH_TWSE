@@ -19,11 +19,14 @@ const Derivatives = () => {
         const futuresRes = await api.get(`/api/finmind/TaiwanFuturesDaily?data_id=TX&start_date=${startDateStr}`);
         const raw = futuresRes.data?.data || [];
 
+        // Filter out after-market session (night session) to only show regular daily settlement
+        const regularSessions = raw.filter(item => item.trading_session === 'position');
+
         // 只取近月主力合約（成交量最大）後反轉排序
         const grouped = {};
-        raw.forEach(item => {
+        regularSessions.forEach(item => {
           const key = item.date;
-          if (!grouped[key] || (item.trading_volume ?? 0) > (grouped[key].trading_volume ?? 0)) {
+          if (!grouped[key] || (item.volume ?? 0) > (grouped[key].volume ?? 0)) {
             grouped[key] = item;
           }
         });
@@ -74,7 +77,7 @@ const Derivatives = () => {
           </div>
           <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
             <div className="text-xs text-gray-400 mb-1">成交量</div>
-            <div className="text-xl font-black text-blue-300">{latest.trading_volume?.toLocaleString()}</div>
+            <div className="text-xl font-black text-blue-300">{latest.volume?.toLocaleString()}</div>
             <div className="text-xs text-gray-500 mt-1">口</div>
           </div>
           <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
@@ -127,7 +130,7 @@ const Derivatives = () => {
                       <td className={`p-3 font-bold ${dayUp ? 'text-red-400' : 'text-green-400'}`}>
                         {item.close?.toLocaleString()}
                       </td>
-                      <td className="p-3 text-blue-300">{item.trading_volume?.toLocaleString()}</td>
+                      <td className="p-3 text-blue-300">{item.volume?.toLocaleString()}</td>
                       <td className="p-3 text-yellow-300">{item.open_interest?.toLocaleString()}</td>
                     </tr>
                   );
