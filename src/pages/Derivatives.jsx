@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Target, TrendingUp } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
-import { api } from '../services/api';
+import api from '../services/api';
 
 const Derivatives = () => {
   const [data, setData] = useState({

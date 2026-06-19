@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Globe, DollarSign, TrendingUp } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
-import { api } from '../services/api';
+import api from '../services/api';
 
 const MacroDashboard = () => {
   const [data, setData] = useState({
