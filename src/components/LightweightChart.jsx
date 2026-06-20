@@ -147,8 +147,14 @@ const LightweightChart = ({ data }) => {
     }
 
     return () => {
-      chart.remove();
-      macdChart.remove();
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+      if (macdChartRef.current) {
+        macdChartRef.current.remove();
+        macdChartRef.current = null;
+      }
     };
   }, [data]);
 
