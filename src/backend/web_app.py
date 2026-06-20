@@ -849,9 +849,9 @@ async def get_raw_data(query: str):
         raise HTTPException(status_code=404, detail="找不到對應股票代碼")
         
     def fetch_finmind_data():
-        d_chip = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        d_margin = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        d_per = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        d_chip = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+        d_margin = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+        d_per = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
         d_news = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
         d_rev = (datetime.now() - timedelta(days=365*3)).strftime("%Y-%m-%d")
         d_div = (datetime.now() - timedelta(days=365*5)).strftime("%Y-%m-%d")
@@ -859,7 +859,7 @@ async def get_raw_data(query: str):
         
         def get_price():
             try:
-                df = fetcher.get_price_data(sid, days=90)
+                df = fetcher.get_price_data(sid, days=300)
                 if df is not None and not df.empty:
                     df = df.reset_index()
                     if 'Date' in df.columns:
