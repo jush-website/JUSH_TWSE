@@ -10,6 +10,8 @@ import {
 } from 'recharts';
 import BranchAnalysis from '../components/BranchAnalysis';
 import LightweightChart from '../components/LightweightChart';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -51,6 +53,39 @@ const StockAnalysis = () => {
 
   const isPositive = data?.change_percent >= 0;
 
+  const containerRef = React.useRef(null);
+
+  useGSAP(() => {
+    if (data) {
+      gsap.from('.gsap-card', {
+        y: 30,
+        opacity: 0,
+        duration: 0.8,
+        stagger: 0.15,
+        ease: "power3.out"
+      });
+      const scoreObj = { val: 0 };
+      gsap.to(scoreObj, {
+        val: data.total_score || 0,
+        duration: 1.5,
+        ease: "power2.out",
+        onUpdate: () => {
+          const el = document.querySelector('.gsap-score');
+          if (el) el.innerHTML = Math.round(scoreObj.val);
+        }
+      });
+    }
+  }, { scope: containerRef, dependencies: [data] });
+
+  useGSAP(() => {
+    if (data) {
+      gsap.fromTo('.gsap-tab-content', 
+        { opacity: 0, y: 15 },
+        { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }
+      );
+    }
+  }, { scope: containerRef, dependencies: [activeTab] });
+
   // Process data for charts
   const epsData = data?.financial_data?.filter(d => d.type === 'EPS') || [];
   const revData = data?.revenue_data || [];
@@ -67,7 +102,7 @@ const StockAnalysis = () => {
   }));
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+    <div ref={containerRef} className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
       {/* Search Section */}
       <div className="bg-gray-800 p-4 sm:p-6 rounded-2xl border border-gray-700 shadow-xl">
         <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-4">
@@ -108,7 +143,7 @@ const StockAnalysis = () => {
       {data && !loading && (
         <div className="space-y-4 sm:space-y-6">
           {/* Header Summary */}
-          <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
+          <div className="gsap-card bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
             <div className="flex items-center space-x-3 sm:space-x-4">
               <div className={`p-3 sm:p-4 rounded-2xl ${isPositive ? 'bg-red-900/40 text-red-400' : 'bg-green-900/40 text-green-400'}`}>
                 {isPositive ? <TrendingUp size={36} className="sm:w-12 sm:h-12" /> : <TrendingDown size={36} className="sm:w-12 sm:h-12" />}
@@ -132,7 +167,7 @@ const StockAnalysis = () => {
             <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-center bg-gray-900/50 p-3 sm:p-6 rounded-2xl border border-gray-700 w-full sm:w-auto sm:min-w-[160px]">
               <div className="flex sm:block flex-col sm:text-center">
                 <div className="text-gray-400 text-xs sm:text-sm mb-0 sm:mb-1">系統綜合評分</div>
-                <div className={`text-3xl sm:text-5xl font-black ${
+                <div className={`gsap-score text-3xl sm:text-5xl font-black ${
                   data.total_score >= 70 ? 'text-red-500' : 
                   data.total_score >= 50 ? 'text-orange-500' : 'text-gray-400'
                 }`}>
@@ -145,7 +180,7 @@ const StockAnalysis = () => {
           </div>
 
           {/* Tabs Menu */}
-          <div className="flex space-x-2 overflow-x-auto bg-gray-800 p-2 rounded-2xl border border-gray-700 shadow-xl scrollbar-hide">
+          <div className="gsap-card flex space-x-2 overflow-x-auto bg-gray-800 p-2 rounded-2xl border border-gray-700 shadow-xl scrollbar-hide">
             {[
               { id: 'dashboard', label: '綜合分析' },
               { id: 'chips', label: '籌碼分析' },
@@ -168,7 +203,7 @@ const StockAnalysis = () => {
           </div>
 
           {activeTab === 'dashboard' && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
               {/* Charts Section */}
               {data.chart_data && data.chart_data.length > 0 && (
                 <div className="w-full">
@@ -398,7 +433,7 @@ const StockAnalysis = () => {
 
 
           {activeTab === 'chips' && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
               {(!data.chip_processed?.length && !data.margin_processed?.length && !data.shareholding_processed?.length) && (
                 <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl">
                   <Info className="w-12 h-12 text-gray-500 mb-4" />
@@ -558,7 +593,7 @@ const StockAnalysis = () => {
           )}
 
           {activeTab === 'fundamentals' && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
               {(!data.revenue_data?.length && !data.financial_data?.length) && (
                 <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl">
                   <Info className="w-12 h-12 text-gray-500 mb-4" />
@@ -690,7 +725,7 @@ const StockAnalysis = () => {
           )}
 
           {activeTab === 'news' && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
               <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500">
                 <h2 className="text-lg font-bold text-gray-300 mb-4">個股相關新聞</h2>
                 {data.news_data && data.news_data.length > 0 ? (
