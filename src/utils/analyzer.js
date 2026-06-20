@@ -398,12 +398,13 @@ export function analyzeStockData(payload) {
   // Exclude today's data if market hasn't opened (volume is 0)
   if (intraday && intraday.price && intraday.price > 0 && intraday.volume > 0) {
     let lastFinMindClose = closeSeries[closeSeries.length - 1];
+    let lastFinMindDate = dateSeries[dateSeries.length - 1];
     let isSameDay = false;
     
     // Check if FinMind already includes today's data
-    // If FinMind's last close is NOT yesterday's close (from intraday snapshot), 
-    // it likely means FinMind has already updated for today.
-    if (Math.abs(lastFinMindClose - intraday.yesterday_close) >= 0.01) {
+    if (intraday.date && intraday.date === lastFinMindDate) {
+      isSameDay = true;
+    } else if (Math.abs(lastFinMindClose - intraday.yesterday_close) >= 0.01) {
       isSameDay = true; 
     }
 
@@ -415,8 +416,8 @@ export function analyzeStockData(payload) {
       if (intraday.low) lowSeries[lowSeries.length - 1] = intraday.low;
       if (intraday.volume) volumeSeries[volumeSeries.length - 1] = intraday.volume;
     } else {
-      // Append a new element (today)
-      let todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Taipei'}); // YYYY-MM-DD
+      // Append a new element
+      let todayStr = intraday.date || new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Taipei'}); // YYYY-MM-DD
       dateSeries.push(todayStr);
       openSeries.push(intraday.open || intraday.yesterday_close);
       highSeries.push(intraday.high || intraday.price);
