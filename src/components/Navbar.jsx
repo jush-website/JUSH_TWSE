@@ -51,7 +51,7 @@ const Navbar = ({ status }) => {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-gray-900/80 border-b border-white/10 transition-all duration-300 shadow-2xl">
+    <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-gray-900/80 border-b border-white/10 transition-colors duration-300 shadow-2xl">
       <div className="container mx-auto px-4 lg:px-8 py-3">
         <div className="flex items-center justify-between">
           

@@ -143,7 +143,7 @@ const StockAnalysis = () => {
       {data && !loading && (
         <div className="space-y-4 sm:space-y-6">
           {/* Header Summary */}
-          <div className="gsap-card bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
+          <div className="gsap-card bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
             <div className="flex items-center space-x-3 sm:space-x-4">
               <div className={`p-3 sm:p-4 rounded-2xl ${isPositive ? 'bg-red-900/40 text-red-400' : 'bg-green-900/40 text-green-400'}`}>
                 {isPositive ? <TrendingUp size={36} className="sm:w-12 sm:h-12" /> : <TrendingDown size={36} className="sm:w-12 sm:h-12" />}
@@ -259,7 +259,7 @@ const StockAnalysis = () => {
 
                   {/* Volume Patterns Section */}
                   {data.volume_patterns && data.volume_patterns.length > 0 && (
-                    <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500">
+                    <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500">
                       <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
                         <BarChart size={20} className="sm:w-6 sm:h-6" />
                         <h2 className="text-lg sm:text-xl font-bold">成交量形態診斷</h2>
@@ -282,7 +282,7 @@ const StockAnalysis = () => {
 
                   {/* CDP Card */}
                   {data.cdp && (
-                    <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 space-y-4">
+                    <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2 text-purple-400">
                           <Target size={20} className="sm:w-6 sm:h-6" />
@@ -336,7 +336,7 @@ const StockAnalysis = () => {
                   )}
 
                   {/* Diagnosis Details */}
-                  <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500">
+                  <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500">
                     <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
                       <Activity size={20} className="sm:w-6 sm:h-6" />
                       <h2 className="text-lg sm:text-xl font-bold">專業診斷報告</h2>
@@ -363,7 +363,7 @@ const StockAnalysis = () => {
 
                 {/* Technical Indicators Sidebar */}
                 <div className="space-y-4 sm:space-y-6">
-                  <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500">
+                  <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500">
                     <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
                       <BarChart size={20} className="sm:w-6 sm:h-6" />
                       <h2 className="text-lg sm:text-xl font-bold">關鍵技術指標</h2>
@@ -388,7 +388,7 @@ const StockAnalysis = () => {
                   </div>
 
                   {/* Fundamentals Card */}
-                  <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500">
+                  <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500">
                     <div className="flex items-center space-x-2 mb-3 sm:mb-4 text-gray-300">
                       <PieChart size={20} className="sm:w-6 sm:h-6" />
                       <h2 className="text-lg sm:text-xl font-bold">基本面評估</h2>
@@ -443,7 +443,7 @@ const StockAnalysis = () => {
               )}
               {/* 法人買賣超 */}
               {data.chip_processed && data.chip_processed.length > 0 && (
-                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
+                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">三大法人買賣超 (張)</h2>
                   <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
                       <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
@@ -491,7 +491,7 @@ const StockAnalysis = () => {
               )}
               {/* 資券變化 */}
               {data.margin_processed && data.margin_processed.length > 0 && (
-                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
+                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">融資融券餘額 (張)</h2>
                   <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
                       <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
@@ -540,7 +540,7 @@ const StockAnalysis = () => {
               )}
               {/* 外資持股比例 */}
               {data.shareholding_processed && data.shareholding_processed.length > 0 && (
-                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
+                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">外資持股比例 (%)</h2>
                   <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
                       <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
@@ -603,7 +603,7 @@ const StockAnalysis = () => {
               )}
               {/* 月營收 */}
               {data.revenue_data && data.revenue_data.length > 0 && (
-                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
+                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">月營收與年增率</h2>
                   <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
                       <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
@@ -652,7 +652,7 @@ const StockAnalysis = () => {
               )}
               {/* EPS */}
               {data.financial_data && data.financial_data.filter(d => d.type === 'EPS').length > 0 && (
-                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
+                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">每股盈餘 (EPS)</h2>
                   <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
                       <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
@@ -699,7 +699,7 @@ const StockAnalysis = () => {
               )}
               {/* 財報 Table */}
               {data.financial_data && data.financial_data.length > 0 && (
-                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 overflow-x-auto">
+                <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500 overflow-x-auto">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">綜合損益表 (部分)</h2>
                   <table className="w-full text-left text-sm text-gray-300 whitespace-nowrap">
                     <thead className="bg-gray-900 text-gray-400">
@@ -726,7 +726,7 @@ const StockAnalysis = () => {
 
           {activeTab === 'news' && (
             <div className="gsap-tab-content space-y-4 sm:space-y-6\">
-              <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500">
+              <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500">
                 <h2 className="text-lg font-bold text-gray-300 mb-4">個股相關新聞</h2>
                 {data.news_data && data.news_data.length > 0 ? (
                   <div className="space-y-4">
