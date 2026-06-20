@@ -64,7 +64,7 @@ const BranchAnalysis = ({ stockId, stockName }) => {
               </div>
             </div>
             <div className="overflow-x-auto pb-2 custom-scrollbar">
-              <table className="w-full min-w-[500px] text-sm text-left text-gray-300">
+              <table style={{ minWidth: 500 }} className="w-full text-sm text-left text-gray-300">
                 <thead className="text-xs text-gray-500 bg-gray-800/50 uppercase border-b border-gray-700">
                   <tr>
                     <th className="px-4 py-3">券商分點</th>
@@ -98,7 +98,7 @@ const BranchAnalysis = ({ stockId, stockName }) => {
               </div>
             </div>
             <div className="overflow-x-auto pb-2 custom-scrollbar">
-              <table className="w-full min-w-[500px] text-sm text-left text-gray-300">
+              <table style={{ minWidth: 500 }} className="w-full text-sm text-left text-gray-300">
                 <thead className="text-xs text-gray-500 bg-gray-800/50 uppercase border-b border-gray-700">
                   <tr>
                     <th className="px-4 py-3">券商分點</th>

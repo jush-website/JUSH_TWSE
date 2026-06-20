@@ -410,8 +410,9 @@ const StockAnalysis = () => {
               {data.chip_processed && data.chip_processed.length > 0 && (
                 <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">三大法人買賣超 (張)</h2>
-                  <div className="h-[280px] sm:h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
+                      <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.chip_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
@@ -449,15 +450,17 @@ const StockAnalysis = () => {
                         <Bar dataKey="trust_net" name="投信淨買賣" fill="#10B981" />
                       </ComposedChart>
                     </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
-                </div>
               )}
               {/* 資券變化 */}
               {data.margin_processed && data.margin_processed.length > 0 && (
                 <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">融資融券餘額 (張)</h2>
-                  <div className="h-[280px] sm:h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
+                      <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.margin_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
@@ -496,15 +499,17 @@ const StockAnalysis = () => {
                         <Area yAxisId="right" type="monotone" dataKey="short_bal" name="融券餘額" stroke="#60A5FA" strokeWidth={2.5} fillOpacity={1} fill="url(#colorShort)" activeDot={{ r: 5, strokeWidth: 0, fill: "#93C5FD", filter: "url(#glow)" }} />
                       </ComposedChart>
                     </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
-                </div>
               )}
               {/* 外資持股比例 */}
               {data.shareholding_processed && data.shareholding_processed.length > 0 && (
                 <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">外資持股比例 (%)</h2>
-                  <div className="h-[280px] sm:h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
+                      <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.shareholding_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
@@ -541,8 +546,9 @@ const StockAnalysis = () => {
                         <Area type="monotone" dataKey="ratio" name="持股比例" stroke="#A78BFA" strokeWidth={3} fillOpacity={1} fill="url(#colorRatio)" activeDot={{ r: 6, strokeWidth: 0, fill: "#C4B5FD", filter: "url(#glow)" }} />
                       </ComposedChart>
                     </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
-                </div>
               )}
             </div>
           )}
@@ -564,8 +570,9 @@ const StockAnalysis = () => {
               {data.revenue_data && data.revenue_data.length > 0 && (
                 <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">月營收與年增率</h2>
-                  <div className="h-[280px] sm:h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
+                      <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.revenue_data.slice(-36).map(d => ({ date: d.date, rev: d.revenue/100000000, yoy: d.revenue_year_on_year }))} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
@@ -604,15 +611,17 @@ const StockAnalysis = () => {
                         <Line yAxisId="right" type="monotone" dataKey="yoy" name="年增率(%)" stroke="#FBBF24" strokeWidth={3} dot={{ r: 4, fill: "#FBBF24", strokeWidth: 0 }} activeDot={{ r: 6, filter: "url(#glow)" }} filter="url(#glow)" />
                       </ComposedChart>
                     </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
-                </div>
               )}
               {/* EPS */}
               {data.financial_data && data.financial_data.filter(d => d.type === 'EPS').length > 0 && (
                 <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-500 h-[400px]">
                   <h2 className="text-lg font-bold text-gray-300 mb-4">每股盈餘 (EPS)</h2>
-                  <div className="h-[280px] sm:h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
+                      <div style={{ minWidth: 700 }} className="h-[280px] sm:h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.financial_data.filter(d => d.type === 'EPS').slice(-12)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
                       <defs>
@@ -649,8 +658,9 @@ const StockAnalysis = () => {
                         <Bar dataKey="value" name="EPS(元)" fill="#34D399" opacity={0.85} radius={[4, 4, 0, 0]} />
                       </ComposedChart>
                     </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
-                </div>
               )}
               {/* 財報 Table */}
               {data.financial_data && data.financial_data.length > 0 && (
