@@ -386,7 +386,7 @@ export function analyzeStockData(payload) {
   let volumeSeries = [];
   
   for (let row of price_data) {
-    dateSeries.push(row.date);
+    dateSeries.push(row.date || row.Date);
     openSeries.push(row.open || row.Open);
     highSeries.push(row.max || row.high || row.High);
     lowSeries.push(row.min || row.low || row.Low);
