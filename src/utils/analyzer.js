@@ -448,7 +448,15 @@ export function analyzeStockData(payload) {
         chipByDate[row.date].trust_net += (row.buy - row.sell);
       }
     }
-    chipProcessed = Object.values(chipByDate).sort((a, b) => a.date.localeCompare(b.date));
+    chipProcessed = Object.values(chipByDate).map(c => ({
+      ...c,
+      foreign_buy: Math.round(c.foreign_buy / 1000),
+      foreign_sell: Math.round(c.foreign_sell / 1000),
+      foreign_net: Math.round(c.foreign_net / 1000),
+      trust_buy: Math.round(c.trust_buy / 1000),
+      trust_sell: Math.round(c.trust_sell / 1000),
+      trust_net: Math.round(c.trust_net / 1000)
+    })).sort((a, b) => a.date.localeCompare(b.date));
   }
   let chipNetBuy = dateSeries.map(d => chipNetBuyMap[d] || 0);
 
