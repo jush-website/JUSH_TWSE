@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Target, TrendingUp, TrendingDown, BarChart2, ChevronDown, ChevronUp } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import api from '../services/api';
 
 const Derivatives = () => {
@@ -43,6 +45,14 @@ const Derivatives = () => {
     fetchData();
   }, []);
 
+
+  const containerRef = React.useRef(null);
+  useGSAP(() => {
+    if (!loading) {
+      gsap.from('.gsap-derivative-card', { y: 30, opacity: 0, duration: 0.6, stagger: 0.15, ease: "power2.out" });
+    }
+  }, { scope: containerRef, dependencies: [loading] });
+
   if (loading) return <ProgressLoader text="正在載入期權籌碼數據..." />;
 
   const latest = data.futures[0];
@@ -67,7 +77,7 @@ const Derivatives = () => {
       {/* 最新期貨摘要卡 */}
       {latest && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
+          <div className="gsap-derivative-card bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
             <div className="text-xs text-gray-400 mb-1">最新收盤</div>
             <div className="text-2xl font-black text-white">{latest.close?.toLocaleString()}</div>
             <div className={`text-sm font-bold mt-1 ${isUp ? 'text-red-400' : 'text-green-400'}`}>
@@ -75,17 +85,17 @@ const Derivatives = () => {
             </div>
             <div className="text-xs text-gray-500 mt-1">{latest.date}</div>
           </div>
-          <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
+          <div className="gsap-derivative-card bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
             <div className="text-xs text-gray-400 mb-1">成交量</div>
             <div className="text-xl font-black text-blue-300">{latest.volume?.toLocaleString()}</div>
             <div className="text-xs text-gray-500 mt-1">口</div>
           </div>
-          <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
+          <div className="gsap-derivative-card bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
             <div className="text-xs text-gray-400 mb-1">未平倉口數</div>
             <div className="text-xl font-black text-yellow-300">{latest.open_interest?.toLocaleString()}</div>
             <div className="text-xs text-gray-500 mt-1">口</div>
           </div>
-          <div className="bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
+          <div className="gsap-derivative-card bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-lg">
             <div className="text-xs text-gray-400 mb-1">今日最高/最低</div>
             <div className="text-lg font-bold text-red-300">{latest.max?.toLocaleString()}</div>
             <div className="text-lg font-bold text-green-300">{latest.min?.toLocaleString()}</div>
@@ -94,7 +104,7 @@ const Derivatives = () => {
       )}
 
       {/* 台指期近月日成交明細 */}
-      <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 shadow-xl">
+      <div className="gsap-derivative-card bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 shadow-xl">
         <div className="flex items-center space-x-2 mb-4 text-purple-400">
           <Activity className="w-6 h-6" />
           <h2 className="text-lg font-bold text-gray-200">台指期 (TX) 近月合約日成交 (近 30 日)</h2>
@@ -141,7 +151,7 @@ const Derivatives = () => {
         )}
       </div>
 
-      <div className="bg-gray-800/60 rounded-2xl border border-gray-700/40 p-4 text-xs text-gray-500">
+      <div className="gsap-derivative-card bg-gray-800/60 rounded-2xl border border-gray-700/40 p-4 text-xs text-gray-500">
         📊 資料來源：FinMind 免費版 TaiwanFuturesDaily。顯示台指期主力近月合約（每日成交量最大之到期月別）。
       </div>
     </div>

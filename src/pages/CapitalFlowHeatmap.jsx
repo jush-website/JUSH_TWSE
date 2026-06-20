@@ -46,6 +46,9 @@ const CapitalFlowHeatmap = () => {
   const containerRef = React.useRef(null);
   
   useGSAP(() => {
+    if (data && data.length > 0) {
+      gsap.from('.gsap-heatmap-block', { scale: 0.8, opacity: 0, duration: 0.5, stagger: 0.05, ease: "back.out(1.2)" });
+    }
     if (selectedIndustry && containerRef.current) {
       gsap.fromTo('.gsap-modal-overlay', { opacity: 0 }, { opacity: 1, duration: 0.3 });
       gsap.fromTo('.gsap-modal-content', { scale: 0.8, y: 50, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.5, ease: "back.out(1.5)" });
@@ -202,7 +205,7 @@ const CapitalFlowHeatmap = () => {
                   key={idx}
                   onClick={() => setSelectedIndustry(ind)}
                   className={`
-                    cursor-pointer rounded-xl border p-3 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20 hover:z-10 relative overflow-hidden
+                    cursor-pointer rounded-xl border p-3 flex flex-col justify-between gsap-heatmap-block transition-colors duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20 hover:z-10 relative overflow-hidden
                     ${getBlockColor(ind.avg_change_pct)}
                     ${getBlockSize(ind.value_ratio)}
                     ${selectedIndustry?.industry === ind.industry ? 'ring-2 ring-white shadow-[0_0_15px_rgba(255,255,255,0.3)]' : ''}

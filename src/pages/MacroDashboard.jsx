@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Globe, DollarSign, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import api from '../services/api';
 
 const MacroDashboard = () => {
@@ -42,10 +44,18 @@ const MacroDashboard = () => {
     fetchMacroData();
   }, []);
 
+
+  const containerRef = React.useRef(null);
+  useGSAP(() => {
+    if (!loading) {
+      gsap.from('.gsap-macro-card', { y: 30, opacity: 0, duration: 0.6, stagger: 0.15, ease: "power2.out" });
+    }
+  }, { scope: containerRef, dependencies: [loading] });
+
   if (loading) return <ProgressLoader text="正在載入總體經濟數據..." />;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div ref={containerRef} className="space-y-6 max-w-7xl mx-auto pb-12">
       <div className="flex items-center space-x-3 mb-6">
         <Globe className="text-blue-400 w-8 h-8" />
         <h1 className="text-2xl sm:text-3xl font-black text-white">總體經濟儀表板</h1>
@@ -59,7 +69,7 @@ const MacroDashboard = () => {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* 匯率表 */}
-        <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 shadow-xl">
+        <div className="gsap-macro-card bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 shadow-xl">
           <div className="flex items-center space-x-2 mb-4 text-green-400">
             <DollarSign className="w-6 h-6" />
             <h2 className="text-lg font-bold text-gray-200">美元/台幣匯率 (近三個月)</h2>
@@ -96,7 +106,7 @@ const MacroDashboard = () => {
         </div>
 
         {/* 美國公債殖利率 */}
-        <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 shadow-xl">
+        <div className="gsap-macro-card bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 shadow-xl">
           <div className="flex items-center space-x-2 mb-4 text-yellow-400">
             <BarChart2 className="w-6 h-6" />
             <h2 className="text-lg font-bold text-gray-200">美國公債殖利率 (10年期)</h2>
