@@ -49,7 +49,7 @@ const StockCard = ({ stock, type }) => {
   return (
     <div 
       onClick={() => navigate(`/analyze/${stock.stock_id}`)}
-      className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-blue-500 transition cursor-pointer group"
+      className="gsap-recommend-card bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-blue-500 transition-colors cursor-pointer group"
     >
       <div className="flex justify-between items-start mb-3">
         <div>
