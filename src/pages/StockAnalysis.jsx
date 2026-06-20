@@ -176,7 +176,6 @@ const StockAnalysis = () => {
                   theme="dark" 
                   locale="zh_TW" 
                   autosize 
-                  interval="D"
                   allow_symbol_change={true}
                   timezone="Asia/Taipei"
                   style="1"
