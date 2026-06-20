@@ -395,7 +395,8 @@ export function analyzeStockData(payload) {
   }
 
   // Inject real-time intraday data into the series
-  if (intraday && intraday.price && intraday.price > 0) {
+  // Exclude today's data if market hasn't opened (volume is 0)
+  if (intraday && intraday.price && intraday.price > 0 && intraday.volume > 0) {
     let lastFinMindClose = closeSeries[closeSeries.length - 1];
     let isSameDay = false;
     
@@ -547,7 +548,7 @@ export function analyzeStockData(payload) {
   if (cdpRes.signals && cdpRes.signals.length > 0) diag.push(...cdpRes.signals);
 
   let chartData = [];
-  let chartStart = Math.max(0, closeSeries.length - 60);
+  let chartStart = 0; // Show all available history data
   for (let i = chartStart; i < closeSeries.length; i++) {
     chartData.push({
       time: dateSeries[i] || "",
