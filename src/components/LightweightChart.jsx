@@ -124,6 +124,10 @@ const LightweightChart = ({ data }) => {
 
   return (
     <div className="w-full flex flex-col gap-2">
+      <div className="text-white text-xs bg-red-900/50 p-2 rounded">
+        Debug Info: Total Data={data?.length}, Valid Data={data?.filter(d => d.time && d.close !== undefined && !isNaN(d.close)).length}
+        {data && data.length > 0 && ` | First Item: ${JSON.stringify(data[0])}`}
+      </div>
       <div className="w-full relative bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-xl">
         <h2 className="text-sm font-bold text-gray-300 absolute top-4 left-6 z-10">價格與成交量</h2>
         <div ref={chartContainerRef} className="w-full h-[280px]" />
