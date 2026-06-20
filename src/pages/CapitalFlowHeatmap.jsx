@@ -42,6 +42,16 @@ const CapitalFlowHeatmap = () => {
     fetchData();
   }, []);
 
+
+  const containerRef = React.useRef(null);
+  
+  useGSAP(() => {
+    if (selectedIndustry && containerRef.current) {
+      gsap.fromTo('.gsap-modal-overlay', { opacity: 0 }, { opacity: 1, duration: 0.3 });
+      gsap.fromTo('.gsap-modal-content', { scale: 0.8, y: 50, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.5, ease: "back.out(1.5)" });
+    }
+  }, { scope: containerRef, dependencies: [selectedIndustry] });
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-20 space-y-4">
       <ProgressLoader progress={50} status="載入資金流向資料中..." />
@@ -150,15 +160,6 @@ const CapitalFlowHeatmap = () => {
       </div>
     </>
   ) : null;
-
-  const containerRef = React.useRef(null);
-  
-  useGSAP(() => {
-    if (selectedIndustry) {
-      gsap.fromTo('.gsap-modal-overlay', { opacity: 0 }, { opacity: 1, duration: 0.3 });
-      gsap.fromTo('.gsap-modal-content', { scale: 0.8, y: 50, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.5, ease: "back.out(1.5)" });
-    }
-  }, { scope: containerRef, dependencies: [selectedIndustry] });
 
   return (
     <div ref={containerRef} className="space-y-6 animate-fade-in pb-20">
