@@ -56,7 +56,7 @@ const StockAnalysis = () => {
   const containerRef = React.useRef(null);
 
   useGSAP(() => {
-    if (data) {
+    if (data && !loading) {
       gsap.from('.gsap-card', {
         y: 30,
         opacity: 0,
@@ -75,16 +75,16 @@ const StockAnalysis = () => {
         }
       });
     }
-  }, { scope: containerRef, dependencies: [data] });
+  }, { scope: containerRef, dependencies: [data, loading] });
 
   useGSAP(() => {
-    if (data) {
+    if (data && !loading) {
       gsap.fromTo('.gsap-tab-content', 
         { opacity: 0, y: 15 },
         { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }
       );
     }
-  }, { scope: containerRef, dependencies: [activeTab] });
+  }, { scope: containerRef, dependencies: [activeTab, data, loading] });
 
   // Process data for charts
   const epsData = data?.financial_data?.filter(d => d.type === 'EPS') || [];

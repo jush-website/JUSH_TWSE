@@ -62,7 +62,7 @@ const Derivatives = () => {
   const isUp = parseFloat(priceChangePct) >= 0;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div ref={containerRef} className="space-y-6 max-w-7xl mx-auto pb-12">
       <div className="flex items-center space-x-3 mb-6">
         <Target className="text-purple-400 w-8 h-8" />
         <h1 className="text-2xl sm:text-3xl font-black text-white">期權籌碼</h1>
