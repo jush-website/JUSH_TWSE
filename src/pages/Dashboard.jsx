@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { getGlobalMarket, getNews, getFutures, getMarketOutlook } from '../services/api';
 import { Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown, Activity, BarChart2, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 
 const Dashboard = () => {
   const [markets, setMarkets] = useState({});
@@ -32,6 +34,16 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const containerRef = React.useRef(null);
+  
+  useGSAP(() => {
+    if (!loading) {
+      gsap.from('.gsap-dashboard-card', {
+        y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: "power3.out"
+      });
+    }
+  }, { scope: containerRef, dependencies: [loading] });
+
   if (loading) return <ProgressLoader text="正在載入最新市場概況..." />;
 
   const trendColor = outlook?.trend === '偏多' || outlook?.trend === '微多' ? 'text-red-400' 
@@ -42,10 +54,10 @@ const Dashboard = () => {
                : 'from-gray-800 to-gray-900 border-gray-700';
 
   return (
-    <div className="space-y-5 sm:space-y-8">
+    <div ref={containerRef} className="space-y-5 sm:space-y-8">
       {/* Market Outlook */}
       {outlook && (
-        <section className={`bg-gradient-to-br ${trendBg} rounded-2xl border p-4 sm:p-6 shadow-xl`}>
+        <section className={`gsap-dashboard-card bg-gradient-to-br ${trendBg} rounded-2xl border p-4 sm:p-6 shadow-xl`}>
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="flex items-center space-x-2">
               <Activity size={24} className={`${trendColor} w-5 h-5 sm:w-6 sm:h-6`} />
@@ -79,7 +91,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
           {/* Taiwan Futures Card */}
           {futures && futures.price && (
-            <div className="bg-gradient-to-br from-yellow-900/30 to-orange-900/20 p-3 sm:p-4 rounded-lg border border-yellow-800/50 col-span-2 md:col-span-1">
+            <div className="gsap-dashboard-card bg-gradient-to-br from-yellow-900/30 to-orange-900/20 p-3 sm:p-4 rounded-lg border border-yellow-800/50 col-span-2 md:col-span-1">
               <div className="flex items-center justify-between">
                 <div className="text-yellow-400 text-xs sm:text-sm font-bold">台指期 WTX&</div>
                 <span className="text-[10px] bg-yellow-900/50 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-700">{futures.session}</span>
@@ -93,7 +105,7 @@ const Dashboard = () => {
             </div>
           )}
           {Object.entries(markets).map(([name, data]) => (
-            <div key={name} className="bg-gray-800 p-3 sm:p-4 rounded-lg border border-gray-700">
+            <div key={name} className="gsap-dashboard-card bg-gray-800 p-3 sm:p-4 rounded-lg border border-gray-700">
               <div className="text-gray-400 text-xs sm:text-sm">{name}</div>
               <div className="text-base sm:text-lg font-bold my-1">{data.price}</div>
               <div className={`flex items-center text-xs sm:text-sm ${data.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>

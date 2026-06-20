@@ -12,6 +12,8 @@ import {
 } from '../services/api';
 import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { RefreshCw, LayoutGrid, List } from 'lucide-react';
 
 const RecommendationPage = () => {
@@ -76,7 +78,7 @@ const RecommendationPage = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">{titles[type] || '股票推薦'}</h1>

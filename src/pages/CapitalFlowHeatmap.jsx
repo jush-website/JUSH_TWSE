@@ -244,9 +244,9 @@ const CapitalFlowHeatmap = () => {
       </div>
 
       {/* Selected Industry Modal (Mobile) */}
-      <div className={`lg:hidden fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${selectedIndustry ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedIndustry(null)}></div>
-        <div className={`bg-gray-900 rounded-2xl border border-gray-700 p-5 relative z-10 w-full max-w-md max-h-[85vh] overflow-y-auto transform transition-transform duration-300 shadow-2xl ${selectedIndustry ? 'scale-100 translate-y-0' : 'scale-95 translate-y-10'}`}>
+      <div className={`lg:hidden fixed inset-0 z-50 flex items-center justify-center p-4 ${selectedIndustry ? 'visible' : 'invisible'}`}>
+        <div className="gsap-modal-overlay absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedIndustry(null)}></div>
+        <div className="gsap-modal-content bg-gray-900 rounded-2xl border border-gray-700 p-5 relative z-10 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl">
           <button onClick={() => setSelectedIndustry(null)} className="absolute top-4 right-4 text-gray-400 hover:text-white p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors">
             <X size={20} />
           </button>
