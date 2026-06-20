@@ -456,7 +456,7 @@ export function analyzeStockData(payload) {
       trust_buy: Math.round(c.trust_buy / 1000),
       trust_sell: Math.round(c.trust_sell / 1000),
       trust_net: Math.round(c.trust_net / 1000)
-    })).sort((a, b) => a.date.localeCompare(b.date));
+    })).filter(c => dateSeries.includes(c.date)).sort((a, b) => a.date.localeCompare(b.date));
   }
   let chipNetBuy = dateSeries.map(d => chipNetBuyMap[d] || 0);
 
@@ -466,7 +466,7 @@ export function analyzeStockData(payload) {
       date: row.date,
       margin_bal: row.MarginPurchaseTodayBalance,
       short_bal: row.ShortSaleTodayBalance
-    })).sort((a, b) => a.date.localeCompare(b.date));
+    })).filter(c => dateSeries.includes(c.date)).sort((a, b) => a.date.localeCompare(b.date));
   }
 
   let shareholdingProcessed = [];
@@ -474,7 +474,7 @@ export function analyzeStockData(payload) {
     shareholdingProcessed = payload.shareholding_data.map(row => ({
       date: row.date,
       ratio: row.ForeignInvestmentRemainRatio
-    })).sort((a, b) => a.date.localeCompare(b.date));
+    })).filter(c => dateSeries.includes(c.date)).sort((a, b) => a.date.localeCompare(b.date));
   }
 
   let ma5 = sma(closeSeries, 5);
