@@ -74,7 +74,7 @@ function App() {
     gsap.from('nav', { y: -50, opacity: 0, duration: 0.8, ease: "back.out(1.7)", delay: 0.2 });
     // Slide up for main content
     gsap.from('main', { y: 30, opacity: 0, duration: 0.8, ease: "power3.out", delay: 0.4 });
-  }, { scope: appRef });
+  }, { scope: appRef, dependencies: [] });
 
   return (
     <ErrorBoundary>
