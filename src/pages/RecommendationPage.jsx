@@ -77,6 +77,16 @@ const RecommendationPage = () => {
     return sortOrder === 'desc' ? valB - valA : valA - valB;
   });
 
+  const containerRef = React.useRef(null);
+
+  useGSAP(() => {
+    if (!loading && stocks.length > 0) {
+      gsap.from('.gsap-recommend-card', {
+        y: 40, opacity: 0, duration: 0.8, stagger: 0.15, ease: "back.out(1.2)"
+      });
+    }
+  }, { scope: containerRef, dependencies: [loading, stocks] });
+
   return (
     <div ref={containerRef} className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

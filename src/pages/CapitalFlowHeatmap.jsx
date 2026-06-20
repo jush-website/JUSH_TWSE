@@ -3,6 +3,8 @@ import { getCapitalFlow } from '../services/api';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 
 const CapitalFlowHeatmap = () => {
   const [data, setData] = useState(null);
@@ -149,8 +151,17 @@ const CapitalFlowHeatmap = () => {
     </>
   ) : null;
 
+  const containerRef = React.useRef(null);
+  
+  useGSAP(() => {
+    if (selectedIndustry) {
+      gsap.fromTo('.gsap-modal-overlay', { opacity: 0 }, { opacity: 1, duration: 0.3 });
+      gsap.fromTo('.gsap-modal-content', { scale: 0.8, y: 50, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.5, ease: "back.out(1.5)" });
+    }
+  }, { scope: containerRef, dependencies: [selectedIndustry] });
+
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    <div ref={containerRef} className="space-y-6 animate-fade-in pb-20">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
