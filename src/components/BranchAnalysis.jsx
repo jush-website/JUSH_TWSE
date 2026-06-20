@@ -63,8 +63,8 @@ const BranchAnalysis = ({ stockId, stockName }) => {
                 <h3 className="text-red-400 font-bold">買方主力 (Top 15)</h3>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left text-gray-300">
+            <div className="overflow-x-auto pb-2 custom-scrollbar">
+              <table className="w-full min-w-[500px] text-sm text-left text-gray-300">
                 <thead className="text-xs text-gray-500 bg-gray-800/50 uppercase border-b border-gray-700">
                   <tr>
                     <th className="px-4 py-3">券商分點</th>
@@ -97,8 +97,8 @@ const BranchAnalysis = ({ stockId, stockName }) => {
                 <h3 className="text-green-400 font-bold">賣方主力 (Top 15)</h3>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left text-gray-300">
+            <div className="overflow-x-auto pb-2 custom-scrollbar">
+              <table className="w-full min-w-[500px] text-sm text-left text-gray-300">
                 <thead className="text-xs text-gray-500 bg-gray-800/50 uppercase border-b border-gray-700">
                   <tr>
                     <th className="px-4 py-3">券商分點</th>
