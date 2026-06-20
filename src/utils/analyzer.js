@@ -550,9 +550,13 @@ export function analyzeStockData(payload) {
   let chartStart = Math.max(0, closeSeries.length - 60);
   for (let i = chartStart; i < closeSeries.length; i++) {
     chartData.push({
+      time: dateSeries[i] || "",
       date: dateSeries[i] ? dateSeries[i].substring(5) : "",
-      volume: Math.round(volumeSeries[i] / 1000),
+      open: Math.round(openSeries[i] * 100) / 100,
+      high: Math.round(highSeries[i] * 100) / 100,
+      low: Math.round(lowSeries[i] * 100) / 100,
       close: Math.round(closeSeries[i] * 100) / 100,
+      volume: Math.round(volumeSeries[i] / 1000),
       macd_hist: Math.round(macd.macdHist[i] * 1000) / 1000,
       macd_line: Math.round(macd.macdLine[i] * 1000) / 1000,
       macd_signal: Math.round(macd.macdSignal[i] * 1000) / 1000
