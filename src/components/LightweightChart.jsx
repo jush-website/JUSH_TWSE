@@ -6,6 +6,7 @@ const LightweightChart = ({ data }) => {
   const macdContainerRef = useRef(null);
   const chartRef = useRef(null);
   const macdChartRef = useRef(null);
+  const legendRef = useRef(null);
 
   useEffect(() => {
     if (!data || data.length === 0 || !chartContainerRef.current || !macdContainerRef.current) return;
@@ -36,7 +37,7 @@ const LightweightChart = ({ data }) => {
     const volumeData = uniqueData.map(d => ({
       time: d.time,
       value: d.volume || 0,
-      color: d.close >= (d.open !== undefined ? d.open : d.close) ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+      color: d.close >= (d.open !== undefined ? d.open : d.close) ? 'rgba(239, 83, 80, 0.5)' : 'rgba(38, 166, 154, 0.5)' // Red for up, green for down in TW
     }));
 
     const macdLineData = uniqueData.map(d => ({ time: d.time, value: d.macd_line || 0 }));
@@ -44,7 +45,7 @@ const LightweightChart = ({ data }) => {
     const macdHistData = uniqueData.map(d => ({
       time: d.time,
       value: d.macd_hist || 0,
-      color: (d.macd_hist || 0) >= 0 ? 'rgba(38, 166, 154, 0.8)' : 'rgba(239, 83, 80, 0.8)'
+      color: (d.macd_hist || 0) >= 0 ? 'rgba(239, 83, 80, 0.8)' : 'rgba(38, 166, 154, 0.8)'
     }));
 
     // --- Main Chart (Price + Volume) ---
@@ -60,7 +61,7 @@ const LightweightChart = ({ data }) => {
 
     try {
       const candleSeries = chart.addCandlestickSeries({
-        upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+        upColor: '#ef5350', downColor: '#26a69a', borderVisible: false, wickUpColor: '#ef5350', wickDownColor: '#26a69a'
       });
       candleSeries.setData(candleData);
 
@@ -93,14 +94,43 @@ const LightweightChart = ({ data }) => {
       const macdSignalSeries = macdChart.addLineSeries({ color: '#FF6D00', lineWidth: 2 });
       macdSignalSeries.setData(macdSignalData);
 
+      // Function to render legend
+      const renderLegend = (data, vol) => {
+        if (legendRef.current && data) {
+          const change = data.close - data.open;
+          const pct = ((change / data.open) * 100).toFixed(2);
+          const colorClass = change >= 0 ? 'text-red-400' : 'text-green-400';
+          legendRef.current.innerHTML = `
+            <span class="mr-3">開 <span class="font-bold">${data.open.toFixed(2)}</span></span>
+            <span class="mr-3">高 <span class="font-bold">${data.high.toFixed(2)}</span></span>
+            <span class="mr-3">低 <span class="font-bold">${data.low.toFixed(2)}</span></span>
+            <span class="mr-3">收 <span class="font-bold">${data.close.toFixed(2)}</span></span>
+            <span class="mr-3">量 <span class="font-bold">${(vol?.value || 0).toLocaleString()}</span></span>
+            <span class="${colorClass} font-bold">${change > 0 ? '+' : ''}${change.toFixed(2)} (${change > 0 ? '+' : ''}${pct}%)</span>
+          `;
+        }
+      };
+
+      // Set initial legend to the last candle
+      if (candleData.length > 0) {
+        renderLegend(candleData[candleData.length - 1], volumeData[volumeData.length - 1]);
+      }
+
       // --- Sync Charts ---
       chart.subscribeCrosshairMove(param => {
         if (!param.time) return;
         macdChart.setCrosshairPosition(param.price, param.time, macdHistSeries);
+        const data = param.seriesData.get(candleSeries);
+        const vol = param.seriesData.get(volumeSeries);
+        if (data) {
+          renderLegend(data, vol);
+        }
       });
       macdChart.subscribeCrosshairMove(param => {
         if (!param.time) return;
         chart.setCrosshairPosition(param.price, param.time, candleSeries);
+        // MACD chart crosshair move doesn't return candle series data directly via param,
+        // so we don't update legend here to keep it simple, or we could find it by time.
       });
 
       chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
@@ -126,6 +156,7 @@ const LightweightChart = ({ data }) => {
     <div className="w-full flex flex-col gap-2">
       <div className="w-full relative bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-xl">
         <h2 className="text-sm font-bold text-gray-300 absolute top-4 left-6 z-10">價格與成交量</h2>
+        <div ref={legendRef} className="absolute top-4 left-32 z-10 text-xs font-mono text-gray-300 flex items-center"></div>
         <div ref={chartContainerRef} className="w-full h-[280px]" />
       </div>
       <div className="w-full relative bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-xl">
