@@ -1,58 +1,31 @@
-import React, { useEffect, useRef, memo } from 'react';
+import React, { memo } from 'react';
+import { AdvancedChart } from 'react-ts-tradingview-widgets';
 
-function TradingViewWidget({ symbol }) {
-  const container = useRef();
-
-  useEffect(
-    () => {
-      // Clear previous chart to avoid duplicates on re-render
-      if (container.current) {
-        container.current.innerHTML = '';
-      }
-
-      const script = document.createElement("script");
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-      script.type = "text/javascript";
-      script.async = true;
-      script.innerHTML = `
-        {
-          "allow_symbol_change": true,
-          "calendar": false,
-          "details": true,
-          "hide_side_toolbar": true,
-          "hide_top_toolbar": false,
-          "hide_legend": false,
-          "hide_volume": false,
-          "hotlist": false,
-          "interval": "D",
-          "locale": "zh_TW",
-          "save_image": true,
-          "style": "1",
-          "symbol": "${symbol}",
-          "theme": "dark",
-          "timezone": "Asia/Taipei",
-          "backgroundColor": "#0F0F0F",
-          "gridColor": "rgba(242, 242, 242, 0.06)",
-          "watchlist": [],
-          "withdateranges": false,
-          "compareSymbols": [],
-          "studies": [
+const TradingViewWidget = ({ symbol }) => {
+  return (
+    <div style={{ width: '100%', height: '100%' }}>
+      <AdvancedChart
+        widgetProps={{
+          symbol: symbol,
+          theme: "dark",
+          interval: "D",
+          timezone: "Asia/Taipei",
+          locale: "zh_TW",
+          style: "1",
+          allow_symbol_change: true,
+          autosize: true,
+          hide_side_toolbar: false,
+          hide_top_toolbar: false,
+          hide_legend: false,
+          hide_volume: false,
+          studies: [
             "STD;Bollinger_Bands",
             "STD;MACD"
-          ],
-          "autosize": true
-        }`;
-      if (container.current) {
-        container.current.appendChild(script);
-      }
-    },
-    [symbol]
-  );
-
-  return (
-    <div className="tradingview-widget-container" ref={container} style={{ height: "100%", width: "100%" }}>
+          ]
+        }}
+      />
     </div>
   );
-}
+};
 
 export default memo(TradingViewWidget);
