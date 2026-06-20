@@ -889,12 +889,23 @@ async def get_raw_data(query: str):
             except: return []
 
         def get_news():
+            records = []
             try:
-                df = fetcher.fm_loader.get_data(dataset='TaiwanStockNews', data_id=sid, start_date=d_news)
-                if df is not None and not df.empty:
-                    # FinMind 回傳的資料是依時間從舊到新，且可能很多，我們反轉並取最新 20 筆
-                    records = df.fillna("").to_dict('records')
-                    records.reverse()
+                # FinMind TaiwanStockNews API returns data strictly for the requested start_date.
+                # To get recent news, we search backwards from today up to 10 days ago.
+                for i in range(10):
+                    d_str = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+                    try:
+                        df = fetcher.fm_loader.get_data(dataset='TaiwanStockNews', data_id=sid, start_date=d_str)
+                        if df is not None and not df.empty:
+                            day_records = df.fillna("").to_dict('records')
+                            records.extend(day_records)
+                            if len(records) >= 20:
+                                break
+                    except Exception:
+                        pass
+                if records:
+                    records.sort(key=lambda x: x.get('date', ''), reverse=True)
                     return records[:20]
                 return []
             except Exception as e:
