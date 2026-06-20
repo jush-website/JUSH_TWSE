@@ -657,7 +657,7 @@ class DataFetcher:
             res = {
                 "stock_id": stock_id, "price": last_price, 
                 "date": price_df.index[-1].strftime('%Y-%m-%d'),
-                "open": float(price_df['Open'].iloc[0]) if (is_last_data_today and not is_early_morning) else last_price,
+                "open": float(price_df['Open'].iloc[0]),
                 "high": float(price_df['High'].max()), "low": float(price_df['Low'].min()),
                 "volume": daily_volume,
                 "market_cap": market_cap, "shares": shares, "today_avg": round(today_avg, 2),
