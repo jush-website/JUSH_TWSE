@@ -101,12 +101,12 @@ const LightweightChart = ({ data }) => {
           const pct = ((change / data.open) * 100).toFixed(2);
           const colorClass = change >= 0 ? 'text-red-400' : 'text-green-400';
           legendRef.current.innerHTML = `
-            <span class="mr-3">開 <span class="font-bold">${data.open.toFixed(2)}</span></span>
-            <span class="mr-3">高 <span class="font-bold">${data.high.toFixed(2)}</span></span>
-            <span class="mr-3">低 <span class="font-bold">${data.low.toFixed(2)}</span></span>
-            <span class="mr-3">收 <span class="font-bold">${data.close.toFixed(2)}</span></span>
-            <span class="mr-3">量 <span class="font-bold">${(vol?.value || 0).toLocaleString()}</span></span>
-            <span class="${colorClass} font-bold">${change > 0 ? '+' : ''}${change.toFixed(2)} (${change > 0 ? '+' : ''}${pct}%)</span>
+            <span>開 <span class="font-bold">${data.open.toFixed(2)}</span></span>
+            <span>高 <span class="font-bold">${data.high.toFixed(2)}</span></span>
+            <span>低 <span class="font-bold">${data.low.toFixed(2)}</span></span>
+            <span>收 <span class="font-bold">${data.close.toFixed(2)}</span></span>
+            <span>量 <span class="font-bold">${(vol?.value || 0).toLocaleString()}</span></span>
+            <span class="${colorClass} font-bold whitespace-nowrap">${change > 0 ? '+' : ''}${change.toFixed(2)} (${change > 0 ? '+' : ''}${pct}%)</span>
           `;
         }
       };
@@ -154,10 +154,10 @@ const LightweightChart = ({ data }) => {
 
   return (
     <div className="w-full flex flex-col gap-2">
-      <div className="w-full relative bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-xl">
-        <h2 className="text-sm font-bold text-gray-300 absolute top-4 left-6 z-10">價格與成交量</h2>
-        <div ref={legendRef} className="absolute top-4 left-32 z-10 text-xs font-mono text-gray-300 flex items-center"></div>
-        <div ref={chartContainerRef} className="w-full h-[280px]" />
+      <div className="w-full relative bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 pt-14 sm:pt-4 shadow-xl">
+        <h2 className="text-sm font-bold text-gray-300 absolute top-4 left-6 z-10 hidden sm:block">價格與成交量</h2>
+        <div ref={legendRef} className="absolute top-4 left-4 sm:left-32 z-10 text-[11px] sm:text-xs font-mono text-gray-300 flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-1 pr-2"></div>
+        <div ref={chartContainerRef} className="w-full h-[250px] sm:h-[280px]" />
       </div>
       <div className="w-full relative bg-gray-800/80 rounded-2xl border border-gray-700/50 p-4 shadow-xl">
         <h2 className="text-sm font-bold text-gray-300 absolute top-4 left-6 z-10">MACD指標</h2>
