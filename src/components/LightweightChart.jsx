@@ -40,6 +40,10 @@ const LightweightChart = ({ data }) => {
       color: d.close >= (d.open !== undefined ? d.open : d.close) ? 'rgba(239, 83, 80, 0.5)' : 'rgba(38, 166, 154, 0.5)' // Red for up, green for down in TW
     }));
 
+    const ma5Data = uniqueData.filter(d => d.ma5 !== null && d.ma5 !== undefined).map(d => ({ time: d.time, value: d.ma5 }));
+    const ma10Data = uniqueData.filter(d => d.ma10 !== null && d.ma10 !== undefined).map(d => ({ time: d.time, value: d.ma10 }));
+    const ma20Data = uniqueData.filter(d => d.ma20 !== null && d.ma20 !== undefined).map(d => ({ time: d.time, value: d.ma20 }));
+
     const macdLineData = uniqueData.map(d => ({ time: d.time, value: d.macd_line || 0 }));
     const macdSignalData = uniqueData.map(d => ({ time: d.time, value: d.macd_signal || 0 }));
     const macdHistData = uniqueData.map(d => ({
@@ -72,6 +76,14 @@ const LightweightChart = ({ data }) => {
       volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
       volumeSeries.setData(volumeData);
 
+      // --- Main Chart MA Series ---
+      const ma5Series = chart.addLineSeries({ color: '#E5C100', lineWidth: 1.5, title: '5MA', crosshairMarkerVisible: false });
+      ma5Series.setData(ma5Data);
+      const ma10Series = chart.addLineSeries({ color: '#26C6DA', lineWidth: 1.5, title: '10MA', crosshairMarkerVisible: false });
+      ma10Series.setData(ma10Data);
+      const ma20Series = chart.addLineSeries({ color: '#D81B60', lineWidth: 1.5, title: '20MA', crosshairMarkerVisible: false });
+      ma20Series.setData(ma20Data);
+
       // --- MACD Chart ---
       const macdChart = createChart(macdContainerRef.current, {
         autoSize: true,
@@ -95,7 +107,7 @@ const LightweightChart = ({ data }) => {
       macdSignalSeries.setData(macdSignalData);
 
       // Function to render legend
-      const renderLegend = (data, vol) => {
+      const renderLegend = (data, vol, ma5, ma10, ma20) => {
         if (legendRef.current && data) {
           const change = data.close - data.open;
           const pct = ((change / data.open) * 100).toFixed(2);
@@ -107,13 +119,17 @@ const LightweightChart = ({ data }) => {
             <span>收 <span class="font-bold">${data.close.toFixed(2)}</span></span>
             <span>量 <span class="font-bold">${(vol?.value || 0).toLocaleString()}</span></span>
             <span class="${colorClass} font-bold whitespace-nowrap">${change > 0 ? '+' : ''}${change.toFixed(2)} (${change > 0 ? '+' : ''}${pct}%)</span>
+            ${ma5 !== undefined ? `<span class="ml-2 text-[#E5C100]">MA5: <span class="font-bold">${ma5.toFixed(2)}</span></span>` : ''}
+            ${ma10 !== undefined ? `<span class="text-[#26C6DA]">MA10: <span class="font-bold">${ma10.toFixed(2)}</span></span>` : ''}
+            ${ma20 !== undefined ? `<span class="text-[#D81B60]">MA20: <span class="font-bold">${ma20.toFixed(2)}</span></span>` : ''}
           `;
         }
       };
 
       // Set initial legend to the last candle
       if (candleData.length > 0) {
-        renderLegend(candleData[candleData.length - 1], volumeData[volumeData.length - 1]);
+        const lastData = uniqueData[uniqueData.length - 1];
+        renderLegend(lastData, { value: lastData.volume }, lastData.ma5, lastData.ma10, lastData.ma20);
       }
 
       // --- Sync Charts ---
@@ -122,8 +138,11 @@ const LightweightChart = ({ data }) => {
         macdChart.setCrosshairPosition(param.price, param.time, macdHistSeries);
         const data = param.seriesData.get(candleSeries);
         const vol = param.seriesData.get(volumeSeries);
+        const ma5Val = param.seriesData.get(ma5Series);
+        const ma10Val = param.seriesData.get(ma10Series);
+        const ma20Val = param.seriesData.get(ma20Series);
         if (data) {
-          renderLegend(data, vol);
+          renderLegend(data, vol, ma5Val?.value, ma10Val?.value, ma20Val?.value);
         }
       });
       macdChart.subscribeCrosshairMove(param => {

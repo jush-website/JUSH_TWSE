@@ -567,6 +567,9 @@ export function analyzeStockData(payload) {
       low: Math.round(lowSeries[i] * 100) / 100,
       close: Math.round(closeSeries[i] * 100) / 100,
       volume: Math.round(volumeSeries[i] / 1000),
+      ma5: ma5[i] !== null && ma5[i] !== undefined ? Math.round(ma5[i] * 100) / 100 : null,
+      ma10: ma10[i] !== null && ma10[i] !== undefined ? Math.round(ma10[i] * 100) / 100 : null,
+      ma20: ma20[i] !== null && ma20[i] !== undefined ? Math.round(ma20[i] * 100) / 100 : null,
       macd_hist: Math.round(macd.macdHist[i] * 1000) / 1000,
       macd_line: Math.round(macd.macdLine[i] * 1000) / 1000,
       macd_signal: Math.round(macd.macdSignal[i] * 1000) / 1000
