@@ -9,7 +9,7 @@ import {
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, Area
 } from 'recharts';
 import BranchAnalysis from '../components/BranchAnalysis';
-import { AdvancedRealTimeChart } from "react-ts-tradingview-widgets";
+import LightweightChart from '../components/LightweightChart';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -170,19 +170,11 @@ const StockAnalysis = () => {
           {activeTab === 'dashboard' && (
             <div className="space-y-4 sm:space-y-6">
               {/* Charts Section */}
-              <div className="w-full h-[500px] bg-gray-900 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50">
-                <AdvancedRealTimeChart 
-                  symbol={data.stock_id.match(/^\d+$/) ? `TWSE:${data.stock_id}` : data.stock_id}
-                  theme="dark" 
-                  locale="zh_TW" 
-                  autosize 
-                  allow_symbol_change={true}
-                  timezone="Asia/Taipei"
-                  style="1"
-                  hide_top_toolbar={false}
-                  hide_legend={false}
-                />
-              </div>
+              {data.chart_data && data.chart_data.length > 0 && (
+                <div className="w-full">
+                  <LightweightChart data={data.chart_data} />
+                </div>
+              )}
 
               <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Strategy & Target Section */}
