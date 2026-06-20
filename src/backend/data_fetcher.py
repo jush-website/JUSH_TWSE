@@ -683,7 +683,8 @@ class DataFetcher:
                 df = self._history_cache[stock_id]
                 last_fetch_time = self._history_cache_ts.get(stock_id, 0)
                 if not df.empty and (df.index[-1].date() >= expected_date or time.time() - last_fetch_time < config.HISTORY_CACHE_EXPIRY):
-                    return df.tail(days)
+                    if len(df) >= days or len(df) >= 200: # If we have enough days, or we already fetched a large chunk
+                        return df.tail(days)
         
         try:
             if stock_id == "TAIEX":
