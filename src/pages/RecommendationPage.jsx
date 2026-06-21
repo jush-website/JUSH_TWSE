@@ -123,8 +123,10 @@ const RecommendationPage = () => {
           ))}
         </div>
       ) : (
-        <div className="bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-700">
-          <p className="text-gray-500">目前暫無符合該篩選條件的標的。</p>
+        <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl p-20 text-center border border-dashed border-gray-700/60">
+          <div className="text-4xl mb-4">📭</div>
+          <p className="text-gray-400 font-medium">暫無符合條件的標的</p>
+          <p className="text-gray-600 text-sm mt-1">系統每 3 分鐘自動更新，稍後請重新整理</p>
         </div>
       )}
     </div>

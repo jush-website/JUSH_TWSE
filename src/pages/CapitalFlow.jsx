@@ -4,53 +4,39 @@ import CapitalFlowHeatmap from './CapitalFlowHeatmap';
 import MarketDistribution from './MarketDistribution';
 import InstitutionalFlow from './InstitutionalFlow';
 
+const TABS = [
+  { id: 'heatmap',              label: '資金板塊',    icon: Layers   },
+  { id: 'market-distribution',  label: '大盤多空分布', icon: Activity },
+  { id: 'institutional',        label: '三大法人',    icon: Users    },
+];
+
 const CapitalFlow = () => {
   const [activeTab, setActiveTab] = useState('heatmap');
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
-      {/* Tab Navigation */}
-      <div className="flex flex-wrap items-center space-x-2 sm:space-x-4 border-b border-gray-700/80 pb-4 mb-4">
-        <button
-          onClick={() => setActiveTab('heatmap')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all duration-300 ${
-            activeTab === 'heatmap' 
-              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.3)]' 
-              : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-transparent'
-          }`}
-        >
-          <Layers size={18} />
-          <span>資金板塊 (Heatmap)</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('market-distribution')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all duration-300 ${
-            activeTab === 'market-distribution' 
-              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
-              : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-transparent'
-          }`}
-        >
-          <Activity size={18} />
-          <span>大盤多空分布</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('institutional')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all duration-300 ${
-            activeTab === 'institutional' 
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
-              : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-transparent'
-          }`}
-        >
-          <Users size={18} />
-          <span>三大法人動向</span>
-        </button>
+    <div className="space-y-6 pb-10">
+      {/* Tab rail — single accent (blue), consistent across all tabs */}
+      <div className="bg-gray-800/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-1.5 flex gap-1 w-full sm:w-fit">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+              activeTab === id
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+            }`}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Tab Content */}
       <div className="w-full">
-        {activeTab === 'heatmap' && <CapitalFlowHeatmap />}
+        {activeTab === 'heatmap'             && <CapitalFlowHeatmap />}
         {activeTab === 'market-distribution' && <MarketDistribution />}
-        {activeTab === 'institutional' && <InstitutionalFlow />}
+        {activeTab === 'institutional'       && <InstitutionalFlow />}
       </div>
     </div>
   );

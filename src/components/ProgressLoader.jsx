@@ -1,43 +1,44 @@
 import React, { useState, useEffect } from 'react';
 
-const ProgressLoader = ({ text = "載入中..." }) => {
+const ProgressLoader = ({ text = '載入中...' }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // 模擬進度條增長
     const timer = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 95) return prev; // 最多卡在 95%，直到真正載入完成
-        // 隨著進度增加，速度變慢
-        const remaining = 100 - prev;
-        const step = Math.random() * (remaining / 10);
-        return Math.min(prev + step, 95);
+      setProgress(prev => {
+        if (prev >= 95) return prev;
+        return Math.min(prev + Math.random() * ((100 - prev) / 10), 95);
       });
     }, 150);
-
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center py-32 w-full max-w-md mx-auto">
-      <div className="text-cyan-400 font-semibold mb-6 text-sm tracking-widest uppercase flex items-center space-x-3">
-        <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
-        <span>{text}</span>
+    <div className="flex flex-col items-center justify-center py-32 w-full max-w-sm mx-auto select-none">
+      {/* Animated dot + label */}
+      <div className="flex items-center gap-2.5 mb-8">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+        </span>
+        <span className="text-xs font-semibold text-gray-400 tracking-widest uppercase">{text}</span>
       </div>
-      
-      <div className="w-full bg-gray-800/80 rounded-full h-2 mb-3 overflow-hidden border border-white/5 shadow-inner">
-        <div 
-          className="bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out relative"
-          style={{ width: `${progress}%` }}
+
+      {/* Track */}
+      <div className="w-full h-[3px] bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-300 ease-out relative"
+          style={{
+            width: `${progress}%`,
+            background: 'linear-gradient(90deg, #3b82f6, #06b6d4)',
+          }}
         >
-          {/* 光暈特效 */}
-          <div className="absolute top-0 right-0 bottom-0 w-20 bg-gradient-to-r from-transparent to-white/30 blur-[2px]"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-white/40 blur-sm" />
         </div>
       </div>
-      
-      <div className="flex justify-between w-full text-xs text-gray-500 font-mono px-1">
-        <span>Initializing...</span>
-        <span className="text-cyan-500/70">{Math.round(progress)}%</span>
+
+      <div className="mt-3 w-full flex justify-end">
+        <span className="text-[10px] font-mono text-blue-500/60">{Math.round(progress)}%</span>
       </div>
     </div>
   );

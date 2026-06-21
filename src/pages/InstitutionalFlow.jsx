@@ -53,6 +53,8 @@ const InstitutionalFlow = () => {
       }
     };
     fetchData();
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) return <ProgressLoader text="正在載入法人資金動向..." />;

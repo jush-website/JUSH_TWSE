@@ -24,6 +24,8 @@ const MarketDistribution = () => {
       }
     };
     fetchData();
+    const interval = setInterval(fetchData, 2 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleBarClick = (item) => {

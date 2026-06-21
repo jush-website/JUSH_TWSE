@@ -198,7 +198,7 @@ const StockAnalysis = () => {
           </div>
 
           {activeTab === 'dashboard' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6"
               {/* Charts Section */}
               {data.chart_data && data.chart_data.length > 0 && (
                 <div className="w-full">
@@ -428,7 +428,7 @@ const StockAnalysis = () => {
 
 
           {activeTab === 'chips' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6"
               {(!data.chip_processed?.length && !data.margin_processed?.length && !data.shareholding_processed?.length) && (
                 <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl">
                   <Info className="w-12 h-12 text-gray-500 mb-4" />
@@ -588,7 +588,7 @@ const StockAnalysis = () => {
           )}
 
           {activeTab === 'fundamentals' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6"
               {(!data.revenue_data?.length && !data.financial_data?.length) && (
                 <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl">
                   <Info className="w-12 h-12 text-gray-500 mb-4" />
@@ -720,7 +720,7 @@ const StockAnalysis = () => {
           )}
 
           {activeTab === 'news' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6\">
+            <div className="gsap-tab-content space-y-4 sm:space-y-6"
               <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl hover:border-blue-500/30 transition-colors duration-500">
                 <h2 className="text-lg font-bold text-gray-300 mb-4">個股相關新聞</h2>
                 {data.news_data && data.news_data.length > 0 ? (
