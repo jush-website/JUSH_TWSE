@@ -49,7 +49,7 @@ class DataFetcher:
             self.fm_loader = None
             
         # Check for FinMind token
-        token = os.environ.get("FINMIND_API_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoianVzaCIsImVtYWlsIjoiamltNjM1MjQxQGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjB9.arNTZscwqHiuFln_wO7ufKR03KQ9OQZyGk2l_pM2UN4")
+        token = os.environ.get("FINMIND_API_TOKEN")
         if token and self.fm_loader:
             try:
                 self.fm_loader.login_by_token(api_token=token)
@@ -136,24 +136,40 @@ class DataFetcher:
         self._history_cache[cache_key] = data
 
     def get_finmind_dataset(self, dataset, **kwargs):
-        """Generic method to fetch and cache any FinMind dataset"""
+        """Generic method to fetch and cache any FinMind dataset, with retry on rate limit."""
         if not self.fm_loader:
             return None
-            
+
         kwargs_key = str(kwargs)
         cached = self._get_fm_cache(dataset, kwargs_key)
         if cached is not None:
             return cached
-            
-        try:
-            with self._lock:
-                df = self.fm_loader.get_data(dataset=dataset, **kwargs)
+
+        # Honour a global rate-limit back-off imposed by a previous failed call
+        backoff_until = getattr(self, '_fm_backoff_until', 0)
+        if time.time() < backoff_until:
+            if self.logger: self.logger.warning(f"FinMind back-off active, skipping {dataset}")
+            return None
+
+        for attempt in range(3):
+            try:
+                df = self.fm_loader.get_data(dataset=dataset, **kwargs)  # no lock – network I/O
                 if df is not None and not df.empty:
                     data = df.to_dict('records')
-                    self._set_fm_cache(dataset, kwargs_key, data)
+                    with self._lock:
+                        self._set_fm_cache(dataset, kwargs_key, data)
                     return data
-        except Exception as e:
-            if self.logger: self.logger.warning(f"Failed to fetch FinMind dataset {dataset}: {e}")
+                break  # empty result, no point retrying
+            except Exception as e:
+                msg = str(e)
+                if '超過使用次數' in msg or 'rate' in msg.lower():
+                    wait = 2 ** attempt  # 1 s, 2 s, 4 s
+                    self._fm_backoff_until = time.time() + 60  # global 60-s cool-down
+                    if self.logger: self.logger.warning(f"FinMind rate limited on {dataset}, retry in {wait}s")
+                    time.sleep(wait)
+                else:
+                    if self.logger: self.logger.warning(f"FinMind {dataset} fetch failed: {e}")
+                    break
         return None
         
     def _load_local_stock_info(self):
@@ -1561,7 +1577,7 @@ class DataFetcher:
 
     def get_global_markets(self):
         """獲取全球主要指數行情 - 使用 FinMind API 確保數據最新，yfinance 作為備份"""
-        FINMIND_TOKEN = os.environ.get("FINMIND_API_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoianVzaCIsImVtYWlsIjoiamltNjM1MjQxQGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjB9.arNTZscwqHiuFln_wO7ufKR03KQ9OQZyGk2l_pM2UN4")
+        FINMIND_TOKEN = os.environ.get("FINMIND_API_TOKEN")
         FM_API = "https://api.finmindtrade.com/api/v4/data"
         
         results = {}

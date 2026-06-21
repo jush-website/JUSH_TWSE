@@ -818,25 +818,6 @@ async def analyze_stock(query: str):
         raise HTTPException(status_code=404, detail="無法分析該股票")
     return sanitize_data(res)
 
-@app.get("/api/finmind/{dataset}")
-async def proxy_finmind(dataset: str, data_id: str, start_date: str):
-    import requests
-    loop = asyncio.get_event_loop()
-    token = os.environ.get("FINMIND_API_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoianVzaCIsImVtYWlsIjoiamltNjM1MjQxQGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjB9.arNTZscwqHiuFln_wO7ufKR03KQ9OQZyGk2l_pM2UN4")
-    url = f"https://api.finmindtrade.com/api/v4/data?dataset={dataset}&data_id={data_id}&start_date={start_date}"
-    if token:
-        url += f"&token={token}"
-    
-    def fetch():
-        res = requests.get(url, timeout=15)
-        return res.json()
-    
-    try:
-        data = await loop.run_in_executor(api_executor, fetch)
-        return data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.get("/api/raw-data/{query}")
 async def get_raw_data(query: str):
     """
@@ -989,8 +970,18 @@ async def get_raw_data(query: str):
                     cache_content = doc.to_dict()
                     last_updated = cache_content.get('updated_at')
                     if last_updated:
-                        updated_time = datetime.fromisoformat(last_updated)
-                        if datetime.now(pytz.utc) - updated_time < timedelta(hours=4):
+                        updated_time = datetime.fromisoformat(str(last_updated).replace('Z', '+00:00'))
+                        if updated_time.tzinfo is None:
+                            updated_time = updated_time.replace(tzinfo=pytz.utc)
+                        now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
+                        is_market_hours = (
+                            now_tw.weekday() < 5
+                            and (now_tw.hour, now_tw.minute) >= (9, 0)
+                            and (now_tw.hour, now_tw.minute) < (13, 30)
+                            and now_tw.strftime("%Y-%m-%d") not in config.TW_HOLIDAYS_2026
+                        )
+                        cache_ttl = timedelta(minutes=30) if is_market_hours else timedelta(hours=4)
+                        if datetime.now(pytz.utc) - updated_time < cache_ttl:
                             cached_data = cache_content.get('payload')
             except Exception as e:
                 print(f"[系統] Firebase cache read error: {e}")
