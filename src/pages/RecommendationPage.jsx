@@ -12,8 +12,7 @@ import {
 } from '../services/api';
 import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import { useCardAnimation } from '../hooks/useCardAnimation';
 import { RefreshCw, LayoutGrid, List } from 'lucide-react';
 
 const RecommendationPage = () => {
@@ -77,15 +76,10 @@ const RecommendationPage = () => {
     return sortOrder === 'desc' ? valB - valA : valA - valB;
   });
 
-  const containerRef = React.useRef(null);
-
-  useGSAP(() => {
-    if (!loading && stocks.length > 0) {
-      gsap.from('.gsap-recommend-card', {
-        y: 40, opacity: 0, duration: 0.8, stagger: 0.15, ease: "back.out(1.2)"
-      });
-    }
-  }, { scope: containerRef, dependencies: [loading, stocks] });
+  const containerRef = useCardAnimation('.gsap-recommend-card', [loading, stocks], {
+    enabled: !loading && stocks.length > 0,
+    y: 40, duration: 0.8, stagger: 0.15, ease: 'back.out(1.2)',
+  });
 
   return (
     <div ref={containerRef} className="space-y-6">

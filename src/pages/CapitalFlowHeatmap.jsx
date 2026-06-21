@@ -5,6 +5,7 @@ import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flam
 import ProgressLoader from '../components/ProgressLoader';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { useCardAnimation } from '../hooks/useCardAnimation';
 
 const CapitalFlowHeatmap = () => {
   const [data, setData] = useState(null);
@@ -40,19 +41,20 @@ const CapitalFlowHeatmap = () => {
       }
     };
     fetchData();
+    const interval = setInterval(fetchData, 3 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
 
-  const containerRef = React.useRef(null);
-  
+  const containerRef = useCardAnimation('.gsap-heatmap-block', [data], {
+    enabled: data && data.length > 0,
+    y: 0, scale: 0.8, duration: 0.5, stagger: 0.05, ease: 'back.out(1.2)',
+  });
+
   useGSAP(() => {
-    if (data && data.length > 0) {
-      gsap.from('.gsap-heatmap-block', { scale: 0.8, opacity: 0, duration: 0.5, stagger: 0.05, ease: "back.out(1.2)" });
-    }
-    if (selectedIndustry && containerRef.current) {
-      gsap.fromTo('.gsap-modal-overlay', { opacity: 0 }, { opacity: 1, duration: 0.3 });
-      gsap.fromTo('.gsap-modal-content', { scale: 0.8, y: 50, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.5, ease: "back.out(1.5)" });
-    }
+    if (!selectedIndustry) return;
+    gsap.fromTo('.gsap-modal-overlay', { opacity: 0 }, { opacity: 1, duration: 0.3 });
+    gsap.fromTo('.gsap-modal-content', { scale: 0.8, y: 50, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.5, ease: 'back.out(1.5)' });
   }, { scope: containerRef, dependencies: [selectedIndustry] });
 
   if (loading) return (

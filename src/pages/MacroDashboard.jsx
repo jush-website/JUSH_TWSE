@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Globe, DollarSign, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import { useCardAnimation } from '../hooks/useCardAnimation';
 import api from '../services/api';
 
 const MacroDashboard = () => {
@@ -42,15 +41,14 @@ const MacroDashboard = () => {
       }
     };
     fetchMacroData();
+    const interval = setInterval(fetchMacroData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
 
-  const containerRef = React.useRef(null);
-  useGSAP(() => {
-    if (!loading) {
-      gsap.from('.gsap-macro-card', { y: 30, opacity: 0, duration: 0.6, stagger: 0.15, ease: "power2.out" });
-    }
-  }, { scope: containerRef, dependencies: [loading] });
+  const containerRef = useCardAnimation('.gsap-macro-card', [loading], {
+    enabled: !loading, stagger: 0.15,
+  });
 
   if (loading) return <ProgressLoader text="正在載入總體經濟數據..." />;
 

@@ -50,6 +50,8 @@ function App() {
   const [status, setStatus] = useState(null);
 
   const appRef = React.useRef(null);
+  const navRef = React.useRef(null);
+  const mainRef = React.useRef(null);
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -68,20 +70,17 @@ function App() {
   }, []);
 
   useGSAP(() => {
-    // Initial fade in for the whole app
     gsap.from(appRef.current, { opacity: 0, duration: 1, ease: "power2.out" });
-    // Slide down for Navbar
-    gsap.from('nav', { y: -50, opacity: 0, duration: 0.8, ease: "back.out(1.7)", delay: 0.2 });
-    // Slide up for main content
-    gsap.from('main', { y: 30, opacity: 0, duration: 0.8, ease: "power3.out", delay: 0.4 });
+    gsap.from(navRef.current, { y: -50, opacity: 0, duration: 0.8, ease: "back.out(1.7)", delay: 0.2 });
+    gsap.from(mainRef.current, { y: 30, opacity: 0, duration: 0.8, ease: "power3.out", delay: 0.4 });
   }, { scope: appRef, dependencies: [] });
 
   return (
     <ErrorBoundary>
       <Router>
         <div ref={appRef} className="min-h-screen bg-gray-900 text-white font-sans">
-          <Navbar status={status} />
-          <main className="container mx-auto px-4 py-6">
+          <Navbar ref={navRef} status={status} />
+          <main ref={mainRef} className="container mx-auto px-4 py-6">
             <Suspense fallback={<div className="text-center py-20 text-gray-400">載入組件中...</div>}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Target, TrendingUp, TrendingDown, BarChart2, ChevronDown, ChevronUp } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import { useCardAnimation } from '../hooks/useCardAnimation';
 import api from '../services/api';
 
 const Derivatives = () => {
@@ -43,15 +42,14 @@ const Derivatives = () => {
       }
     };
     fetchData();
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
 
-  const containerRef = React.useRef(null);
-  useGSAP(() => {
-    if (!loading) {
-      gsap.from('.gsap-derivative-card', { y: 30, opacity: 0, duration: 0.6, stagger: 0.15, ease: "power2.out" });
-    }
-  }, { scope: containerRef, dependencies: [loading] });
+  const containerRef = useCardAnimation('.gsap-derivative-card', [loading], {
+    enabled: !loading, stagger: 0.15,
+  });
 
   if (loading) return <ProgressLoader text="正在載入期權籌碼數據..." />;
 

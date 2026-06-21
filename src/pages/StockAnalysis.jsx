@@ -12,6 +12,7 @@ import BranchAnalysis from '../components/BranchAnalysis';
 import LightweightChart from '../components/LightweightChart';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { useCardAnimation } from '../hooks/useCardAnimation';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -53,37 +54,31 @@ const StockAnalysis = () => {
 
   const isPositive = data?.change_percent >= 0;
 
-  const containerRef = React.useRef(null);
+  const scoreRef = React.useRef(null);
+
+  const containerRef = useCardAnimation('.gsap-card', [data, loading], {
+    enabled: data && !loading, duration: 0.8, stagger: 0.15, ease: 'power3.out',
+  });
 
   useGSAP(() => {
-    if (data && !loading) {
-      gsap.from('.gsap-card', {
-        y: 30,
-        opacity: 0,
-        duration: 0.8,
-        stagger: 0.15,
-        ease: "power3.out"
-      });
-      const scoreObj = { val: 0 };
-      gsap.to(scoreObj, {
-        val: data.total_score || 0,
-        duration: 1.5,
-        ease: "power2.out",
-        onUpdate: () => {
-          const el = document.querySelector('.gsap-score');
-          if (el) el.innerHTML = Math.round(scoreObj.val);
-        }
-      });
-    }
+    if (!data || loading) return;
+    const scoreObj = { val: 0 };
+    gsap.to(scoreObj, {
+      val: data.total_score || 0,
+      duration: 1.5,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (scoreRef.current) scoreRef.current.innerHTML = Math.round(scoreObj.val);
+      },
+    });
   }, { scope: containerRef, dependencies: [data, loading] });
 
   useGSAP(() => {
-    if (data && !loading) {
-      gsap.fromTo('.gsap-tab-content', 
-        { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }
-      );
-    }
+    if (!data || loading) return;
+    gsap.fromTo('.gsap-tab-content',
+      { opacity: 0, y: 15 },
+      { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
+    );
   }, { scope: containerRef, dependencies: [activeTab, data, loading] });
 
   // Process data for charts
@@ -167,7 +162,7 @@ const StockAnalysis = () => {
             <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-center bg-gray-900/50 p-3 sm:p-6 rounded-2xl border border-gray-700 w-full sm:w-auto sm:min-w-[160px]">
               <div className="flex sm:block flex-col sm:text-center">
                 <div className="text-gray-400 text-xs sm:text-sm mb-0 sm:mb-1">系統綜合評分</div>
-                <div className={`gsap-score text-3xl sm:text-5xl font-black ${
+                <div ref={scoreRef} className={`gsap-score text-3xl sm:text-5xl font-black ${
                   data.total_score >= 70 ? 'text-red-500' : 
                   data.total_score >= 50 ? 'text-orange-500' : 'text-gray-400'
                 }`}>

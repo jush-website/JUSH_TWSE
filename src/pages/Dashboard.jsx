@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getGlobalMarket, getNews, getFutures, getMarketOutlook } from '../services/api';
 import { Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown, Activity, BarChart2, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import { useCardAnimation } from '../hooks/useCardAnimation';
 
 const Dashboard = () => {
   const [markets, setMarkets] = useState({});
@@ -34,15 +33,9 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const containerRef = React.useRef(null);
-  
-  useGSAP(() => {
-    if (!loading) {
-      gsap.from('.gsap-dashboard-card', {
-        y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: "power3.out"
-      });
-    }
-  }, { scope: containerRef, dependencies: [loading] });
+  const containerRef = useCardAnimation('.gsap-dashboard-card', [loading], {
+    enabled: !loading, duration: 0.8, stagger: 0.1, ease: 'power3.out',
+  });
 
   if (loading) return <ProgressLoader text="正在載入最新市場概況..." />;
 

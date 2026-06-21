@@ -16,7 +16,7 @@ const getLocalMarketStatus = () => {
   return { label: '盤後 (今日收盤)', color: 'text-blue-400', dot: 'bg-blue-500' };
 };
 
-const Navbar = ({ status }) => {
+const Navbar = React.forwardRef(({ status }, ref) => {
   const [query, setQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileStrategiesOpen, setIsMobileStrategiesOpen] = useState(false);
@@ -51,7 +51,7 @@ const Navbar = ({ status }) => {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-gray-900/80 border-b border-white/10 transition-colors duration-300 shadow-2xl">
+    <nav ref={ref} className="sticky top-0 z-50 w-full backdrop-blur-xl bg-gray-900/80 border-b border-white/10 transition-colors duration-300 shadow-2xl">
       <div className="container mx-auto px-4 lg:px-8 py-3">
         <div className="flex items-center justify-between">
           
@@ -233,6 +233,6 @@ const Navbar = ({ status }) => {
       </div>
     </nav>
   );
-};
+});
 
 export default Navbar;
