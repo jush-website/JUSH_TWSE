@@ -15,16 +15,17 @@ const formatValue = (val) => {
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-gray-900/80 backdrop-blur-xl border border-gray-700/50 p-4 rounded-xl shadow-2xl min-w-[200px]">
-        <p className="text-gray-300 mb-3 border-b border-gray-700/50 pb-2 font-bold">{label}</p>
-        <div className="space-y-2">
+      <div className="card p-3.5 min-w-[200px] shadow-card-lg">
+        <p className="text-ink-2 text-xs mb-2.5 border-b border-line pb-2 font-semibold">{label}</p>
+        <div className="space-y-1.5">
           {payload.map((entry, index) => {
             const isTotal = entry.dataKey === '合計';
+            const val = Number(entry.value);
             return (
-              <div key={index} className={`flex justify-between items-center text-sm ${isTotal ? 'mt-3 pt-2 border-t border-gray-700/50 font-bold' : ''}`}>
+              <div key={index} className={`flex justify-between items-center text-xs ${isTotal ? 'mt-2 pt-2 border-t border-line font-bold' : ''}`}>
                 <span style={{ color: entry.color }}>{entry.name}</span>
-                <span className={`font-mono ${Number(entry.value) > 0 ? 'text-red-400' : Number(entry.value) < 0 ? 'text-green-400' : 'text-gray-400'}`}>
-                  {formatValue(entry.value)}
+                <span className={`font-mono nums ${val > 0 ? 'text-bull' : val < 0 ? 'text-bear' : 'text-ink-3'}`}>
+                  {formatValue(val)}
                 </span>
               </div>
             );
@@ -60,67 +61,48 @@ const InstitutionalFlow = () => {
   if (loading) return <ProgressLoader text="正在載入法人資金動向..." />;
   if (error) return <div className="text-center py-20 text-red-400 font-bold flex flex-col items-center"><ShieldAlert size={48} className="mb-4" />{error}</div>;
   if (data && data.error) return <div className="text-center py-20 text-red-400 font-bold flex flex-col items-center"><ShieldAlert size={48} className="mb-4" />FinMind API 錯誤或達到呼叫上限，請稍後再試。<br/><span className="text-sm mt-2 font-normal text-red-400/70">({data.error})</span></div>;
-  if (!data || !Array.isArray(data) || data.length === 0) return <div className="text-center py-20 text-gray-400">目前沒有法人買賣超資料</div>;
+  if (!data || !Array.isArray(data) || data.length === 0) return <div className="text-center py-20 text-ink-3">目前沒有法人買賣超資料</div>;
 
   const latestData = data[data.length - 1];
   
-  const StatCard = ({ title, value, colorClass }) => (
-    <div className={`bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-4 sm:p-6 shadow-xl hover:border-gray-500/50 transition-all duration-300`}>
-      <h3 className="text-gray-400 text-sm font-medium mb-2">{title}</h3>
-      <div className={`text-2xl sm:text-3xl font-black tracking-tight ${colorClass}`}>
-        {value > 0 ? '+' : ''}{formatValue(value)}
+  const StatCard = ({ title, value }) => {
+    const pos = value > 0;
+    return (
+      <div className="card p-4 sm:p-5">
+        <h3 className="text-ink-3 text-xs font-medium mb-2">{title}</h3>
+        <div className={`text-xl sm:text-2xl font-bold tracking-tight nums ${pos ? 'text-bull' : value < 0 ? 'text-bear' : 'text-ink-2'}`}>
+          {pos ? '+' : ''}{formatValue(value)}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-gray-800 pb-4">
+    <div className="space-y-5 pb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-line pb-4 gap-3">
         <div>
-          <div className="flex items-center space-x-3 text-cyan-400 mb-2">
-            <div className="p-2 bg-cyan-500/20 rounded-lg">
-              <Building size={28} className="drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-              三大法人買賣超
-            </h1>
+          <div className="flex items-center gap-2 mb-1">
+            <Building size={18} className="text-ink-3" />
+            <h1 className="text-xl font-bold text-ink-1">三大法人買賣超</h1>
           </div>
-          <p className="text-gray-400 text-sm">追蹤外資、投信、自營商的資金動向，掌握大盤籌碼方向</p>
+          <p className="text-ink-3 text-sm">追蹤外資、投信、自營商的資金動向，掌握大盤籌碼方向</p>
         </div>
-        <div className="mt-4 sm:mt-0 flex items-center space-x-2 text-xs text-gray-500 bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-700/50">
+        <div className="flex items-center gap-1.5 text-xs text-ink-3 bg-overlay px-3 py-1.5 rounded-full border border-line w-fit">
           <Clock size={12} />
           <span>最新資料：{latestData.date ? latestData.date.split(' ')[0] : ''}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard 
-          title="外資及陸資" 
-          value={latestData['外資及陸資'] || 0} 
-          colorClass={latestData['外資及陸資'] > 0 ? 'text-red-400' : 'text-green-400'} 
-        />
-        <StatCard 
-          title="投信" 
-          value={latestData['投信'] || 0} 
-          colorClass={latestData['投信'] > 0 ? 'text-red-400' : 'text-green-400'} 
-        />
-        <StatCard 
-          title="自營商" 
-          value={latestData['自營商'] || 0} 
-          colorClass={latestData['自營商'] > 0 ? 'text-red-400' : 'text-green-400'} 
-        />
-        <StatCard 
-          title="三大法人合計" 
-          value={latestData['合計'] || 0} 
-          colorClass={latestData['合計'] > 0 ? 'text-red-500' : 'text-green-500'} 
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard title="外資及陸資" value={latestData['外資及陸資'] || 0} />
+        <StatCard title="投信"       value={latestData['投信']       || 0} />
+        <StatCard title="自營商"     value={latestData['自營商']     || 0} />
+        <StatCard title="三大法人合計" value={latestData['合計']    || 0} />
       </div>
 
-      <div className="bg-gray-800/80 backdrop-blur-xl rounded-3xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-        
-        <h2 className="text-xl font-bold mb-6 text-gray-200 flex items-center">
-          <TrendingUp size={20} className="mr-2 text-cyan-400" /> 近 30 日資金流向趨勢
+      <div className="card p-5">
+        <h2 className="font-semibold text-ink-1 flex items-center gap-2 mb-5">
+          <TrendingUp size={16} className="text-ink-3" /> 近 30 日資金流向趨勢
         </h2>
         
         <div className="h-[400px] w-full">

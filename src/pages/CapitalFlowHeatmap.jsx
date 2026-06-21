@@ -72,9 +72,9 @@ const CapitalFlowHeatmap = () => {
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-20">
-        <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-300">目前尚無資金流向資料</h2>
-        <p className="text-gray-400 mt-2">請稍後再試，或確認後端排程是否已執行</p>
+        <AlertCircle className="w-10 h-10 text-ink-3 mx-auto mb-3" />
+        <h2 className="font-semibold text-ink-1">目前尚無資金流向資料</h2>
+        <p className="text-ink-3 text-sm mt-1">請稍後再試，或確認後端排程是否已執行</p>
       </div>
     );
   }
@@ -87,7 +87,7 @@ const CapitalFlowHeatmap = () => {
     if (changePct <= -3) return 'bg-green-600 border-green-500';
     if (changePct <= -1) return 'bg-green-500/80 border-green-400/50';
     if (changePct < 0) return 'bg-green-400/50 border-green-300/30';
-    return 'bg-gray-700 border-gray-600';
+    return 'bg-overlay border-line';
   };
 
   // Helper to determine block size based on volume ratio
@@ -107,86 +107,70 @@ const CapitalFlowHeatmap = () => {
 
   const industryDetailsContent = selectedIndustry ? (
     <>
-      <div className="flex justify-between items-start mb-4 pb-4 border-b border-gray-700/50 pr-8">
+      <div className="flex justify-between items-start mb-4 pb-4 border-b border-line pr-8">
         <div>
-          <h2 className="text-xl font-bold text-white">{selectedIndustry.industry}</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            市場資金佔比 {selectedIndustry.value_ratio}%
-          </p>
+          <h2 className="text-lg font-bold text-ink-1">{selectedIndustry.industry}</h2>
+          <p className="text-xs text-ink-3 mt-0.5">市場資金佔比 {selectedIndustry.value_ratio}%</p>
         </div>
-        <div className={`text-xl font-bold ${selectedIndustry.avg_change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+        <div className={`text-xl font-bold nums ${selectedIndustry.avg_change_pct >= 0 ? 'text-bull' : 'text-bear'}`}>
           {selectedIndustry.avg_change_pct > 0 ? '+' : ''}{selectedIndustry.avg_change_pct}%
         </div>
       </div>
 
       <div className="mb-4">
-        <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center">
-          <TrendingUp className="w-4 h-4 mr-1.5" />
-          板塊代表標的 (依成交值)
+        <h3 className="text-xs font-semibold text-ink-3 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <TrendingUp size={12} />
+          板塊代表標的（依成交值）
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {selectedIndustry.top_stocks?.map((stock, idx) => (
-            <Link 
-              to={`/analyze/${stock.id}`} 
+            <Link
+              to={`/analyze/${stock.id}`}
               key={idx}
-              className="group flex items-center justify-between p-3 rounded-xl bg-gray-900/50 border border-gray-700/50 hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
+              className="group flex items-center justify-between p-3 rounded-xl bg-overlay border border-line hover:border-brand/30 hover:bg-brand-muted transition-colors"
             >
               <div>
-                <div className="font-bold text-gray-200 group-hover:text-blue-400 transition-colors flex items-center">
-                  {stock.name} 
-                  <span className="text-xs text-gray-500 ml-2">{stock.id}</span>
+                <div className="font-semibold text-ink-1 group-hover:text-brand transition-colors text-sm flex items-center gap-1.5">
+                  {stock.name}
+                  <span className="text-[10px] text-ink-3 font-mono">{stock.id}</span>
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  成交值: {formatMoney(stock.value)}
-                </div>
+                <div className="text-[10px] text-ink-3 mt-0.5">成交值 {formatMoney(stock.value)}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-medium text-gray-300">
-                  ${stock.price}
-                </div>
-                <div className={`text-xs font-bold mt-1 ${stock.change_pct >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                <div className="text-sm font-medium text-ink-1 nums">${stock.price}</div>
+                <div className={`text-xs font-bold mt-0.5 nums ${stock.change_pct >= 0 ? 'text-bull' : 'text-bear'}`}>
                   {stock.change_pct > 0 ? '+' : ''}{stock.change_pct}%
                 </div>
               </div>
             </Link>
           ))}
           {(!selectedIndustry.top_stocks || selectedIndustry.top_stocks.length === 0) && (
-            <div className="text-center py-6 text-gray-500 text-sm">
-              無代表標的資料
-            </div>
+            <div className="text-center py-6 text-ink-3 text-sm">無代表標的資料</div>
           )}
         </div>
       </div>
-      
-      <div className="p-3 bg-blue-900/20 border border-blue-800/30 rounded-lg">
-        <p className="text-xs text-blue-200 leading-relaxed">
-          <strong>分析提示：</strong> 若某產業的「資金佔比」連續幾日放大，且「平均漲幅」維持正值，代表法人與熱錢正積極流入該板塊，是短波段操作的首選目標。反之若資金佔比極高但漲勢停滯，需留意高檔出貨風險。
+
+      <div className="p-3 bg-brand-muted border border-brand/20 rounded-lg">
+        <p className="text-xs text-ink-2 leading-relaxed">
+          <strong className="text-brand">分析提示：</strong> 若某產業的「資金佔比」連續幾日放大，且「平均漲幅」維持正值，代表法人與熱錢正積極流入該板塊，是短波段操作的首選目標。
         </p>
       </div>
     </>
   ) : null;
 
   return (
-    <div ref={containerRef} className="space-y-6 animate-fade-in pb-20">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div ref={containerRef} className="space-y-5 pb-20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="p-2 bg-blue-500/20 rounded-lg">
-              <Layers className="text-blue-400 w-6 h-6" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-              資金流向板塊 (Heatmap)
-            </h1>
+          <div className="flex items-center gap-2 mb-1">
+            <Layers size={18} className="text-ink-3" />
+            <h1 className="text-xl font-bold text-ink-1">資金流向板塊</h1>
           </div>
-          <p className="text-gray-400 text-sm">
-            掌握台股熱錢動向，尋找資金匯聚的核心主流產業。色塊大小代表成交比重，顏色深淺代表平均漲跌幅。
-          </p>
+          <p className="text-ink-3 text-sm">色塊大小代表成交比重，顏色深淺代表平均漲跌幅</p>
         </div>
-        
         {lastUpdated && (
-          <div className="flex items-center text-xs text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-700/50 w-fit">
-            <RefreshCw size={12} className="mr-1.5" />
+          <div className="flex items-center gap-1.5 text-xs text-ink-3 bg-overlay px-3 py-1.5 rounded-full border border-line w-fit">
+            <RefreshCw size={11} />
             資料時間：{lastUpdated}
           </div>
         )}
@@ -196,9 +180,9 @@ const CapitalFlowHeatmap = () => {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Heatmap Section */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-gray-800/40 rounded-2xl border border-gray-700/50 p-4 sm:p-5">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-              <Flame className="w-5 h-5 text-orange-400 mr-2" />
+          <div className="card p-4 sm:p-5">
+            <h2 className="font-semibold text-ink-1 mb-4 flex items-center gap-2">
+              <Flame size={16} className="text-bull" />
               產業熱力圖
             </h2>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-2 auto-rows-min">
@@ -210,7 +194,7 @@ const CapitalFlowHeatmap = () => {
                     cursor-pointer rounded-xl border p-3 flex flex-col justify-between gsap-heatmap-block transition-colors duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20 hover:z-10 relative overflow-hidden
                     ${getBlockColor(ind.avg_change_pct)}
                     ${getBlockSize(ind.value_ratio)}
-                    ${selectedIndustry?.industry === ind.industry ? 'ring-2 ring-white shadow-[0_0_15px_rgba(255,255,255,0.3)]' : ''}
+                    ${selectedIndustry?.industry === ind.industry ? 'ring-2 ring-white/60' : ''}
                   `}
                 >
                   <div className="relative z-10">
@@ -233,26 +217,25 @@ const CapitalFlowHeatmap = () => {
               ))}
             </div>
             
-            {/* Legend */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-400">
-              <span>跌</span>
-              <div className="w-4 h-4 bg-green-600 rounded"></div>
-              <div className="w-4 h-4 bg-green-500/80 rounded"></div>
-              <div className="w-4 h-4 bg-green-400/50 rounded"></div>
-              <div className="w-4 h-4 bg-gray-700 rounded mx-1"></div>
-              <div className="w-4 h-4 bg-red-400/50 rounded"></div>
-              <div className="w-4 h-4 bg-red-500/80 rounded"></div>
-              <div className="w-4 h-4 bg-red-600 rounded"></div>
-              <span>漲</span>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-ink-3">
+              <span>空</span>
+              <div className="w-3.5 h-3.5 bg-green-600 rounded"></div>
+              <div className="w-3.5 h-3.5 bg-green-500/70 rounded"></div>
+              <div className="w-3.5 h-3.5 bg-green-400/40 rounded"></div>
+              <div className="w-3.5 h-3.5 bg-line rounded mx-1"></div>
+              <div className="w-3.5 h-3.5 bg-red-400/40 rounded"></div>
+              <div className="w-3.5 h-3.5 bg-red-500/70 rounded"></div>
+              <div className="w-3.5 h-3.5 bg-red-600 rounded"></div>
+              <span>多</span>
             </div>
           </div>
         </div>
 
-        {/* Selected Industry Detail Section (Desktop) */}
-        <div className="hidden lg:block lg:col-span-1 space-y-4">
-          <div className="bg-gray-800/40 rounded-2xl border border-gray-700/50 p-4 sm:p-5 sticky top-20">
+        {/* Desktop sidebar */}
+        <div className="hidden lg:block lg:col-span-1">
+          <div className="card p-4 sm:p-5 sticky top-20">
             {selectedIndustry ? industryDetailsContent : (
-              <div className="text-center py-10 text-gray-500">
+              <div className="text-center py-10 text-ink-3 text-sm">
                 點擊左側熱力圖查看產業細節
               </div>
             )}
@@ -260,12 +243,15 @@ const CapitalFlowHeatmap = () => {
         </div>
       </div>
 
-      {/* Selected Industry Modal (Mobile) */}
+      {/* Mobile modal */}
       <div className={`lg:hidden fixed inset-0 z-50 flex items-center justify-center p-4 ${selectedIndustry ? 'visible' : 'invisible'}`}>
-        <div className="gsap-modal-overlay absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedIndustry(null)}></div>
-        <div className="gsap-modal-content bg-gray-900 rounded-2xl border border-gray-700 p-5 relative z-10 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl">
-          <button onClick={() => setSelectedIndustry(null)} className="absolute top-4 right-4 text-gray-400 hover:text-white p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors">
-            <X size={20} />
+        <div className="gsap-modal-overlay absolute inset-0 bg-black/50" onClick={() => setSelectedIndustry(null)} />
+        <div className="gsap-modal-content card p-5 relative z-10 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-card-lg">
+          <button
+            onClick={() => setSelectedIndustry(null)}
+            className="absolute top-4 right-4 p-1.5 text-ink-3 hover:text-ink-1 bg-overlay hover:bg-line rounded-lg transition-colors"
+          >
+            <X size={16} />
           </button>
           {industryDetailsContent}
         </div>

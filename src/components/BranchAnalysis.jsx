@@ -27,19 +27,19 @@ const BranchAnalysis = ({ stockId, stockName }) => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl min-h-[400px]">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4"></div>
-        <p className="text-gray-400">正在獲取最新分點籌碼數據...</p>
+      <div className="card p-12 flex flex-col items-center justify-center min-h-[300px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent mb-4"></div>
+        <p className="text-ink-3 text-sm">正在獲取最新分點籌碼數據...</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl min-h-[400px]">
-        <AlertCircle className="w-12 h-12 text-gray-500 mb-4" />
-        <p className="text-gray-400 text-lg font-bold">無法載入分點籌碼資料</p>
-        <p className="text-gray-500 text-sm mt-2">{error || '今日可能尚未有交易或資料尚未更新'}</p>
+      <div className="card p-12 flex flex-col items-center justify-center min-h-[300px]">
+        <AlertCircle className="w-10 h-10 text-ink-3 mb-3" />
+        <p className="text-ink-2 font-semibold">無法載入分點籌碼資料</p>
+        <p className="text-ink-3 text-sm mt-1">{error || '今日可能尚未有交易或資料尚未更新'}</p>
       </div>
     );
   }
@@ -47,40 +47,38 @@ const BranchAnalysis = ({ stockId, stockName }) => {
   const { buy_branches, sell_branches } = data;
 
   return (
-    <div className="space-y-6">
-      <div className="bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-6 shadow-2xl">
-        <div className="flex items-center space-x-2 mb-6 text-gray-300">
-          <Users size={24} className="text-blue-400" />
-          <h2 className="text-xl font-bold">分點主力進出排行榜 (張)</h2>
+    <div className="space-y-5">
+      <div className="card p-4 sm:p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Users size={15} className="text-ink-3" />
+          <h2 className="font-semibold text-ink-1">分點主力進出排行榜（張）</h2>
         </div>
-        
-        <div className="grid lg:grid-cols-2 gap-8">
+
+        <div className="grid lg:grid-cols-2 gap-4">
           {/* Buy Branches */}
-          <div className="bg-gray-900/50 rounded-xl border border-gray-700 overflow-hidden">
-            <div className="bg-red-900/20 border-b border-red-900/50 p-3 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="text-red-400 w-5 h-5" />
-                <h3 className="text-red-400 font-bold">買方主力 (Top 15)</h3>
-              </div>
+          <div className="overflow-hidden rounded-xl border border-line">
+            <div className="bg-bull-muted border-b border-bull/20 p-2.5 flex items-center gap-2">
+              <TrendingUp size={14} className="text-bull" />
+              <h3 className="text-bull text-sm font-semibold">買方主力 Top 15</h3>
             </div>
-            <div className="overflow-x-auto pb-2 custom-scrollbar">
-              <table style={{ minWidth: 500 }} className="w-full text-sm text-left text-gray-300">
-                <thead className="text-xs text-gray-500 bg-gray-800/50 uppercase border-b border-gray-700">
+            <div className="overflow-x-auto">
+              <table style={{ minWidth: 360 }} className="w-full text-sm text-left">
+                <thead className="bg-overlay">
                   <tr>
-                    <th className="px-4 py-3">券商分點</th>
-                    <th className="px-4 py-3 text-right">買超張數</th>
-                    <th className="px-4 py-3 text-right">買均價</th>
+                    <th className="px-3 py-2 text-ink-3 text-xs font-medium">券商分點</th>
+                    <th className="px-3 py-2 text-ink-3 text-xs font-medium text-right">買超張數</th>
+                    <th className="px-3 py-2 text-ink-3 text-xs font-medium text-right">均價</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-line">
                   {buy_branches.length === 0 ? (
-                    <tr><td colSpan="3" className="text-center py-4 text-gray-500">無資料</td></tr>
+                    <tr><td colSpan="3" className="text-center py-4 text-ink-3 text-sm">無資料</td></tr>
                   ) : (
                     buy_branches.map((branch, idx) => (
-                      <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-200">{branch.name}</td>
-                        <td className="px-4 py-3 text-right text-red-400 font-bold">+{branch.net_buy.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right text-gray-400">{branch.price.toFixed(2)}</td>
+                      <tr key={idx} className="hover:bg-overlay transition-colors">
+                        <td className="px-3 py-2.5 text-ink-1 text-sm">{branch.name}</td>
+                        <td className="px-3 py-2.5 text-right text-bull font-semibold text-sm nums">+{branch.net_buy.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-right text-ink-3 text-sm nums">{branch.price.toFixed(2)}</td>
                       </tr>
                     ))
                   )}
@@ -90,31 +88,29 @@ const BranchAnalysis = ({ stockId, stockName }) => {
           </div>
 
           {/* Sell Branches */}
-          <div className="bg-gray-900/50 rounded-xl border border-gray-700 overflow-hidden">
-            <div className="bg-green-900/20 border-b border-green-900/50 p-3 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <TrendingDown className="text-green-400 w-5 h-5" />
-                <h3 className="text-green-400 font-bold">賣方主力 (Top 15)</h3>
-              </div>
+          <div className="overflow-hidden rounded-xl border border-line">
+            <div className="bg-bear-muted border-b border-bear/20 p-2.5 flex items-center gap-2">
+              <TrendingDown size={14} className="text-bear" />
+              <h3 className="text-bear text-sm font-semibold">賣方主力 Top 15</h3>
             </div>
-            <div className="overflow-x-auto pb-2 custom-scrollbar">
-              <table style={{ minWidth: 500 }} className="w-full text-sm text-left text-gray-300">
-                <thead className="text-xs text-gray-500 bg-gray-800/50 uppercase border-b border-gray-700">
+            <div className="overflow-x-auto">
+              <table style={{ minWidth: 360 }} className="w-full text-sm text-left">
+                <thead className="bg-overlay">
                   <tr>
-                    <th className="px-4 py-3">券商分點</th>
-                    <th className="px-4 py-3 text-right">賣超張數</th>
-                    <th className="px-4 py-3 text-right">賣均價</th>
+                    <th className="px-3 py-2 text-ink-3 text-xs font-medium">券商分點</th>
+                    <th className="px-3 py-2 text-ink-3 text-xs font-medium text-right">賣超張數</th>
+                    <th className="px-3 py-2 text-ink-3 text-xs font-medium text-right">均價</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-line">
                   {sell_branches.length === 0 ? (
-                    <tr><td colSpan="3" className="text-center py-4 text-gray-500">無資料</td></tr>
+                    <tr><td colSpan="3" className="text-center py-4 text-ink-3 text-sm">無資料</td></tr>
                   ) : (
                     sell_branches.map((branch, idx) => (
-                      <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-200">{branch.name}</td>
-                        <td className="px-4 py-3 text-right text-green-400 font-bold">{branch.net_buy.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right text-gray-400">{branch.price.toFixed(2)}</td>
+                      <tr key={idx} className="hover:bg-overlay transition-colors">
+                        <td className="px-3 py-2.5 text-ink-1 text-sm">{branch.name}</td>
+                        <td className="px-3 py-2.5 text-right text-bear font-semibold text-sm nums">{branch.net_buy.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-right text-ink-3 text-sm nums">{branch.price.toFixed(2)}</td>
                       </tr>
                     ))
                   )}

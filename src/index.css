@@ -2,21 +2,135 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* ─── Design Tokens ──────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Light mode */
+    --canvas:       220 20% 97%;   /* page bg    #F5F7FA */
+    --panel:        0 0% 100%;     /* card bg    #FFFFFF */
+    --overlay:      220 16% 94%;   /* hover/alt  #ECEEF3 */
+    --line:         220 14% 88%;   /* border     #D9DCE6 */
+    --ink-1:        222 47% 11%;   /* text main  #0E1726 */
+    --ink-2:        220 12% 45%;   /* text sub   #67717F */
+    --ink-3:        220 10% 63%;   /* text muted #9AA0AD */
+    --brand:        221 83% 53%;   /* accent     #2563EB */
+    --brand-muted:  214 100% 96%;  /* tint bg    #EBF3FF */
+    --brand-fg:     0 0% 100%;     /* on brand   #FFFFFF */
+    --bull:         0 72% 51%;     /* up/多      #DC1F1F */
+    --bear:         142 64% 38%;   /* down/空    #23894A */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  .dark {
+    /* Dark mode — deep navy, not generic gray */
+    --canvas:       224 22% 8%;    /* page bg    #0F1220 */
+    --panel:        226 20% 12%;   /* card bg    #171B2A */
+    --overlay:      226 16% 17%;   /* hover/alt  #20263A */
+    --line:         226 13% 24%;   /* border     #2E3549 */
+    --ink-1:        220 18% 92%;   /* text main  #E5E8F0 */
+    --ink-2:        220 11% 62%;   /* text sub   #93A0B5 */
+    --ink-3:        220 9% 40%;    /* text muted #5B6479 */
+    --brand:        213 94% 68%;   /* accent     #60AAFD */
+    --brand-muted:  215 40% 22%;   /* tint bg    #243354 */
+    --brand-fg:     0 0% 100%;     /* on brand   #FFFFFF */
+    --bull:         0 88% 68%;     /* up/多      #F55454 */
+    --bear:         142 70% 50%;   /* down/空    #28D95E */
+  }
+
+  body {
+    background-color: hsl(var(--canvas));
+    color: hsl(var(--ink-1));
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Global scroll */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--line));
+    border-radius: 9999px;
+  }
 }
 
-body {
-  @apply bg-gray-900 text-white antialiased;
+/* ─── Semantic utility classes ───────────────────────────────── */
+@layer utilities {
+  .bg-canvas  { background-color: hsl(var(--canvas)); }
+  .bg-panel   { background-color: hsl(var(--panel)); }
+  .bg-overlay { background-color: hsl(var(--overlay)); }
+
+  .border-line { border-color: hsl(var(--line)); }
+  .divide-line > * + * { border-color: hsl(var(--line)); }
+
+  .text-ink-1  { color: hsl(var(--ink-1)); }
+  .text-ink-2  { color: hsl(var(--ink-2)); }
+  .text-ink-3  { color: hsl(var(--ink-3)); }
+  .text-brand  { color: hsl(var(--brand)); }
+  .bg-brand    { background-color: hsl(var(--brand)); }
+  .bg-brand-muted { background-color: hsl(var(--brand-muted)); }
+  .border-brand { border-color: hsl(var(--brand)); }
+  .text-bull   { color: hsl(var(--bull)); }
+  .text-bear   { color: hsl(var(--bear)); }
+  .bg-bull-muted { background-color: hsl(var(--bull) / 0.12); }
+  .bg-bear-muted { background-color: hsl(var(--bear) / 0.12); }
+
+  /* Reusable card shell */
+  .card {
+    background-color: hsl(var(--panel));
+    border: 1px solid hsl(var(--line));
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
+  }
+
+  /* Tabular numbers for financial data */
+  .nums { font-variant-numeric: tabular-nums; }
 }
+
+/* ─── Global compat: pages not individually re-themed ───────── */
+/* Light mode overrides for components still using gray-* classes */
+:root:not(.dark) .bg-gray-900,
+:root:not(.dark) .bg-gray-950 { background-color: hsl(var(--canvas)) !important; }
+
+:root:not(.dark) .bg-gray-800   { background-color: hsl(var(--panel))   !important; }
+:root:not(.dark) .bg-gray-700   { background-color: hsl(var(--overlay)) !important; }
+
+/* Opacity variants — Tailwind escapes the slash as \/ in the selector */
+:root:not(.dark) .bg-gray-900\/80,
+:root:not(.dark) .bg-gray-900\/60 { background-color: hsl(var(--canvas) / 0.95) !important; }
+:root:not(.dark) .bg-gray-800\/80,
+:root:not(.dark) .bg-gray-800\/70,
+:root:not(.dark) .bg-gray-800\/60,
+:root:not(.dark) .bg-gray-800\/50 { background-color: hsl(var(--panel))   !important; }
+:root:not(.dark) .bg-gray-700\/50,
+:root:not(.dark) .bg-gray-700\/30 { background-color: hsl(var(--overlay) / 0.7) !important; }
+:root:not(.dark) .bg-black\/50    { background-color: hsl(var(--overlay)) !important; }
+
+:root:not(.dark) .border-gray-700,
+:root:not(.dark) .border-gray-700\/50,
+:root:not(.dark) .border-gray-700\/40,
+:root:not(.dark) .border-gray-800  { border-color: hsl(var(--line)) !important; }
+
+:root:not(.dark) .divide-gray-700 > * + *,
+:root:not(.dark) .divide-gray-800 > * + * { border-color: hsl(var(--line)) !important; }
+
+:root:not(.dark) .text-white    { color: hsl(var(--ink-1)) !important; }
+:root:not(.dark) .text-gray-100 { color: hsl(var(--ink-1)) !important; }
+:root:not(.dark) .text-gray-200 { color: hsl(var(--ink-1)) !important; }
+:root:not(.dark) .text-gray-300 { color: hsl(var(--ink-2)) !important; }
+:root:not(.dark) .text-gray-400 { color: hsl(var(--ink-2)) !important; }
+:root:not(.dark) .text-gray-500 { color: hsl(var(--ink-3)) !important; }
+:root:not(.dark) .text-gray-600 { color: hsl(var(--ink-3)) !important; }
+
+/* Preserve brand/status colors */
+:root:not(.dark) .text-blue-400  { color: hsl(var(--brand)) !important; }
+:root:not(.dark) .text-cyan-400  { color: hsl(var(--brand)) !important; }
+:root:not(.dark) .text-blue-300  { color: hsl(var(--brand)) !important; }
+
+/* Hover states need the same pattern */
+:root:not(.dark) .hover\:bg-gray-700:hover,
+:root:not(.dark) .hover\:bg-gray-800:hover { background-color: hsl(var(--overlay)) !important; }
+:root:not(.dark) .hover\:bg-gray-700\/30:hover { background-color: hsl(var(--overlay) / 0.7) !important; }

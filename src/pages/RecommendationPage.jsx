@@ -85,27 +85,24 @@ const RecommendationPage = () => {
     <div ref={containerRef} className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{titles[type] || '股票推薦'}</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            系統每3分鐘自動更新指標，由雲端資料庫直接提供。
-          </p>
+          <h1 className="text-xl font-bold text-ink-1">{titles[type] || '股票推薦'}</h1>
+          <p className="text-ink-3 text-sm mt-0.5">系統每 3 分鐘自動更新，由雲端資料庫提供</p>
         </div>
         
-        {/* 排序控制區 */}
         {!loading && stocks.length > 0 && (
-          <div className="flex items-center space-x-2 bg-gray-800 p-1.5 rounded-lg border border-gray-700">
-            <select 
-              value={sortBy} 
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-gray-900 text-sm text-gray-200 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:border-cyan-500"
+          <div className="flex items-center gap-2 bg-panel border border-line p-1 rounded-lg">
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              className="bg-overlay border border-line text-sm text-ink-1 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand/30"
             >
               <option value="score">依分數</option>
               <option value="price">依股價</option>
             </select>
-            <select 
-              value={sortOrder} 
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="bg-gray-900 text-sm text-gray-200 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:border-cyan-500"
+            <select
+              value={sortOrder}
+              onChange={e => setSortOrder(e.target.value)}
+              className="bg-overlay border border-line text-sm text-ink-1 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand/30"
             >
               <option value="desc">由高到低</option>
               <option value="asc">由低到高</option>
@@ -117,16 +114,16 @@ const RecommendationPage = () => {
       {loading ? (
         <ProgressLoader text="正在從資料庫同步最新推薦策略..." />
       ) : sortedStocks.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {sortedStocks.map((stock, index) => (
             <StockCard key={stock.stock_id || index} stock={stock} type={type} />
           ))}
         </div>
       ) : (
-        <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl p-20 text-center border border-dashed border-gray-700/60">
+        <div className="card p-20 text-center border-dashed">
           <div className="text-4xl mb-4">📭</div>
-          <p className="text-gray-400 font-medium">暫無符合條件的標的</p>
-          <p className="text-gray-600 text-sm mt-1">系統每 3 分鐘自動更新，稍後請重新整理</p>
+          <p className="text-ink-2 font-medium">暫無符合條件的標的</p>
+          <p className="text-ink-3 text-sm mt-1">系統每 3 分鐘自動更新，稍後請重新整理</p>
         </div>
       )}
     </div>

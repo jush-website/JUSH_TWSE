@@ -1,231 +1,221 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Activity, Home, TrendingUp, BarChart2, Menu, X, ChevronDown, ChevronRight, Flame } from 'lucide-react';
+import {
+  Search, Activity, Home, TrendingUp, BarChart2,
+  Menu, X, Flame, Globe, ChevronDown,
+} from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 
-// 前端即時計算市場狀態（不依賴 Firebase）
 const getLocalMarketStatus = () => {
   const now = new Date();
-  const day = now.getDay(); // 0=日, 6=六
-  const h = now.getHours();
-  const m = now.getMinutes();
-  const totalMin = h * 60 + m;
-  if (day === 0 || day === 6) return { label: '週末休市', color: 'text-gray-400', dot: 'bg-gray-500' };
-  if (totalMin < 9 * 60) return { label: '盤前 (昨收數據)', color: 'text-yellow-400', dot: 'bg-yellow-500' };
-  if (totalMin < 13 * 60 + 30) return { label: '盤中 (即時行情)', color: 'text-green-400', dot: 'bg-green-500' };
-  if (totalMin < 14 * 60) return { label: '盤後 (收盤穩衝中)', color: 'text-orange-400', dot: 'bg-orange-500' };
-  return { label: '盤後 (今日收盤)', color: 'text-blue-400', dot: 'bg-blue-500' };
+  const day = now.getDay();
+  const total = now.getHours() * 60 + now.getMinutes();
+  if (day === 0 || day === 6)  return { label: '週末休市',        dot: 'bg-ink-3',    text: 'text-ink-3' };
+  if (total < 9 * 60)          return { label: '盤前',            dot: 'bg-yellow-500', text: 'text-yellow-600 dark:text-yellow-400' };
+  if (total < 13 * 60 + 30)   return { label: '盤中 · 即時',     dot: 'bg-bear',       text: 'text-bear' };
+  if (total < 14 * 60)        return { label: '盤後收盤中',       dot: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400' };
+  return                              { label: '今日收盤',         dot: 'bg-brand',      text: 'text-brand' };
 };
+
+const NAV_LINKS = [
+  { path: '/',              label: '首頁',    icon: Home },
+  { path: '/capital-flow', label: '資金流向', icon: Flame },
+  { path: '/analyze',      label: '個股分析', icon: Search },
+  { path: '/macro',        label: '總體經濟', icon: Globe },
+  { path: '/derivatives',  label: '期權籌碼', icon: TrendingUp },
+];
+
+const STRATEGIES = [
+  { path: '/recommendations/short-term',    label: '短線極佳' },
+  { path: '/recommendations/overnight',     label: '隔日沖' },
+  { path: '/recommendations/burst',         label: '強勢爆發' },
+  { path: '/recommendations/day-trade-cdp', label: '當沖 CDP' },
+  { path: '/recommendations/bottom',        label: '抄底' },
+  { path: '/recommendations/long-term',     label: '長期精選' },
+];
 
 const Navbar = React.forwardRef(({ status }, ref) => {
   const [query, setQuery] = useState('');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMobileStrategiesOpen, setIsMobileStrategiesOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [stratOpen, setStratOpen] = useState(false);
   const [marketStatus, setMarketStatus] = useState(getLocalMarketStatus());
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  // 每分鐘更新市場狀態
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMarketStatus(getLocalMarketStatus());
-    }, 60000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setMarketStatus(getLocalMarketStatus()), 60000);
+    return () => clearInterval(t);
   }, []);
+
+  // Close dropdown on route change
+  useEffect(() => { setMobileOpen(false); setStratOpen(false); }, [location.pathname]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (query.trim()) {
-      navigate(`/analyze/${query}`);
-      setQuery('');
-      setIsMobileMenuOpen(false);
-    }
+    if (query.trim()) { navigate(`/analyze/${query.trim()}`); setQuery(''); }
   };
 
-  const strategies = [
-    { path: '/recommendations/short-term', label: '短線' },
-    { path: '/recommendations/overnight', label: '隔日沖' },
-    { path: '/recommendations/burst', label: '爆發' },
-    { path: '/recommendations/day-trade-cdp', label: '當沖' },
-    { path: '/recommendations/bottom', label: '抄底' },
-    { path: '/recommendations/long-term', label: '長期' }
-  ];
+  const isActive = (path) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
+  const linkCls = (path) =>
+    `flex items-center gap-1.5 text-sm font-medium px-2.5 py-1.5 rounded-md transition-colors duration-150 ${
+      isActive(path)
+        ? 'bg-brand-muted text-brand'
+        : 'text-ink-2 hover:text-ink-1 hover:bg-overlay'
+    }`;
 
   return (
-    <nav ref={ref} className="sticky top-0 z-50 w-full backdrop-blur-xl bg-gray-900/80 border-b border-white/10 transition-colors duration-300 shadow-2xl">
-      <div className="container mx-auto px-4 lg:px-8 py-3">
-        <div className="flex items-center justify-between">
-          
-          {/* Logo Section */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="bg-gradient-to-br from-blue-500 to-cyan-400 p-2 rounded-xl group-hover:scale-105 transition-transform duration-300 shadow-lg shadow-blue-500/20">
-              <TrendingUp size={24} className="text-white" />
+    <nav
+      ref={ref}
+      className="sticky top-0 z-50 bg-panel/90 backdrop-blur-md border-b border-line transition-colors duration-300"
+    >
+      <div className="container mx-auto px-4 max-w-7xl">
+        <div className="flex items-center justify-between h-14">
+
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
+              <TrendingUp size={14} className="text-brand-fg" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-200">
+            <span className="font-bold text-base text-ink-1 tracking-tight hidden sm:block">
               台股偵測系統
             </span>
           </Link>
-          
-          {/* Desktop Menu */}
-          <div className="hidden lg:flex items-center space-x-4 xl:space-x-6">
-            <Link 
-              to="/" 
-              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname === '/' ? 'text-cyan-400' : 'text-gray-300'}`}
-            >
-              <Home size={16} />
-              <span className="text-sm">首頁</span>
-            </Link>
 
-            <Link 
-              to="/capital-flow" 
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
-                location.pathname === '/capital-flow' ? 'bg-orange-500/20 text-orange-400 font-bold shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'hover:bg-gray-800 text-gray-300'
-              }`}
-            >
-              <Flame size={16} />
-              <span className="text-sm">資金流向</span>
-            </Link>
+          {/* Desktop Nav */}
+          <div className="hidden lg:flex items-center gap-0.5">
+            {NAV_LINKS.map(({ path, label }) => (
+              <Link key={path} to={path} className={linkCls(path)}>
+                {label}
+              </Link>
+            ))}
 
-            <div className="h-4 w-px bg-white/20 mx-1"></div>
-            
-            <Link 
-              to="/analyze" 
-              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname.includes('/analyze') ? 'text-cyan-400' : 'text-gray-300'}`}
-            >
-              <Search size={16} />
-              <span className="text-sm">個股分析</span>
-            </Link>
-
-            <div className="h-4 w-px bg-white/20 mx-1"></div>
-
-            <Link 
-              to="/macro" 
-              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname === '/macro' ? 'text-cyan-400' : 'text-gray-300'}`}
-            >
-              <Activity size={16} />
-              <span className="text-sm">總體經濟</span>
-            </Link>
-
-            <Link 
-              to="/derivatives" 
-              className={`flex items-center space-x-1.5 font-medium transition-all duration-200 hover:text-cyan-400 ${location.pathname === '/derivatives' ? 'text-cyan-400' : 'text-gray-300'}`}
-            >
-              <TrendingUp size={16} />
-              <span className="text-sm">期權籌碼</span>
-            </Link>
-
-            <div className="h-4 w-px bg-white/20 mx-1"></div>
-
-            <Link to="/recommendations/short-term" className={`text-sm font-medium transition-colors hover:text-blue-400 ${location.pathname.includes('short-term') ? 'text-blue-400' : 'text-gray-300'}`}>短線</Link>
-            <Link to="/recommendations/overnight" className={`text-sm font-medium transition-colors hover:text-purple-400 ${location.pathname.includes('overnight') ? 'text-purple-400' : 'text-gray-300'}`}>隔日沖</Link>
-            <Link to="/recommendations/burst" className={`text-sm font-medium transition-colors hover:text-orange-400 ${location.pathname.includes('burst') ? 'text-orange-400' : 'text-gray-300'}`}>爆發</Link>
-            <Link to="/recommendations/day-trade-cdp" className={`text-sm font-medium transition-colors hover:text-pink-400 ${location.pathname.includes('day-trade-cdp') ? 'text-pink-400' : 'text-gray-300'}`}>當沖</Link>
-            <Link to="/recommendations/bottom" className={`text-sm font-medium transition-colors hover:text-emerald-400 ${location.pathname.includes('bottom') ? 'text-emerald-400' : 'text-gray-300'}`}>抄底</Link>
-            <Link to="/recommendations/long-term" className={`text-sm font-medium transition-colors hover:text-indigo-400 ${location.pathname.includes('long-term') ? 'text-indigo-400' : 'text-gray-300'}`}>長期</Link>
+            {/* Strategies dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setStratOpen(o => !o)}
+                className={`flex items-center gap-1.5 text-sm font-medium px-2.5 py-1.5 rounded-md transition-colors duration-150 ${
+                  location.pathname.includes('/recommendations')
+                    ? 'bg-brand-muted text-brand'
+                    : 'text-ink-2 hover:text-ink-1 hover:bg-overlay'
+                }`}
+              >
+                <BarChart2 size={14} />
+                策略選股
+                <ChevronDown size={12} className={`transition-transform duration-150 ${stratOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {stratOpen && (
+                <div className="absolute top-full left-0 mt-1.5 w-40 bg-panel border border-line rounded-xl shadow-card-lg overflow-hidden z-50">
+                  {STRATEGIES.map(({ path, label }) => (
+                    <Link
+                      key={path}
+                      to={path}
+                      className={`block px-3.5 py-2.5 text-sm transition-colors ${
+                        location.pathname === path
+                          ? 'bg-brand-muted text-brand font-medium'
+                          : 'text-ink-2 hover:bg-overlay hover:text-ink-1'
+                      }`}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right Section: Search & Status */}
-          <div className="hidden lg:flex items-center space-x-6">
-            <form onSubmit={handleSearch} className="relative group">
+          {/* Right: search + status + theme */}
+          <div className="hidden lg:flex items-center gap-3">
+            <form onSubmit={handleSearch} className="relative">
               <input
                 type="text"
-                placeholder="輸入代號或名稱..."
-                className="bg-gray-800/50 border border-gray-700/50 rounded-full py-2 pl-11 pr-5 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:bg-gray-800 transition-all duration-300 w-48 focus:w-64"
+                placeholder="代號或名稱..."
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={e => setQuery(e.target.value)}
+                className="bg-overlay border border-line rounded-lg py-1.5 pl-8 pr-3 text-sm text-ink-1 placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand w-40 focus:w-52 transition-all duration-200"
               />
-              <Search className="absolute left-4 top-2.5 text-gray-400 group-focus-within:text-cyan-400 transition-colors" size={16} />
+              <Search className="absolute left-2.5 top-2 text-ink-3" size={14} />
             </form>
 
-            {(
-              <div className="flex flex-col border-l border-white/10 pl-5">
-                <div className="flex items-center space-x-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${marketStatus.dot} opacity-75`}></span>
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus.dot}`}></span>
-                  </span>
-                  <span className={`text-xs font-semibold tracking-wide ${marketStatus.color}`}>{marketStatus.label}</span>
-                </div>
-                <span className="text-[10px] text-gray-500 font-mono mt-0.5">
-                  {status?.last_sync ? `更新: ${status.last_sync}` : '同步中...'}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile Status & Menu Toggle */}
-          <div className="lg:hidden flex items-center space-x-2">
-            <div className="flex flex-col items-end mr-1">
-              <div className="flex items-center space-x-1.5">
-                <span className={`text-[10px] font-semibold ${marketStatus.color}`}>{marketStatus.label}</span>
+            {/* Market status */}
+            <div className="flex flex-col items-end border-l border-line pl-3">
+              <div className="flex items-center gap-1.5">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${marketStatus.dot} opacity-75`}></span>
-                  <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${marketStatus.dot}`}></span>
+                  <span className={`animate-ping absolute inset-0 rounded-full ${marketStatus.dot} opacity-60`} />
+                  <span className={`relative rounded-full h-1.5 w-1.5 ${marketStatus.dot}`} />
                 </span>
+                <span className={`text-xs font-semibold ${marketStatus.text}`}>{marketStatus.label}</span>
               </div>
-              <span className="text-[9px] text-gray-500 font-mono">
-                {status?.last_sync ? `更新: ${status.last_sync}` : '同步中...'}
+              <span className="text-[10px] text-ink-3 font-mono mt-0.5 leading-none">
+                {status?.last_sync ? `更新 ${status.last_sync}` : '同步中...'}
               </span>
             </div>
-            
-            <Link 
-              to="/capital-flow" 
-              className={`p-1 rounded-md transition-all ${location.pathname === '/capital-flow' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-white/5 text-gray-300 hover:text-orange-400 border border-white/5'}`}
-            >
-              <Flame size={20} />
-            </Link>
 
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-300 hover:text-white focus:outline-none p-1 border border-white/5 rounded-md bg-white/5">
-              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            <ThemeToggle />
+          </div>
+
+          {/* Mobile right */}
+          <div className="lg:hidden flex items-center gap-1.5">
+            <div className="flex flex-col items-end mr-1">
+              <div className="flex items-center gap-1">
+                <span className={`text-[10px] font-semibold ${marketStatus.text}`}>{marketStatus.label}</span>
+                <span className={`inline-flex rounded-full h-1.5 w-1.5 ${marketStatus.dot}`} />
+              </div>
+              <span className="text-[9px] text-ink-3 font-mono">
+                {status?.last_sync ? `更新 ${status.last_sync}` : '同步中...'}
+              </span>
+            </div>
+            <ThemeToggle />
+            <button
+              onClick={() => setMobileOpen(o => !o)}
+              className="p-2 rounded-lg text-ink-2 hover:text-ink-1 hover:bg-overlay transition-colors"
+            >
+              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu Drawer */}
-      <div className={`lg:hidden overflow-y-auto transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-[85vh] opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-4 pt-2 pb-6 space-y-4 bg-gray-900 border-t border-white/10">
-          <form onSubmit={handleSearch} className="relative w-full mt-4">
+      {/* Mobile drawer */}
+      <div className={`lg:hidden overflow-hidden transition-all duration-300 ${mobileOpen ? 'max-h-screen' : 'max-h-0'}`}>
+        <div className="border-t border-line bg-panel px-4 pt-3 pb-6 space-y-1">
+          <form onSubmit={handleSearch} className="relative mb-3">
             <input
               type="text"
-              placeholder="輸入代號或名稱..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl py-3 pl-11 pr-5 text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500"
+              placeholder="代號或名稱..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={e => setQuery(e.target.value)}
+              className="w-full bg-overlay border border-line rounded-xl py-2.5 pl-9 pr-4 text-sm text-ink-1 placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
             />
-            <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-3 text-ink-3" size={15} />
           </form>
 
-          <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><Home size={18} /><span>首頁</span></div>
-          </Link>
-          
-          <Link to="/analyze" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><Search size={18} /><span>個股診斷</span></div>
-          </Link>
+          {NAV_LINKS.map(({ path, label, icon: Icon }) => (
+            <Link
+              key={path}
+              to={path}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                isActive(path) ? 'bg-brand-muted text-brand' : 'text-ink-2 hover:bg-overlay hover:text-ink-1'
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+            </Link>
+          ))}
 
-          <Link to="/capital-flow" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><Flame size={18} className={location.pathname === '/capital-flow' ? "text-orange-400" : ""} /><span className={location.pathname === '/capital-flow' ? "text-orange-400 font-bold" : ""}>資金流向</span></div>
-          </Link>
-
-          <Link to="/macro" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><Activity size={18} className={location.pathname === '/macro' ? "text-cyan-400" : ""} /><span className={location.pathname === '/macro' ? "text-cyan-400 font-bold" : ""}>總體經濟</span></div>
-          </Link>
-
-          <Link to="/derivatives" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-gray-800 text-gray-300 font-medium">
-            <div className="flex items-center space-x-3"><TrendingUp size={18} className={location.pathname === '/derivatives' ? "text-cyan-400" : ""} /><span className={location.pathname === '/derivatives' ? "text-cyan-400 font-bold" : ""}>期權籌碼</span></div>
-          </Link>
-          
-          <div className="py-2">
-            <div className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-2">精選策略</div>
-            {strategies.map((item, idx) => (
-              <Link 
-                key={idx}
-                to={item.path} 
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-sm text-gray-300 hover:text-cyan-400 hover:bg-gray-800 transition-colors"
+          <div className="pt-2 pb-1">
+            <p className="px-3 mb-1 text-[10px] font-semibold text-ink-3 uppercase tracking-widest">策略選股</p>
+            {STRATEGIES.map(({ path, label }) => (
+              <Link
+                key={path}
+                to={path}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                  location.pathname === path ? 'bg-brand-muted text-brand font-medium' : 'text-ink-2 hover:bg-overlay hover:text-ink-1'
+                }`}
               >
-                <BarChart2 size={16} className="opacity-50" />
-                <span>{item.label}</span>
+                <BarChart2 size={15} className="opacity-50" />
+                {label}
               </Link>
             ))}
           </div>
@@ -235,4 +225,5 @@ const Navbar = React.forwardRef(({ status }, ref) => {
   );
 });
 
+Navbar.displayName = 'Navbar';
 export default Navbar;
