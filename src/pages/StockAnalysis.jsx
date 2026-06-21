@@ -197,7 +197,7 @@ const StockAnalysis = () => {
           </div>
 
           {activeTab === 'dashboard' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6"
+            <div className="gsap-tab-content space-y-4 sm:space-y-5">
               {/* Charts Section */}
               {data.chart_data && data.chart_data.length > 0 && (
                 <div className="w-full">
@@ -429,7 +429,7 @@ const StockAnalysis = () => {
 
 
           {activeTab === 'chips' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6"
+            <div className="gsap-tab-content space-y-4 sm:space-y-5">
               {(!data.chip_processed?.length && !data.margin_processed?.length && !data.shareholding_processed?.length) && (
                 <div className="card p-12 flex flex-col items-center justify-center text-center">
                   <Info className="w-10 h-10 text-ink-3 mb-3" />
@@ -589,7 +589,7 @@ const StockAnalysis = () => {
           )}
 
           {activeTab === 'fundamentals' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6"
+            <div className="gsap-tab-content space-y-4 sm:space-y-5">
               {(!data.revenue_data?.length && !data.financial_data?.length) && (
                 <div className="card p-12 flex flex-col items-center justify-center text-center">
                   <Info className="w-10 h-10 text-ink-3 mb-3" />
@@ -721,7 +721,7 @@ const StockAnalysis = () => {
           )}
 
           {activeTab === 'news' && (
-            <div className="gsap-tab-content space-y-4 sm:space-y-6"
+            <div className="gsap-tab-content space-y-4 sm:space-y-5">
               <div className="card p-4 sm:p-5">
                 <h2 className="font-semibold text-ink-1 mb-3">個股相關新聞</h2>
                 {data.news_data && data.news_data.length > 0 ? (
