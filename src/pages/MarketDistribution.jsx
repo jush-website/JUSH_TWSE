@@ -78,7 +78,7 @@ const MarketDistribution = () => {
         </div>
       </div>
 
-      <div className="card p-4 sm:p-6">
+      <div className="card p-3 sm:p-6 relative">
         <div className="relative h-[350px] sm:h-[440px] w-full mt-2 flex">
           <div className="w-10 sm:w-12 flex flex-col justify-between py-4 text-[10px] sm:text-xs text-ink-3 pr-2 sm:pr-3 text-right border-r border-line">
             {[4, 3, 2, 1, 0].map((line) => (
@@ -157,8 +157,9 @@ const MarketDistribution = () => {
         </div>
 
         {/* Click instruction hint */}
-        <div className="absolute top-4 right-4 text-[10px] font-medium text-brand bg-brand-muted px-2.5 py-1 rounded-full border border-brand/20">
-          點擊長條查看標的
+        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 text-[9px] sm:text-[10px] font-medium text-brand bg-brand-muted px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border border-brand/20 whitespace-nowrap pointer-events-none">
+          <span className="hidden sm:inline">點擊長條查看標的</span>
+          <span className="sm:hidden">點擊查看</span>
         </div>
 
         {selectedBucket && selectedBucket.count > 0 && (

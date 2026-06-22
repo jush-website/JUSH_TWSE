@@ -88,6 +88,23 @@
 
   /* Tabular numbers for financial data */
   .nums { font-variant-numeric: tabular-nums; }
+
+  /* Scrollbar variants used by horizontally-scrolling rails/charts */
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  .custom-scrollbar { scrollbar-width: thin; }
+  .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--line));
+    border-radius: 9999px;
+  }
+}
+
+/* ─── Mobile safety: prevent long strings from blowing layout ─── */
+@media (max-width: 640px) {
+  html, body { overflow-x: hidden; }
+  body { word-break: break-word; overflow-wrap: anywhere; }
 }
 
 /* ─── Global compat: pages not individually re-themed ───────── */

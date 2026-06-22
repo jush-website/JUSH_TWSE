@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { ThemeProvider } from './context/ThemeContext';
+import { FontSizeProvider } from './context/FontSizeContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import RecommendationPage from './pages/RecommendationPage';
@@ -75,11 +76,12 @@ function App() {
 
   return (
     <ThemeProvider>
+      <FontSizeProvider>
       <ErrorBoundary>
         <Router>
           <div ref={appRef} className="min-h-screen bg-canvas text-ink-1 font-sans">
             <Navbar ref={navRef} status={status} />
-            <main ref={mainRef} className="container mx-auto px-4 py-6 max-w-7xl">
+            <main ref={mainRef} className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-7xl">
               <Suspense fallback={
                 <div className="text-center py-20 text-ink-3 text-sm">載入中...</div>
               }>
@@ -97,6 +99,7 @@ function App() {
           </div>
         </Router>
       </ErrorBoundary>
+      </FontSizeProvider>
     </ThemeProvider>
   );
 }

@@ -78,8 +78,8 @@ const MacroDashboard = () => {
               <p className="text-xs mt-1 text-ink-3">請稍後再試或檢查網路</p>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-72 overflow-y-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto custom-scrollbar max-h-72 overflow-y-auto -mx-1">
+              <table className="w-full text-left text-sm min-w-[420px]">
                 <thead className="bg-overlay sticky top-0">
                   <tr>
                     <th className="p-2.5 text-ink-3 font-medium text-xs">日期</th>
@@ -115,8 +115,8 @@ const MacroDashboard = () => {
               <p className="text-xs mt-1 text-ink-3">請稍後再試或檢查網路</p>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-72 overflow-y-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto custom-scrollbar max-h-72 overflow-y-auto -mx-1">
+              <table className="w-full text-left text-sm min-w-[420px]">
                 <thead className="bg-overlay sticky top-0">
                   <tr>
                     <th className="p-2.5 text-ink-3 font-medium text-xs">日期</th>

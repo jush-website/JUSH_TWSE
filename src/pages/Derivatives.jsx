@@ -111,8 +111,8 @@ const Derivatives = () => {
             <p className="text-xs mt-1 text-ink-3">FinMind TaiwanFuturesDaily — data_id: TX</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto custom-scrollbar -mx-1">
+            <table className="w-full text-left text-sm min-w-[640px]">
               <thead className="bg-overlay">
                 <tr>
                   {['日期','開盤','最高','最低','收盤','成交量','未平倉'].map(h => (

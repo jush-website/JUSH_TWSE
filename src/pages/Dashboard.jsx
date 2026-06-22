@@ -62,13 +62,13 @@ const Dashboard = () => {
 
       {/* ── Outlook Banner ── */}
       {outlook && (
-        <section className={`gsap-dashboard-card ${outlookBg} border ${outlookBorder} rounded-xl p-5`}>
-          <div className="flex items-start justify-between gap-4 mb-3">
-            <div className="flex items-center gap-2">
-              <Activity size={18} className={outlookColor} />
-              <h2 className="font-semibold text-ink-1">台股走勢展望</h2>
+        <section className={`gsap-dashboard-card ${outlookBg} border ${outlookBorder} rounded-xl p-4 sm:p-5`}>
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4 mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Activity size={18} className={`${outlookColor} shrink-0`} />
+              <h2 className="font-semibold text-ink-1 truncate">台股走勢展望</h2>
             </div>
-            <span className={`shrink-0 text-sm font-bold px-3 py-1 rounded-full border ${outlookColor} ${outlookBorder} bg-panel`}>
+            <span className={`shrink-0 text-xs sm:text-sm font-bold px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border ${outlookColor} ${outlookBorder} bg-panel`}>
               {outlook.trend}
             </span>
           </div>

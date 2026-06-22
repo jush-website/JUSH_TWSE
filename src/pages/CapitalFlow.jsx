@@ -16,12 +16,12 @@ const CapitalFlow = () => {
   return (
     <div className="space-y-5 pb-10">
       {/* Tab rail */}
-      <div className="bg-panel border border-line rounded-xl p-1 flex gap-0.5 w-full sm:w-fit">
+      <div className="bg-panel border border-line rounded-xl p-1 flex gap-0.5 w-full sm:w-fit overflow-x-auto no-scrollbar">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 whitespace-nowrap ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-150 whitespace-nowrap flex-1 sm:flex-none justify-center ${
               activeTab === id
                 ? 'bg-brand text-brand-fg shadow-sm'
                 : 'text-ink-2 hover:text-ink-1 hover:bg-overlay'

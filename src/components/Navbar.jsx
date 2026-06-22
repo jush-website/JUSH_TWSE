@@ -5,6 +5,7 @@ import {
   Menu, X, Flame, Globe, ChevronDown,
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import FontSizeToggle from './FontSizeToggle';
 
 const getLocalMarketStatus = () => {
   const now = new Date();
@@ -152,12 +153,13 @@ const Navbar = React.forwardRef(({ status }, ref) => {
               </span>
             </div>
 
+            <FontSizeToggle />
             <ThemeToggle />
           </div>
 
           {/* Mobile right */}
-          <div className="lg:hidden flex items-center gap-1.5">
-            <div className="flex flex-col items-end mr-1">
+          <div className="lg:hidden flex items-center gap-0.5">
+            <div className="hidden xs:flex sm:flex flex-col items-end mr-1">
               <div className="flex items-center gap-1">
                 <span className={`text-[10px] font-semibold ${marketStatus.text}`}>{marketStatus.label}</span>
                 <span className={`inline-flex rounded-full h-1.5 w-1.5 ${marketStatus.dot}`} />
@@ -166,6 +168,9 @@ const Navbar = React.forwardRef(({ status }, ref) => {
                 {status?.last_sync ? `更新 ${status.last_sync}` : '同步中...'}
               </span>
             </div>
+            {/* Compact status indicator on very narrow screens */}
+            <span className={`sm:hidden inline-flex rounded-full h-2 w-2 mr-1 ${marketStatus.dot}`} aria-label={marketStatus.label} />
+            <FontSizeToggle />
             <ThemeToggle />
             <button
               onClick={() => setMobileOpen(o => !o)}

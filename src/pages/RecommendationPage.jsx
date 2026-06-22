@@ -78,7 +78,8 @@ const RecommendationPage = () => {
 
   const containerRef = useCardAnimation('.gsap-recommend-card', [loading, stocks], {
     enabled: !loading && stocks.length > 0,
-    y: 40, duration: 0.8, stagger: 0.15, ease: 'back.out(1.2)',
+    stagger: 0.08,
+    duration: 0.35,
   });
 
   return (
