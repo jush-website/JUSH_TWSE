@@ -125,7 +125,7 @@ async def background_sync():
                 await loop.run_in_executor(None, fetcher.sync_if_needed)
             except Exception as e:
                 print(f"[系統] 背景同步發生錯誤: {e}")
-            await asyncio.sleep(3600)
+            await asyncio.sleep(300)  # 5 分鐘呼叫一次，讓 sync_if_needed 的 15 分鐘盤中刷新實際生效
     except asyncio.CancelledError:
         pass
 
@@ -306,7 +306,7 @@ async def get_global_market():
     if cached: return cached
     loop = asyncio.get_event_loop()
     res = await loop.run_in_executor(None, fetcher.get_global_markets)
-    set_cached_response("global_market", res, expiry=180)
+    set_cached_response("global_market", res, expiry=60)
     return res
 
 @app.get("/api/futures")
@@ -396,7 +396,7 @@ async def get_market_outlook():
         "outlook_score": outlook_score,
         "signals": signals
     }
-    set_cached_response("market_outlook", res, expiry=180)
+    set_cached_response("market_outlook", res, expiry=60)
     return res
 
 @app.get("/api/news")

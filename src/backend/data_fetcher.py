@@ -416,18 +416,40 @@ class DataFetcher:
         # 1. 獲取大盤指數 (yfinance)
         try:
             t = yf.Ticker("^TWII")
-            hist = t.history(period="5d", auto_adjust=False)
-            if not hist.empty:
-                hist = hist.dropna(subset=['Close'])
+            now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
+            is_tw_trading = (
+                now_tw.weekday() < 5
+                and ((now_tw.hour == 9) or (10 <= now_tw.hour <= 12)
+                     or (now_tw.hour == 13 and now_tw.minute <= 30))
+            )
+            rt_price = prev_close_rt = None
+            if is_tw_trading:
+                try:
+                    fi = t.fast_info
+                    rt_price = fi.last_price
+                    prev_close_rt = fi.previous_close
+                except Exception:
+                    pass
+            if rt_price and prev_close_rt and not pd.isna(rt_price) and not pd.isna(prev_close_rt):
+                change_pct = round(((float(rt_price) - float(prev_close_rt)) / (float(prev_close_rt) + 1e-9)) * 100, 2)
+                self._official_cache["TAIEX"] = {
+                    "date": now_tw.strftime("%Y-%m-%d"),
+                    "price": round(float(rt_price), 2),
+                    "change_pct": change_pct
+                }
+            else:
+                hist = t.history(period="5d", auto_adjust=False)
                 if not hist.empty:
-                    last_row = hist.iloc[-1]
-                    prev_row = hist.iloc[-2] if len(hist) >= 2 else last_row
-                    change_pct = round(((last_row['Close'] - prev_row['Close']) / prev_row['Close']) * 100, 2)
-                    self._official_cache["TAIEX"] = {
-                        "date": last_row.name.strftime("%Y-%m-%d"), 
-                        "price": round(last_row['Close'], 2), 
-                        "change_pct": change_pct
-                    }
+                    hist = hist.dropna(subset=['Close'])
+                    if not hist.empty:
+                        last_row = hist.iloc[-1]
+                        prev_row = hist.iloc[-2] if len(hist) >= 2 else last_row
+                        change_pct = round(((last_row['Close'] - prev_row['Close']) / prev_row['Close']) * 100, 2)
+                        self._official_cache["TAIEX"] = {
+                            "date": last_row.name.strftime("%Y-%m-%d"),
+                            "price": round(last_row['Close'], 2),
+                            "change_pct": change_pct
+                        }
         except: pass
 
         # 2. 獲取估值數據 (TWSE + TPEx)
@@ -1684,7 +1706,31 @@ class DataFetcher:
                             "date": off_date
                         }
             except: pass
-                
+
+        # 4. 盤中即時 TWII：用 fast_info 覆蓋，避免日線 Close 落後 15 分鐘以上
+        now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
+        is_tw_trading = (
+            now_tw.weekday() < 5
+            and ((now_tw.hour == 9) or (10 <= now_tw.hour <= 12)
+                 or (now_tw.hour == 13 and now_tw.minute <= 30))
+        )
+        if is_tw_trading:
+            try:
+                t_twii = yf.Ticker("^TWII")
+                fi = t_twii.fast_info
+                rt_price = fi.last_price
+                prev_close = fi.previous_close
+                if rt_price and prev_close and not pd.isna(rt_price) and not pd.isna(prev_close):
+                    change_pct = round(((float(rt_price) - float(prev_close)) / (float(prev_close) + 1e-9)) * 100, 2)
+                    results["台股大盤"] = {
+                        "price": round(float(rt_price), 2),
+                        "change_pct": change_pct,
+                        "symbol": "^TWII",
+                        "date": now_tw.strftime("%Y-%m-%d")
+                    }
+            except Exception:
+                pass
+
         return results
 
 
