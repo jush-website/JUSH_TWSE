@@ -79,7 +79,7 @@ const Dashboard = () => {
               return (
                 <li key={idx} className="flex items-start gap-2 text-xs text-ink-2">
                   {isOk
-                    ? <CheckCircle size={13} className="text-bear shrink-0 mt-0.5" />
+                    ? <CheckCircle size={13} className="text-brand shrink-0 mt-0.5" />
                     : <AlertTriangle size={13} className="text-yellow-500 dark:text-yellow-400 shrink-0 mt-0.5" />
                   }
                   <span>{sig.replace(/^✅ |^⚠️ /, '')}</span>

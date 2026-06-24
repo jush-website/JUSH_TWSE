@@ -40,22 +40,25 @@ class StockAnalyzer:
 
     def calculate_dmi(self, df, n=14):
         """計算 DMI (+DI, -DI) 與 ADX"""
-        up_move = df['High'].diff(); down_move = df['Low'].diff()
-        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
-        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-        
+        up_move = df['High'].diff()
+        down_move = -df['Low'].diff()  # L[t-1]-L[t]，低點下跌時為正
+
+        # 使用 pandas .where() 保留 DatetimeIndex（np.where 會丟失，導致除法 NaN）
+        plus_dm = up_move.where((up_move > down_move) & (up_move > 0), 0)
+        minus_dm = down_move.where((down_move > up_move) & (down_move > 0), 0)
+
         tr1 = df['High'] - df['Low']
         tr2 = abs(df['High'] - df['Close'].shift(1))
         tr3 = abs(df['Low'] - df['Close'].shift(1))
         tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        
+
         atr = tr.rolling(window=n).mean()
-        plus_di = 100 * (pd.Series(plus_dm).rolling(window=n).mean() / (atr + 1e-9))
-        minus_di = 100 * (pd.Series(minus_dm).rolling(window=n).mean() / (atr + 1e-9))
-        
+        plus_di = 100 * (plus_dm.rolling(window=n).mean() / (atr + 1e-9))
+        minus_di = 100 * (minus_dm.rolling(window=n).mean() / (atr + 1e-9))
+
         dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9)
         adx = dx.rolling(window=n).mean()
-        
+
         return plus_di, minus_di, adx
 
     def calculate_obv(self, df):
@@ -916,7 +919,7 @@ class StockAnalyzer:
             "kd": f"{round(last['K'],1)}/{round(last['D'],1)}", "rsi": round(last['RSI'], 1), "macd": f"{'多方' if macd.iloc[-1]>0 else '空方'}", "ma5": round(last['MA5'], 2), "ma20": round(last['MA20'], 2), "ma60": round(last['MA60'], 2), "ma120": round(last['MA120'], 2) if not pd.isna(last['MA120']) else None,
             "atr": round(last['atr'], 2), "volatility": vol_info['volatility'], "adx": round(last['adx'], 1), "bias_20": round(bias_20, 1),
             "net_buy_3d": int(chip_df.tail(3)['net_buy'].sum()/1000) if not chip_df.empty else 0, "recommend_status": st_res["status"], "diagnosis": diag, 
-            "pe": official.get("pe", config.PE_RATIO_DEFAULT), "yield": official.get("yield", config.YIELD_DEFAULT), "roe": official.get("roe", 0), "debt_ratio": official.get("debt_ratio", 0),
+            "pe": official.get("pe", config.PE_RATIO_DEFAULT), "yield": official.get("yield", config.YIELD_DEFAULT), "roe": official.get("roe") or "-", "debt_ratio": official.get("debt_ratio") or "-",
             "entry_range": strat_res["entry_range"], "stop_loss": strat_res["stop_loss"], "take_profit": strat_res["take_profit"], "strategy_name": strat_res["strategy"],
             "overnight": self.evaluate_overnight_momentum(price_df, intraday_snapshot) if not is_etf else {"score":0, "status": "N/A", "signals": []},
             "short_term_rec": self.evaluate_short_term_recommendation(price_df, chip_df, intraday_snapshot) if not is_etf else {"score":0, "status": "N/A", "signals": []}, 
@@ -1283,7 +1286,7 @@ class StockAnalyzer:
             "kd": f"{round(last['K'],1)}/{round(last['D'],1)}", "rsi": round(last['RSI'], 1), "macd": f"{'多方' if price_df['MACD_Hist'].iloc[-1]>0 else '空方'}", "ma5": round(last['MA5'], 2), "ma20": round(last['MA20'], 2), "ma60": round(last['MA60'], 2), "ma120": round(last['MA120'], 2) if not pd.isna(last['MA120']) else None,
             "atr": round(last['atr'], 2), "volatility": vol_info['volatility'], "adx": round(last['adx'], 1), "bias_20": round(bias_20, 1),
             "net_buy_3d": int(chip_df.tail(3)['net_buy'].sum()/1000) if not chip_df.empty else 0, "recommend_status": st_res["status"], "diagnosis": diag, 
-            "pe": official.get("pe", config.PE_RATIO_DEFAULT), "yield": official.get("yield", config.YIELD_DEFAULT), "roe": official.get("roe", 0), "debt_ratio": official.get("debt_ratio", 0),
+            "pe": official.get("pe", config.PE_RATIO_DEFAULT), "yield": official.get("yield", config.YIELD_DEFAULT), "roe": official.get("roe") or "-", "debt_ratio": official.get("debt_ratio") or "-",
             "entry_range": strat_res["entry_range"], "stop_loss": strat_res["stop_loss"], "take_profit": strat_res["take_profit"], "strategy_name": strat_res["strategy"],
             "overnight": self.evaluate_overnight_momentum(price_df, intraday_snapshot) if not is_etf else {"score":0, "status": "N/A", "signals": []},
             "short_term_rec": self.evaluate_short_term_recommendation(price_df, chip_df, intraday_snapshot) if not is_etf else {"score":0, "status": "N/A", "signals": []}, 

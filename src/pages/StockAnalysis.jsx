@@ -396,15 +396,15 @@ const StockAnalysis = () => {
                       </div>
                       <div className="bg-overlay p-3 rounded-xl text-center">
                         <div className="text-ink-3 text-[10px] uppercase mb-0.5">殖利率 %</div>
-                        <div className="font-semibold text-ink-1 nums">{data.yield}%</div>
+                        <div className="font-semibold text-ink-1 nums">{data.yield === '-' ? '-' : `${data.yield}%`}</div>
                       </div>
                       <div className="bg-overlay p-3 rounded-xl text-center">
                         <div className="text-ink-3 text-[10px] uppercase mb-0.5">ROE %</div>
-                        <div className="font-semibold text-ink-1 nums">{data.roe}%</div>
+                        <div className="font-semibold text-ink-1 nums">{data.roe === '-' ? '-' : `${data.roe}%`}</div>
                       </div>
                       <div className="bg-overlay p-3 rounded-xl text-center">
                         <div className="text-ink-3 text-[10px] uppercase mb-0.5">負債比 %</div>
-                        <div className="font-semibold text-ink-1 nums">{data.debt_ratio}%</div>
+                        <div className="font-semibold text-ink-1 nums">{data.debt_ratio === '-' ? '-' : `${data.debt_ratio}%`}</div>
                       </div>
                     </div>
                     <div className="mt-3 space-y-1.5 border-t border-line pt-3">

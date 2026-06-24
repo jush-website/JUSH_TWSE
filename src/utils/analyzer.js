@@ -47,7 +47,7 @@ function evaluateShortTermRecommendation(closeSeries, volumeSeries, chipNetBuy) 
   if (currVol >= 1000000) { score += 15; signals.push("流動性充裕"); }
   if (volRatio > 1.3) { score += 20; signals.push("量能增溫 (量比 " + (Math.round(volRatio * 10) / 10) + ")"); }
 
-  let recentHigh20 = Math.max(...closeSeries.slice(Math.max(0, closeSeries.length - 20)));
+  let recentHigh20 = Math.max(...closeSeries.slice(Math.max(0, closeSeries.length - 21), -1)); // exclude today
   if (lastClose > recentHigh20) { score += 20; signals.push("突破盤整區間"); }
 
   if (rsi > 50 && rsi < 80) { score += 10; signals.push("RSI 強勢區"); }
@@ -132,7 +132,7 @@ function evaluateShortTermBurst(closeSeries, chipNetBuy, openSeries, highSeries,
   if (lastLow <= ma5 * 1.01 && lastClose > ma5) { score += 20; signals.push("回踩 5 日線 (支撐確認)"); }
   else if (lastLow <= ma10 * 1.01 && lastClose > ma10) { score += 15; signals.push("回踩 10 日線"); }
 
-  let recentHigh20 = Math.max(...highSeries.slice(Math.max(0, highSeries.length - 20)));
+  let recentHigh20 = Math.max(...highSeries.slice(Math.max(0, highSeries.length - 21), -1)); // exclude today
   if (lastClose > recentHigh20 && volRatio > 1.5) { score += 25; signals.push("強勢突破前高"); }
 
   if (prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) { score += 20; signals.push("型態：陽包陰"); }
@@ -401,11 +401,11 @@ export function analyzeStockData(payload) {
     let lastFinMindDate = dateSeries[dateSeries.length - 1];
     let isSameDay = false;
     
-    // Check if FinMind already includes today's data
+    // isSameDay = FinMind already has today's row → update in-place instead of append
+    // Use date comparison only; the old price-diff heuristic was unreliable
+    // (intraday.yesterday_close is the CDP reference date's close, not T-1, after market close)
     if (intraday.date && intraday.date === lastFinMindDate) {
       isSameDay = true;
-    } else if (Math.abs(lastFinMindClose - intraday.yesterday_close) >= 0.01) {
-      isSameDay = true; 
     }
 
     if (isSameDay) {

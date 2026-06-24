@@ -361,7 +361,7 @@ async def get_market_outlook():
     if twd.get("change_pct", 0) < -0.3:
         outlook_score += 1; signals.append("✅ 新台幣升值，資金流入台股")
     elif twd.get("change_pct", 0) > 0.3:
-        outlook_score -= 1; signals.append("⚠️ 新台幣責值，外資有可能化汇出")
+        outlook_score -= 1; signals.append("⚠️ 新台幣貶值，外資有可能匯出")
     
     # 4. Futures
     if futures.get("change_pct") is not None:
@@ -376,7 +376,7 @@ async def get_market_outlook():
     
     if outlook_score >= 3:
         trend = "偏多"
-        trend_desc = "美股科技股強勁，台股可望開高並向上测試壓力位"
+        trend_desc = "美股科技股強勁，台股可望開高並向上測試壓力位"
     elif outlook_score >= 1:
         trend = "微多"
         trend_desc = "國際市場氣氛偏正面，台股有機會收在紅盤"
