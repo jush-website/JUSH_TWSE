@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { BarChart2, AlertCircle, X } from 'lucide-react';
+import { BarChart2, AlertCircle, X, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const MarketDistribution = () => {
@@ -8,6 +8,7 @@ const MarketDistribution = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedBucket, setSelectedBucket] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,6 +16,7 @@ const MarketDistribution = () => {
       try {
         const res = await api.get('/api/market-distribution');
         setData(res.data.data || res.data);
+        setUpdatedAt(res.data.updated_at || res.data.base_date || null);
         setError(null);
       } catch (err) {
         console.error("Fetch market distribution error:", err);
@@ -68,7 +70,7 @@ const MarketDistribution = () => {
 
   return (
     <div className="py-4">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-ink-1 flex items-center gap-2">
             <BarChart2 size={18} className="text-ink-3" />
@@ -76,6 +78,12 @@ const MarketDistribution = () => {
           </h1>
           <p className="text-ink-3 text-sm mt-0.5">全市場上市櫃個股今日漲跌幅分佈｜點擊長條查看熱門標的</p>
         </div>
+        {updatedAt && (
+          <div className="flex items-center gap-1.5 text-xs text-ink-3 bg-overlay px-3 py-1.5 rounded-full border border-line w-fit">
+            <RefreshCw size={11} />
+            資料時間：{updatedAt}
+          </div>
+        )}
       </div>
 
       <div className="card p-3 sm:p-6 relative">

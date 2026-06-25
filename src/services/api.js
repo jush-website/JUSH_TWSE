@@ -67,7 +67,7 @@ export const getCapitalFlow = async () => {
     if (apiRes && apiRes.data && apiRes.data.data) {
       return {
         data: apiRes.data.data,
-        updated_at: apiRes.data.base_date
+        updated_at: apiRes.data.updated_at || apiRes.data.base_date
       };
     }
   } catch (err) {

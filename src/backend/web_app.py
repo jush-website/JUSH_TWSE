@@ -737,17 +737,19 @@ async def get_capital_flow_recommendations(force: bool = False):
     loop = asyncio.get_event_loop()
     cf_data = await loop.run_in_executor(api_executor, fetcher.get_capital_flow)
     final_res = sanitize_data(cf_data)
-    
+
     # 從官方快取中獲取大盤的真實最後交易日
     official_cache = getattr(fetcher, '_official_cache', {})
     taiex_info = official_cache.get("TAIEX", {})
     actual_date = taiex_info.get("date") or fetcher.get_actual_trading_date()
-    
+    now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
+
     wrapper = {
         "data": final_res,
-        "base_date": actual_date
+        "base_date": actual_date,
+        "updated_at": f"{actual_date} {now_tw.strftime('%H:%M')}"
     }
-    set_cached_response("capital_flow", wrapper)
+    set_cached_response("capital_flow", wrapper, expiry=300)
     return wrapper
 
 @app.get("/api/industries")
@@ -1094,11 +1096,20 @@ async def get_market_distribution():
             'count': distribution[i]['count'],
             'top_stocks': distribution[i]['stocks']
         })
-        
-    final_res = {"data": result}
+
+    # 基準交易日 (以大盤官方快取為準) + 計算時間
+    taiex_info = fetcher._official_cache.get("TAIEX", {})
+    base_date = taiex_info.get("date") or fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
+
+    final_res = {
+        "data": result,
+        "base_date": base_date,
+        "updated_at": f"{base_date} {now_tw.strftime('%H:%M')}"
+    }
     _market_dist_cache["data"] = final_res
     _market_dist_cache["timestamp"] = now
-    
+
     return final_res
 
 @app.get("/api/stock/{stock_id}/branch-data")
