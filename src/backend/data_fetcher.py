@@ -1681,8 +1681,9 @@ class DataFetcher:
             "台股大盤": "^TWII",
         }
         
-        # 1. 使用 FinMind 抓美股個股與 ETF (最新日線數據)
-        for name, symbol in fm_us_stocks.items():
+        # 1. 使用 FinMind 抓美股個股與 ETF (最新日線數據) — 並行請求，避免任一檔慢速拖垮整體
+        def fetch_fm_us(item):
+            name, symbol = item
             try:
                 params = {
                     "dataset": "USStockPrice",
@@ -1690,35 +1691,46 @@ class DataFetcher:
                     "start_date": start_date,
                     "token": FINMIND_TOKEN
                 }
-                resp = requests.get(FM_API, params=params, timeout=10)
+                resp = requests.get(FM_API, params=params, timeout=8)
                 if resp.status_code == 200:
-                    raw = resp.json()
-                    rows = raw.get("data", [])
+                    rows = resp.json().get("data", [])
                     if rows:
                         rows_sorted = sorted(rows, key=lambda x: x["date"])
                         last = rows_sorted[-1]
                         prev = rows_sorted[-2] if len(rows_sorted) >= 2 else last
-                        
                         # FinMind USStockPrice 欄位開頭為大寫 Close
                         price = float(last.get("Close", last.get("close", 0)))
                         prev_price = float(prev.get("Close", prev.get("close", price)))
-                        
-                        change_pct = round(((price - prev_price) / (prev_price + 1e-9)) * 100, 2) if prev_price else 0
-                        results[name] = {
-                            "price": round(price, 2),
-                            "change_pct": change_pct,
-                            "symbol": symbol,
-                            "date": last["date"]
-                        }
+                        if price > 0:
+                            change_pct = round(((price - prev_price) / (prev_price + 1e-9)) * 100, 2) if prev_price else 0
+                            return name, {
+                                "price": round(price, 2),
+                                "change_pct": change_pct,
+                                "symbol": symbol,
+                                "date": last["date"]
+                            }
             except Exception as e:
                 if self.logger: self.logger.warning(f"FinMind USStockPrice failed for {symbol}: {e}")
-        
-        # 2. 使用 yfinance 抓指數與匯率 (FinMind 免費版不提供)
+            return name, None
+
         try:
-            yf_tickers = list(yf_indices.values())
+            with ThreadPoolExecutor(max_workers=7) as ex:
+                for name, val in ex.map(fetch_fm_us, fm_us_stocks.items()):
+                    if val is not None:
+                        results[name] = val
+        except Exception as e:
+            if self.logger: self.logger.warning(f"FinMind US batch failed: {e}")
+        
+        # 2. 使用 yfinance 抓指數與匯率，並補抓 FinMind 缺漏的美股/美股指數 (FinMind 免費版常無指數資料)
+        yf_fetch = dict(yf_indices)
+        for name, symbol in fm_us_stocks.items():
+            if name not in results:
+                yf_fetch[name] = symbol
+        try:
+            yf_tickers = list(yf_fetch.values())
             data = yf.download(yf_tickers, period="5d", interval="1d", group_by='ticker', threads=True, progress=False, auto_adjust=False)
-            
-            for name, symbol in yf_indices.items():
+
+            for name, symbol in yf_fetch.items():
                 try:
                     if isinstance(data.columns, pd.MultiIndex):
                         if symbol not in data.columns.levels[0]: continue
@@ -1726,20 +1738,20 @@ class DataFetcher:
                     else:
                         if len(yf_tickers) == 1: ticker_data = data.dropna(subset=['Close'])
                         else: continue
-                    
+
                     if not ticker_data.empty:
                         last_row = ticker_data.iloc[-1]
                         price = float(last_row['Close'])
                         date_str = last_row.name.strftime('%Y-%m-%d')
-                        
+
                         prev_price = float(ticker_data.iloc[-2]['Close']) if len(ticker_data) >= 2 else price
                         change_pct = round(((price - prev_price) / (prev_price + 1e-9)) * 100, 2)
-                        
+
                         if symbol == "TWD=X":
                             price = round(price, 3)
                         else:
                             price = round(price, 2)
-                            
+
                         results[name] = {
                             "price": price,
                             "change_pct": change_pct,
@@ -1790,7 +1802,16 @@ class DataFetcher:
             except Exception:
                 pass
 
-        return results
+        # 5. 固定顯示順序：美股/美股指數 → 匯率 → 台股大盤
+        ordered = {}
+        for name in list(fm_us_stocks.keys()) + list(yf_indices.keys()):
+            if name in results:
+                ordered[name] = results[name]
+        # 保險：任何未列入順序表的鍵也補上
+        for name, val in results.items():
+            if name not in ordered:
+                ordered[name] = val
+        return ordered
 
 
     def get_global_news(self):
