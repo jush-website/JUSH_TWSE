@@ -78,8 +78,9 @@ class DataFetcher:
         self._history_cache_ts = {}
         self._chip_cache = LRUCache(maxsize=50)
         self._broker_cache = LRUCache(maxsize=50)
-        self._intraday_cache = LRUCache(maxsize=50) 
-        self._hot_ids_cache = None 
+        self._intraday_cache = LRUCache(maxsize=50)
+        self._quote_cache = LRUCache(maxsize=300)  # 即時報價輕量快取 (price/change_pct)
+        self._hot_ids_cache = None
         self._last_sync_time = 0 # 紀錄最後同步時間 (timestamp)
         self._lock = threading.RLock()
         
@@ -1596,6 +1597,64 @@ class DataFetcher:
                 }
         except: pass
         return None
+
+    def get_realtime_quotes(self, stock_ids):
+        """批次取得即時報價 (盤中用 yfinance fast_info；盤後/失敗回退官方收盤快取)。
+        回傳 {sid: {"price": float, "change_pct": float}}。輕量、30 秒快取。"""
+        results = {}
+        if not stock_ids:
+            return results
+        now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
+        is_trading = (
+            now_tw.weekday() < 5
+            and now_tw.strftime("%Y-%m-%d") not in config.TW_HOLIDAYS_2026
+            and ((now_tw.hour == 9) or (10 <= now_tw.hour <= 12)
+                 or (now_tw.hour == 13 and now_tw.minute <= 30))
+        )
+        sym_map = self.get_symbol_map()
+
+        def fetch_one(sid):
+            sid = str(sid)
+            with self._lock:
+                cached = self._quote_cache.get(sid)
+            if cached and (time.time() - cached[0] < 30):
+                return sid, cached[1]
+
+            quote = None
+            if is_trading:
+                try:
+                    symbol = sym_map.get(sid, f"{sid}.TW")
+                    fi = yf.Ticker(symbol).fast_info
+                    price = fi.last_price
+                    prev = fi.previous_close
+                    if price and prev and not pd.isna(price) and not pd.isna(prev):
+                        quote = {
+                            "price": round(float(price), 2),
+                            "change_pct": round((float(price) - float(prev)) / (float(prev) + 1e-9) * 100, 2)
+                        }
+                except Exception:
+                    quote = None
+
+            # 回退官方收盤快取
+            if quote is None:
+                off = self._official_cache.get(sid)
+                if off and off.get("price") is not None and not pd.isna(off.get("price")):
+                    quote = {
+                        "price": round(float(off["price"]), 2),
+                        "change_pct": round(float(off.get("change_pct", 0) or 0), 2)
+                    }
+
+            if quote is not None:
+                with self._lock:
+                    self._quote_cache[sid] = (time.time(), quote)
+            return sid, quote
+
+        ids = [str(s) for s in stock_ids][:60]
+        with ThreadPoolExecutor(max_workers=10) as ex:
+            for sid, q in ex.map(fetch_one, ids):
+                if q is not None:
+                    results[sid] = q
+        return results
 
     def get_global_markets(self):
         """獲取全球主要指數行情 - 使用 FinMind API 確保數據最新，yfinance 作為備份"""

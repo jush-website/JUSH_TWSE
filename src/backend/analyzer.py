@@ -336,7 +336,7 @@ class StockAnalyzer:
         if last_price > ma5: score += 20; signals.append("站上5日線")
         if ma5 > ma20: score += 20; signals.append("短中期均線多頭")
         if bias_ma5 > config.MAX_BIAS_MA5:
-            is_super_strong = vol_ratio > 1.8 or (not chip_df.empty and chip_df['net_buy'].tail(3).sum() > 300)
+            is_super_strong = vol_ratio > 1.8 or (not chip_df.empty and chip_df['net_buy'].tail(3).sum() > 300000)  # 300張
             if is_super_strong: score -= 10; signals.append("強勢起漲(乖離大)")
             else: score -= 30; signals.append("短線乖離過大")
         if not chip_df.empty and chip_df['net_buy'].tail(3).sum() > 0: score += 20; signals.append("法人近期買進")
@@ -593,8 +593,8 @@ class StockAnalyzer:
         if last['K'] > last['D'] and price_df['K'].iloc[-2] <= price_df['D'].iloc[-2]:
             score += 15; signals.append("KD 金叉")
 
-        # 5. 籌碼輔助
-        if not chip_df.empty and chip_df['net_buy'].tail(3).sum() > 200:
+        # 5. 籌碼輔助 (法人近3日淨買 > 100張 = 100,000 股)
+        if not chip_df.empty and chip_df['net_buy'].tail(3).sum() > 100000:
             score += 10; signals.append("法人布局")
 
         status = "短線強烈推薦" if score >= 65 else "短線動能增強" if score >= 45 else "動能整理中"
@@ -648,8 +648,8 @@ class StockAnalyzer:
             # 波動太小不適合
             return {"score": 0, "status": "波幅過小", "signals": [], "is_valid": False}
             
-        # 條件 2: 成交量活絡 (> 2000張)
-        if vol_avg_5 > 2000 and curr_vol > 2000:
+        # 條件 2: 成交量活絡 (> 2000張 = 2,000,000 股)
+        if vol_avg_5 > 2000000 and curr_vol > 2000000:
             score += 30
             signals.append("流動性佳")
         else:

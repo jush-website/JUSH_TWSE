@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { 
-  getShortTermRecommendations, 
-  getOvernightRecommendations, 
+import {
+  getShortTermRecommendations,
+  getOvernightRecommendations,
   getBottomFishingRecommendations,
   getShortTermBurstRecommendations,
   getLongTermRecommendations,
   getEtfRecommendations,
   getCdpRecommendations,
-  getDayTradeCdpRecommendations
+  getDayTradeCdpRecommendations,
+  getQuotes
 } from '../services/api';
 import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
@@ -34,6 +35,9 @@ const RecommendationPage = () => {
   const [sortBy, setSortBy] = useState('score');
   const [sortOrder, setSortOrder] = useState('desc');
 
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const idsRef = useRef([]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -49,7 +53,11 @@ const RecommendationPage = () => {
         case 'day-trade-cdp': res = await getDayTradeCdpRecommendations(); break;
         default: res = { data: [] };
       }
-      setStocks(res.data || []);
+      const baseStocks = res.data || [];
+      setStocks(baseStocks);
+      setUpdatedAt(res.updated_at || null);
+      // 盤中以即時報價覆蓋過時收盤價
+      overlayQuotes(baseStocks);
     } catch (err) {
       console.error('Fetch recommendations failed', err);
     } finally {
@@ -57,9 +65,46 @@ const RecommendationPage = () => {
     }
   };
 
+  // 用即時報價覆蓋卡片上的 price / change_percent，不動策略分數與訊號
+  const overlayQuotes = async (baseStocks) => {
+    const ids = baseStocks.map(s => s.stock_id).filter(Boolean);
+    idsRef.current = ids;
+    if (ids.length === 0) return;
+    const quotes = await getQuotes(ids);
+    if (!quotes || Object.keys(quotes).length === 0) return;
+    setStocks(prev => prev.map(s => {
+      const q = quotes[s.stock_id];
+      if (!q || q.price == null) return s;
+      return { ...s, price: q.price, change_percent: q.change_pct };
+    }));
+  };
+
   useEffect(() => {
     fetchData();
   }, [type]);
+
+  // 盤中每 60 秒刷新即時報價 (僅覆蓋價格，不重抓策略)
+  useEffect(() => {
+    const isMarketHours = () => {
+      const now = new Date();
+      const day = now.getDay();
+      const t = now.getHours() * 60 + now.getMinutes();
+      return day >= 1 && day <= 5 && t >= 9 * 60 && t <= 13 * 60 + 30;
+    };
+    const timer = setInterval(() => {
+      if (isMarketHours() && idsRef.current.length > 0) {
+        getQuotes(idsRef.current).then(quotes => {
+          if (!quotes || Object.keys(quotes).length === 0) return;
+          setStocks(prev => prev.map(s => {
+            const q = quotes[s.stock_id];
+            if (!q || q.price == null) return s;
+            return { ...s, price: q.price, change_percent: q.change_pct };
+          }));
+        });
+      }
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const getScore = (stock) => {
     if (type === 'overnight') return stock.overnight?.score || 0;
@@ -87,7 +132,9 @@ const RecommendationPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-ink-1">{titles[type] || '股票推薦'}</h1>
-          <p className="text-ink-3 text-sm mt-0.5">系統每 3 分鐘自動更新，由雲端資料庫提供</p>
+          <p className="text-ink-3 text-sm mt-0.5">
+            選股策略每日盤後更新{updatedAt ? `（資料基準：${updatedAt}）` : ''}；盤中價格每分鐘即時刷新
+          </p>
         </div>
         
         {!loading && stocks.length > 0 && (
@@ -124,7 +171,7 @@ const RecommendationPage = () => {
         <div className="card p-20 text-center border-dashed">
           <div className="text-4xl mb-4">📭</div>
           <p className="text-ink-2 font-medium">暫無符合條件的標的</p>
-          <p className="text-ink-3 text-sm mt-1">系統每 3 分鐘自動更新，稍後請重新整理</p>
+          <p className="text-ink-3 text-sm mt-1">選股策略於每日盤後更新，稍後請重新整理</p>
         </div>
       )}
     </div>

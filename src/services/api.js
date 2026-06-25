@@ -103,6 +103,18 @@ export const syncData = (mode = "1") => api.post(`/api/sync?mode=${mode}`);
 export const getFutures = () => api.get('/api/futures');
 export const getMarketOutlook = () => api.get('/api/market-outlook');
 
+// 批次即時報價：盤中將策略卡片過時的收盤價覆蓋為即時價
+export const getQuotes = async (ids = []) => {
+  if (!ids || ids.length === 0) return {};
+  try {
+    const res = await api.get(`/api/quotes?ids=${ids.join(',')}`);
+    return res.data || {};
+  } catch (err) {
+    console.warn('getQuotes failed', err);
+    return {};
+  }
+};
+
 // 透過後端 Proxy 取得 FinMind 歷史資料 (避免瀏覽器 CORS 或無 token 造成的 Rate Limit)
 const fetchFinmind = async (dataset, stockId, daysAgo) => {
   const d = new Date();

@@ -306,7 +306,7 @@ async def get_global_market():
     if cached: return cached
     loop = asyncio.get_event_loop()
     res = await loop.run_in_executor(None, fetcher.get_global_markets)
-    set_cached_response("global_market", res, expiry=60)
+    set_cached_response("global_market", res, expiry=90)
     return res
 
 @app.get("/api/futures")
@@ -398,6 +398,17 @@ async def get_market_outlook():
     }
     set_cached_response("market_outlook", res, expiry=60)
     return res
+
+@app.get("/api/quotes")
+async def get_quotes(ids: str = ""):
+    """批次即時報價，供策略推薦頁面盤中覆蓋過時的收盤價。
+    用法：/api/quotes?ids=2330,2317,2454"""
+    id_list = [s.strip() for s in ids.split(",") if s.strip()][:60]
+    if not id_list:
+        return {}
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(api_executor, fetcher.get_realtime_quotes, id_list)
+    return sanitize_data(res)
 
 @app.get("/api/news")
 async def get_news():
