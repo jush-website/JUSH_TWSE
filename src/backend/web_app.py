@@ -1045,11 +1045,13 @@ async def get_market_distribution():
     if _market_dist_cache["data"] and now - _market_dist_cache["timestamp"] < 60:
         return _market_dist_cache["data"]
 
-    # 確保有資料
+    # 確保有資料：空快取直接抓；非空但非最新則依排程 (含冷卻保護) 重新同步
+    loop = asyncio.get_event_loop()
     if not fetcher._official_cache:
-        loop = asyncio.get_event_loop()
         await loop.run_in_executor(api_executor, fetcher.fetch_twse_openapi, False)
-        
+    else:
+        await loop.run_in_executor(api_executor, fetcher.sync_if_needed)
+
     distribution = {i: {'count': 0, 'stocks': []} for i in range(-10, 11)}
     
     for sid, data in fetcher._official_cache.items():

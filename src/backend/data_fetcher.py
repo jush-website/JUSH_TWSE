@@ -1851,7 +1851,11 @@ class DataFetcher:
         計算今日台股資金流向 (各產業成交比重、漲跌幅、以及推薦的熱門股)
         """
         if self._stock_info_df is None: self.get_all_stock_ids()
-        if not self._official_cache: self.fetch_twse_openapi(fetch_all=False)
+        # 空快取直接抓；非空但非最新則依排程 (含冷卻保護) 重新同步，避免回傳舊資料
+        if not self._official_cache:
+            self.fetch_twse_openapi(fetch_all=False)
+        else:
+            self.sync_if_needed()
         
         df = self._stock_info_df
         if df is None or df.empty: return []
