@@ -611,18 +611,29 @@ class DataFetcher:
             is_during_market = is_market_hours and is_last_data_today
             
             # 核心邏輯：如何取得「最即時/正確」的現價
+            # 優先使用證交所官方即時快照 (MIS)：比 yfinance 對台股的支援準確且無延遲。
             last_price = float(price_df['Close'].iloc[-1])
-            
+
+            mis_price_set = False
             try:
-                fast_price = t.fast_info.last_price
-                if fast_price and not pd.isna(fast_price):
-                    last_price = round(float(fast_price), 2)
-            except:
+                mis_q = self.get_twse_mis_quotes([stock_id]).get(str(stock_id))
+                if mis_q and mis_q.get("price"):
+                    last_price = round(float(mis_q["price"]), 2)
+                    mis_price_set = True
+            except Exception:
+                pass
+
+            if not mis_price_set:
                 try:
-                    fast_price = t.info.get('regularMarketPrice')
+                    fast_price = t.fast_info.last_price
                     if fast_price and not pd.isna(fast_price):
                         last_price = round(float(fast_price), 2)
-                except: pass
+                except:
+                    try:
+                        fast_price = t.info.get('regularMarketPrice')
+                        if fast_price and not pd.isna(fast_price):
+                            last_price = round(float(fast_price), 2)
+                    except: pass
 
             official_data = self._official_cache.get(stock_id)
             if not is_market_hours:
@@ -1576,6 +1587,63 @@ class DataFetcher:
         except: pass
         return None
 
+    def get_twse_mis_quotes(self, stock_ids):
+        """透過證交所官方即時盤情快照 API (mis.twse.com.tw) 批次取得即時報價。
+        這是證交所自家看盤網頁使用的資料源，準確度與延遲都優於 yfinance 對台股的支援
+        （yfinance 對台股常有 15-20 分鐘延遲甚至直接抓不到盤中價）。
+        回傳 {sid: {"price": float, "change_pct": float, "prev_close": float, "name": str}}"""
+        results = {}
+        if not stock_ids:
+            return results
+        sym_map = self.get_symbol_map()
+
+        def mis_prefix(sid):
+            suffix = sym_map.get(str(sid), f"{sid}.TW")
+            return "otc_" if suffix.endswith(".TWO") else "tse_"
+
+        ids = [str(s) for s in stock_ids][:150]
+        # MIS 官方端點單次查詢筆數建議控制在 100 檔以內，避免被拒或逾時
+        CHUNK = 90
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://mis.twse.com.tw/stock/index.jsp",
+        }
+        for i in range(0, len(ids), CHUNK):
+            batch = ids[i:i + CHUNK]
+            ex_ch = "|".join(f"{mis_prefix(sid)}{sid}.tw" for sid in batch)
+            try:
+                res = self._session.get(
+                    "https://mis.twse.com.tw/stock/api/getStockInfo.jsp",
+                    params={"ex_ch": ex_ch, "json": 1, "delay": 0},
+                    headers=headers, timeout=8,
+                )
+                if res.status_code != 200:
+                    continue
+                data = res.json()
+                for item in data.get("msgArray", []):
+                    sid = item.get("c")
+                    if not sid:
+                        continue
+                    z = item.get("z")  # 成交價，尚無成交時為 "-"
+                    y = item.get("y")  # 昨收
+                    try:
+                        prev_close = float(y) if y and y != "-" else None
+                        price = float(z) if z and z != "-" else prev_close
+                        if price is None or prev_close is None or prev_close <= 0:
+                            continue
+                        change_pct = round(((price - prev_close) / prev_close) * 100, 2)
+                        results[sid] = {
+                            "price": round(price, 2),
+                            "change_pct": change_pct,
+                            "prev_close": round(prev_close, 2),
+                            "name": item.get("n", ""),
+                        }
+                    except (TypeError, ValueError):
+                        continue
+            except Exception as e:
+                if self.logger: self.logger.warning(f"TWSE MIS quote batch failed: {e}")
+        return results
+
     def get_realtime_wtx(self):
         """抓取 Yahoo Finance TW 即時台指期 (WTX& / WTXP&)"""
         try:
@@ -1599,11 +1667,44 @@ class DataFetcher:
         return None
 
     def get_realtime_quotes(self, stock_ids):
-        """批次取得即時報價 (盤中用 yfinance fast_info；盤後/失敗回退官方收盤快取)。
+        """批次取得即時報價。優先順序：
+        1. 證交所官方即時快照 (MIS) — 準確、單次批次呼叫，涵蓋盤中與盤後最後成交價
+        2. yfinance fast_info — MIS 未涵蓋的代碼 (例如興櫃) 之備援
+        3. 官方收盤快取 — 兩者皆失敗時的最終備援
         回傳 {sid: {"price": float, "change_pct": float}}。輕量、30 秒快取。"""
         results = {}
         if not stock_ids:
             return results
+        ids = [str(s) for s in stock_ids][:60]
+
+        # 命中 30 秒快取者直接回傳，其餘才發送請求
+        need_fetch = []
+        for sid in ids:
+            with self._lock:
+                cached = self._quote_cache.get(sid)
+            if cached and (time.time() - cached[0] < 30):
+                results[sid] = cached[1]
+            else:
+                need_fetch.append(sid)
+        if not need_fetch:
+            return results
+
+        # 1. TWSE MIS 官方即時快照（單次批次呼叫）
+        mis_quotes = self.get_twse_mis_quotes(need_fetch)
+        still_missing = []
+        for sid in need_fetch:
+            q = mis_quotes.get(sid)
+            if q:
+                quote = {"price": q["price"], "change_pct": q["change_pct"]}
+                results[sid] = quote
+                with self._lock:
+                    self._quote_cache[sid] = (time.time(), quote)
+            else:
+                still_missing.append(sid)
+
+        if not still_missing:
+            return results
+
         now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
         is_trading = (
             now_tw.weekday() < 5
@@ -1615,12 +1716,8 @@ class DataFetcher:
 
         def fetch_one(sid):
             sid = str(sid)
-            with self._lock:
-                cached = self._quote_cache.get(sid)
-            if cached and (time.time() - cached[0] < 30):
-                return sid, cached[1]
-
             quote = None
+            # 2. yfinance 備援（僅 MIS 查不到的代碼）
             if is_trading:
                 try:
                     symbol = sym_map.get(sid, f"{sid}.TW")
@@ -1635,7 +1732,7 @@ class DataFetcher:
                 except Exception:
                     quote = None
 
-            # 回退官方收盤快取
+            # 3. 回退官方收盤快取
             if quote is None:
                 off = self._official_cache.get(sid)
                 if off and off.get("price") is not None and not pd.isna(off.get("price")):
@@ -1649,9 +1746,8 @@ class DataFetcher:
                     self._quote_cache[sid] = (time.time(), quote)
             return sid, quote
 
-        ids = [str(s) for s in stock_ids][:60]
         with ThreadPoolExecutor(max_workers=10) as ex:
-            for sid, q in ex.map(fetch_one, ids):
+            for sid, q in ex.map(fetch_one, still_missing):
                 if q is not None:
                     results[sid] = q
         return results
