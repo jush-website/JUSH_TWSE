@@ -101,6 +101,44 @@
   }
 }
 
+/* ─── react-bits style effects ───────────────────────────────── */
+/* Spotlight card: soft light follows the cursor (hover devices only) */
+.spotlight-card { position: relative; overflow: hidden; }
+.spotlight-overlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+@media (hover: hover) {
+  .spotlight-card:hover .spotlight-overlay { opacity: 1; }
+}
+.spotlight-card > *:not(.spotlight-overlay) { position: relative; z-index: 1; }
+
+/* Shiny text: slow shimmer sweep across the brand title */
+.shiny-text {
+  background: linear-gradient(
+    120deg,
+    hsl(var(--ink-1)) 40%,
+    hsl(var(--brand)) 50%,
+    hsl(var(--ink-1)) 60%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shiny-sweep 5s linear infinite;
+}
+@keyframes shiny-sweep {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shiny-text { animation: none; }
+}
+
 /* ─── Mobile safety: prevent long strings from blowing layout ─── */
 @media (max-width: 640px) {
   html, body { overflow-x: hidden; }

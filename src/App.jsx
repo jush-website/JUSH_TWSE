@@ -69,9 +69,10 @@ function App() {
   }, []);
 
   useGSAP(() => {
-    gsap.from(appRef.current,  { opacity: 0, duration: 0.6, ease: 'power2.out' });
-    gsap.from(navRef.current,  { y: -40, opacity: 0, duration: 0.7, ease: 'back.out(1.5)', delay: 0.1 });
-    gsap.from(mainRef.current, { y: 20,  opacity: 0, duration: 0.7, ease: 'power3.out',   delay: 0.25 });
+    // 不做整頁 opacity:0 淡入 — 若動畫被中斷/節流，整個 App 會卡在看不見的狀態。
+    // 只做輕量的 nav/main 滑入，並以 clearProps 確保結束後不殘留 inline style。
+    gsap.from(navRef.current,  { y: -24, opacity: 0, duration: 0.45, ease: 'power2.out', clearProps: 'all' });
+    gsap.from(mainRef.current, { y: 14,  opacity: 0, duration: 0.45, ease: 'power2.out', delay: 0.1, clearProps: 'all' });
   }, { scope: appRef, dependencies: [] });
 
   return (

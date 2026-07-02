@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
+import CountUp from '../components/bits/CountUp';
 
 const PctBadge = ({ value }) => {
   const pos = (value ?? 0) >= 0;
@@ -108,7 +109,7 @@ const Dashboard = () => {
                   {futures.session}
                 </span>
               </div>
-              <div className="text-xl font-bold text-ink-1 nums mb-1">{futures.price}</div>
+              <div className="text-xl font-bold text-ink-1 nums mb-1"><CountUp value={futures.price} /></div>
               <PctBadge value={futures.change_pct} />
               {futures.date && <div className="text-[10px] text-ink-3 mt-1.5">{futures.date}</div>}
             </div>
@@ -116,7 +117,9 @@ const Dashboard = () => {
           {Object.entries(markets).map(([name, data]) => (
             <div key={name} className="gsap-dashboard-card card p-4">
               <div className="text-xs text-ink-3 mb-2">{name}</div>
-              <div className="text-lg font-bold text-ink-1 nums mb-1">{data.price}</div>
+              <div className="text-lg font-bold text-ink-1 nums mb-1">
+                <CountUp value={data.price} decimals={data.price >= 1000 ? 2 : undefined} />
+              </div>
               <PctBadge value={data.change_pct} />
               {data.date && <div className="text-[10px] text-ink-3 mt-1.5">{data.date}</div>}
             </div>

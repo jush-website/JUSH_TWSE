@@ -17,6 +17,25 @@ api.interceptors.response.use(
   (error) => Promise.reject(error)
 );
 
+// 攔截器：GET 請求自動重試（Render 免費版冷啟動可能耗時 30-60 秒，
+// 第一發請求容易 timeout / network error，重試兩次讓喚醒後的服務接手）
+api.interceptors.response.use(undefined, async (error) => {
+  const cfg = error.config;
+  if (!cfg || (cfg.method || 'get').toLowerCase() !== 'get') return Promise.reject(error);
+
+  const isRetryable =
+    !error.response ||                      // timeout / network error
+    error.response.status >= 500 ||         // server error
+    error.response.status === 429;          // rate limited
+  cfg.__retryCount = cfg.__retryCount || 0;
+  if (!isRetryable || cfg.__retryCount >= 2) return Promise.reject(error);
+
+  cfg.__retryCount += 1;
+  const delay = 1500 * cfg.__retryCount;
+  await new Promise(r => setTimeout(r, delay));
+  return api(cfg);
+});
+
 
 
 import { doc, getDoc } from "firebase/firestore";

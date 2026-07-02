@@ -1763,16 +1763,26 @@ class DataFetcher:
             if self.logger: self.logger.error(f"yfinance indices fetch error: {e}")
         
         # 3. 台股大盤若官方快取比 yfinance 更新，則覆蓋
+        # 注意：快取檔可能存有舊版程式寫入的未四捨五入價格或 change_pct=0 的殘值，
+        # 因此同日資料若快取漲跌為 0 而 yfinance 有值，以 yfinance 為準。
         if "TAIEX" in self._official_cache:
             off = self._official_cache["TAIEX"]
             off_date = off.get("date", "")
-            yf_taiex_date = results.get("台股大盤", {}).get("date", "")
+            yf_taiex = results.get("台股大盤")
+            yf_taiex_date = (yf_taiex or {}).get("date", "")
             try:
-                if not pd.isna(off.get("price")) and not pd.isna(off.get("change_pct")):
-                    if off_date >= yf_taiex_date or yf_taiex_date == "":
+                off_price = float(off.get("price"))
+                off_pct = float(off.get("change_pct"))
+                if not (pd.isna(off_price) or pd.isna(off_pct)) and off_price > 0:
+                    is_newer = off_date > yf_taiex_date or yf_taiex_date == ""
+                    same_day_valid = (
+                        off_date == yf_taiex_date
+                        and (off_pct != 0 or (yf_taiex or {}).get("change_pct", 0) == 0)
+                    )
+                    if is_newer or same_day_valid:
                         results["台股大盤"] = {
-                            "price": off["price"],
-                            "change_pct": off["change_pct"],
+                            "price": round(off_price, 2),
+                            "change_pct": round(off_pct, 2),
                             "symbol": "^TWII",
                             "date": off_date
                         }

@@ -79,7 +79,7 @@ const Navbar = React.forwardRef(({ status }, ref) => {
             <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
               <TrendingUp size={14} className="text-brand-fg" strokeWidth={2.5} />
             </div>
-            <span className="font-bold text-base text-ink-1 tracking-tight hidden sm:block">
+            <span className="font-bold text-base tracking-tight hidden sm:block shiny-text">
               台股偵測系統
             </span>
           </Link>

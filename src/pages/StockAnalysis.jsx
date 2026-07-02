@@ -13,6 +13,7 @@ import LightweightChart from '../components/LightweightChart';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useCardAnimation } from '../hooks/useCardAnimation';
+import CountUp from '../components/bits/CountUp';
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -150,7 +151,7 @@ const StockAnalysis = () => {
                   <span className="bg-overlay text-ink-3 text-[10px] px-2 py-0.5 rounded border border-line">{data.category}</span>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4 mt-1.5 flex-wrap">
-                  <span className="text-2xl sm:text-3xl font-bold text-ink-1 nums">{data.price}</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-ink-1 nums"><CountUp value={data.price} /></span>
                   <span className={`text-base font-bold nums ${isPositive ? 'text-bull' : 'text-bear'}`}>
                     {isPositive ? '+' : ''}{data.change_percent}%
                   </span>

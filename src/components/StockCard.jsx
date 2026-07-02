@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, TrendingDown, Zap, ArrowRight } from 'lucide-react';
+import SpotlightCard from './bits/SpotlightCard';
+import CountUp from './bits/CountUp';
 
 const ScoreRing = ({ score }) => {
   const r = 17;
@@ -80,7 +82,7 @@ const StockCard = ({ stock, type }) => {
   const volRatio = stock.vol_ratio ?? 0;
 
   return (
-    <div
+    <SpotlightCard
       onClick={() => navigate(`/analyze/${stock.stock_id}`)}
       className="gsap-recommend-card group card p-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-md hover:border-brand/30"
     >
@@ -105,7 +107,7 @@ const StockCard = ({ stock, type }) => {
       {/* Price */}
       <div className="flex items-end justify-between mb-3">
         <div>
-          <div className="text-xl font-bold text-ink-1 nums">{stock.price ?? '--'}</div>
+          <div className="text-xl font-bold text-ink-1 nums"><CountUp value={stock.price} duration={0.6} /></div>
           <div className={`flex items-center gap-0.5 text-xs font-semibold mt-0.5 nums ${isUp ? 'text-bull' : 'text-bear'}`}>
             {isUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
             {isUp ? '+' : ''}{stock.change_percent ?? 0}%
@@ -203,7 +205,7 @@ const StockCard = ({ stock, type }) => {
         <span>查看詳細分析</span>
         <ArrowRight size={10} className="group-hover:translate-x-0.5 transition-transform" />
       </div>
-    </div>
+    </SpotlightCard>
   );
 };
 

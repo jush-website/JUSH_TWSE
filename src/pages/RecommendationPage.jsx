@@ -14,7 +14,7 @@ import {
 import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
-import { RefreshCw, LayoutGrid, List } from 'lucide-react';
+import BlurText from '../components/bits/BlurText';
 
 const RecommendationPage = () => {
   const { type } = useParams();
@@ -121,7 +121,8 @@ const RecommendationPage = () => {
     return sortOrder === 'desc' ? valB - valA : valA - valB;
   });
 
-  const containerRef = useCardAnimation('.gsap-recommend-card', [loading, stocks], {
+  // deps 只看 loading/type：盤中每分鐘的即時報價 setStocks 不應重播入場動畫
+  const containerRef = useCardAnimation('.gsap-recommend-card', [loading, type], {
     enabled: !loading && stocks.length > 0,
     stagger: 0.08,
     duration: 0.35,
@@ -131,7 +132,7 @@ const RecommendationPage = () => {
     <div ref={containerRef} className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-ink-1">{titles[type] || '股票推薦'}</h1>
+          <BlurText as="h1" text={titles[type] || '股票推薦'} className="text-xl font-bold text-ink-1" />
           <p className="text-ink-3 text-sm mt-0.5">
             選股策略每日盤後更新{updatedAt ? `（資料基準：${updatedAt}）` : ''}；盤中價格每分鐘即時刷新
           </p>
