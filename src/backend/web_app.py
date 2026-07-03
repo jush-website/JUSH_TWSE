@@ -341,7 +341,13 @@ async def admin_force_full_sync(secret: str = ""):
 
 @app.get("/api/admin/sync-status")
 async def admin_sync_status():
-    return _manual_sync_state
+    # admin_secret_configured 只回傳「有沒有讀到」，絕不回傳密鑰本身內容，
+    # 用來排除「伺服器根本沒讀到環境變數」跟「密鑰打錯」這兩種情況。
+    return {
+        **_manual_sync_state,
+        "admin_secret_configured": bool(os.environ.get("ADMIN_SYNC_SECRET")),
+        "nvidia_key_configured": bool(os.environ.get("NVIDIA_API_KEY")),
+    }
 
 # 設定前端靜態檔路徑
 # 在 Vercel 環境中，路徑會從專案根目錄開始
