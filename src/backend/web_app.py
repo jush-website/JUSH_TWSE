@@ -94,6 +94,33 @@ else:
     except Exception as e:
         print(f"[系統] Firebase 初始化失敗 (本機檔案): {e}")
 
+# 只對「個股清單型」策略文件附加 AI 敘述層；hot_stocks/etf/capital_flow/
+# institutional_flow 等資料形狀不同，不適用同一套摘要邏輯。
+AI_COMMENTARY_DOCS = {
+    'short_term_burst', 'short_term', 'overnight_1', 'overnight_2',
+    'long_term', 'bottom_fishing', 'cdp', 'day_trade_cdp'
+}
+
+def sync_doc_to_firestore(doc_id, data_list):
+    """把策略結果寫回 Firestore；個股清單型文件會先附加 AI 短評。
+    排程同步（background_strategies_sync）與手動全量同步（/api/admin/force-full-sync）
+    共用這支函式，確保兩條路徑的行為一致。"""
+    if not firebase_db:
+        return
+    base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    if doc_id in AI_COMMENTARY_DOCS and isinstance(data_list, list):
+        try:
+            data_list = attach_commentary(data_list, top_n=5)
+        except Exception as e:
+            print(f"[系統] AI 敘述層生成失敗（不影響原始推薦資料）: {e}")
+    doc_ref = firebase_db.collection('recommendations').document(doc_id)
+    doc_ref.set({
+        'data': data_list,
+        'base_date': base_date,
+        'updated_at': firestore.SERVER_TIMESTAMP
+    })
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     bg_tasks = []
@@ -156,28 +183,7 @@ async def background_strategies_sync():
                 sync_status["stage4_done"] = False
 
             time_int = now.hour * 100 + now.minute
-            
-            # 只對「個股清單型」策略文件附加 AI 敘述層；hot_stocks/etf/capital_flow/
-            # institutional_flow 等資料形狀不同，不適用同一套摘要邏輯。
-            AI_COMMENTARY_DOCS = {
-                'short_term_burst', 'short_term', 'overnight_1', 'overnight_2',
-                'long_term', 'bottom_fishing', 'cdp', 'day_trade_cdp'
-            }
-
-            def update_doc(doc_id, data_list):
-                if firebase_db:
-                    base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
-                    if doc_id in AI_COMMENTARY_DOCS and isinstance(data_list, list):
-                        try:
-                            data_list = attach_commentary(data_list, top_n=5)
-                        except Exception as e:
-                            print(f"[系統] AI 敘述層生成失敗（不影響原始推薦資料）: {e}")
-                    doc_ref = firebase_db.collection('recommendations').document(doc_id)
-                    doc_ref.set({
-                        'data': data_list,
-                        'base_date': base_date,
-                        'updated_at': firestore.SERVER_TIMESTAMP
-                    })
+            update_doc = sync_doc_to_firestore
 
             loop = asyncio.get_event_loop()
             executed_any = False
@@ -249,6 +255,63 @@ async def background_strategies_sync():
             print(f"[系統] 背景策略分析與同步錯誤: {e}")
             await asyncio.sleep(600)
 
+
+# ── 手動全量同步（不受 14:30/16:30/18:00/21:00 時間門檻限制）──────────
+# 供 /api/admin/force-full-sync 使用：把原本分散在一天四個階段的同步邏輯
+# 依序（非同時）跑過一遍，避免瞬間對 MIS/yfinance/FinMind/NVIDIA 打太多併發請求。
+_manual_sync_state = {"running": False, "started_at": None, "finished_at": None, "result": None}
+
+async def run_all_strategy_stages():
+    loop = asyncio.get_event_loop()
+    summary = {}
+
+    async def step(name, awaitable, doc_id=None):
+        try:
+            data = await awaitable
+            if doc_id:
+                await loop.run_in_executor(None, sync_doc_to_firestore, doc_id, data)
+            summary[name] = "ok"
+        except Exception as e:
+            summary[name] = f"error: {e}"
+
+    await step('hot_stocks', get_hot_stocks(force=True), 'hot_stocks')
+    await step('etf', get_etf_recommendations(force=True), 'etf')
+    await step('capital_flow', get_capital_flow_recommendations(force=True), 'capital_flow')
+
+    try:
+        institutional_flow = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
+        await loop.run_in_executor(None, sync_doc_to_firestore, 'institutional_flow', institutional_flow)
+        summary['institutional_flow'] = 'ok'
+    except Exception as e:
+        summary['institutional_flow'] = f'error: {e}'
+
+    await step('short_term_burst', get_short_term_burst_recommendations(force=True), 'short_term_burst')
+    await step('short_term', get_short_term_recommendations(force=True), 'short_term')
+    await step('overnight_1', get_overnight_recommendations(mode="1", force=True), 'overnight_1')
+    await step('long_term', get_long_term_recommendations(force=True), 'long_term')
+    await step('bottom_fishing', get_bottom_fishing_recommendations(force=True), 'bottom_fishing')
+    await step('overnight_2', get_overnight_recommendations(mode="2", force=True), 'overnight_2')
+    await step('cdp', get_cdp_recommendations(force=True), 'cdp')
+    await step('day_trade_cdp', get_day_trade_cdp_recommendations(force=True), 'day_trade_cdp')
+
+    return summary
+
+
+async def _run_manual_sync_bg():
+    _manual_sync_state.update({
+        "running": True,
+        "started_at": datetime.now(pytz.timezone("Asia/Taipei")).isoformat(),
+        "finished_at": None,
+        "result": None,
+    })
+    try:
+        _manual_sync_state["result"] = await run_all_strategy_stages()
+    except Exception as e:
+        _manual_sync_state["result"] = {"fatal_error": str(e)}
+    finally:
+        _manual_sync_state["running"] = False
+        _manual_sync_state["finished_at"] = datetime.now(pytz.timezone("Asia/Taipei")).isoformat()
+
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="台股偵測系統 Web 版 (Optimized)", lifespan=lifespan)
 
@@ -260,6 +323,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── 手動觸發全量同步（含 AI 敘述層）──────────────────────────────
+# 用途：不想等排定的 14:30/16:30/18:00/21:00 時間門檻，立刻把全部策略
+# 清單重新計算一次並附加 AI 短評。需要在 Render 環境變數設定
+# ADMIN_SYNC_SECRET，未設定時一律拒絕（避免被任何人任意觸發、浪費
+# NVIDIA 免費額度或把 MIS/yfinance 打到被限流）。
+@app.post("/api/admin/force-full-sync")
+async def admin_force_full_sync(secret: str = ""):
+    expected = os.environ.get("ADMIN_SYNC_SECRET")
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if _manual_sync_state["running"]:
+        return {"status": "already_running", "started_at": _manual_sync_state["started_at"]}
+    asyncio.create_task(_run_manual_sync_bg())
+    return {"status": "started"}
+
+@app.get("/api/admin/sync-status")
+async def admin_sync_status():
+    return _manual_sync_state
 
 # 設定前端靜態檔路徑
 # 在 Vercel 環境中，路徑會從專案根目錄開始
