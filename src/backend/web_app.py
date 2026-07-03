@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from src.backend.analyzer import StockAnalyzer
 from src.backend.data_fetcher import DataFetcher
+from src.backend.ai_commentary import attach_commentary
 
 import math
 
@@ -156,9 +157,21 @@ async def background_strategies_sync():
 
             time_int = now.hour * 100 + now.minute
             
+            # 只對「個股清單型」策略文件附加 AI 敘述層；hot_stocks/etf/capital_flow/
+            # institutional_flow 等資料形狀不同，不適用同一套摘要邏輯。
+            AI_COMMENTARY_DOCS = {
+                'short_term_burst', 'short_term', 'overnight_1', 'overnight_2',
+                'long_term', 'bottom_fishing', 'cdp', 'day_trade_cdp'
+            }
+
             def update_doc(doc_id, data_list):
                 if firebase_db:
                     base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+                    if doc_id in AI_COMMENTARY_DOCS and isinstance(data_list, list):
+                        try:
+                            data_list = attach_commentary(data_list, top_n=5)
+                        except Exception as e:
+                            print(f"[系統] AI 敘述層生成失敗（不影響原始推薦資料）: {e}")
                     doc_ref = firebase_db.collection('recommendations').document(doc_id)
                     doc_ref.set({
                         'data': data_list,

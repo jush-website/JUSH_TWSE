@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, TrendingDown, Zap, ArrowRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, ArrowRight, Sparkles } from 'lucide-react';
 import SpotlightCard from './bits/SpotlightCard';
 import CountUp from './bits/CountUp';
 
@@ -197,6 +197,14 @@ const StockCard = ({ stock, type }) => {
               <span className="text-ink-2 truncate ml-2 max-w-[60%]">{stock.strategy_name}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* AI 敘述層：僅系統已算好的分數/訊號的白話解讀，非額外投資建議 */}
+      {stock.ai_commentary && (
+        <div className="mt-2.5 p-2.5 rounded-lg bg-brand-muted/50 border border-brand/15 flex items-start gap-1.5">
+          <Sparkles size={11} className="text-brand shrink-0 mt-0.5" />
+          <p className="text-[11px] text-ink-2 leading-snug">{stock.ai_commentary}</p>
         </div>
       )}
 
