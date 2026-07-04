@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { analyzeStockRaw } from '../services/api';
-import { 
-  TrendingUp, TrendingDown, AlertCircle, CheckCircle, 
-  Target, ShieldAlert, BarChart, PieChart, Info, Search
+import { analyzeStockRaw, getStockAnalysisCommentary } from '../services/api';
+import {
+  TrendingUp, TrendingDown, AlertCircle, CheckCircle,
+  Target, ShieldAlert, BarChart, PieChart, Info, Search, Sparkles
 , Newspaper, FileText, BarChart2 } from 'lucide-react';
 import { 
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, Area
@@ -23,11 +23,14 @@ const StockAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [aiCommentary, setAiCommentary] = useState(null);
+  const [aiCommentaryLoading, setAiCommentaryLoading] = useState(false);
 
   const fetchAnalysis = async (searchQuery) => {
     if (!searchQuery) return;
     setLoading(true);
     setError(null);
+    setAiCommentary(null);
     try {
       const response = await analyzeStockRaw(searchQuery);
       setData(response.data);
@@ -45,6 +48,32 @@ const StockAnalysis = () => {
       fetchAnalysis(urlQuery);
     }
   }, [urlQuery]);
+
+  // 搜尋完成、各項報告（技術指標/診斷/CDP/基本面）都算好後，
+  // 非阻塞地請後端把這些節錄送去給 AI 產生一段綜合解讀。
+  // 失敗或沒設定金鑰時 getStockAnalysisCommentary 回傳 null，區塊直接不顯示。
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    setAiCommentaryLoading(true);
+    getStockAnalysisCommentary({
+      stock_name: data.stock_name, stock_id: data.stock_id,
+      price: data.price, change_percent: data.change_percent, category: data.category,
+      total_score: data.total_score, recommend_status: data.recommend_status,
+      kd: data.kd, rsi: data.rsi, macd: data.macd,
+      ma5: data.ma5, ma20: data.ma20, ma60: data.ma60,
+      vol_ratio: data.vol_ratio, volatility: data.volatility,
+      pe: data.pe, yield: data.yield, roe: data.roe, debt_ratio: data.debt_ratio,
+      diagnosis: data.diagnosis, volume_patterns: (data.volume_patterns || []).map(vp => vp.pattern),
+      cdp: data.cdp, strategy_name: data.strategy_name,
+      entry_range: data.entry_range, stop_loss: data.stop_loss, exit_rule: data.exit_rule,
+    }).then(text => {
+      if (!cancelled) setAiCommentary(text);
+    }).finally(() => {
+      if (!cancelled) setAiCommentaryLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [data]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -173,6 +202,21 @@ const StockAnalysis = () => {
               <div className="text-sm font-semibold text-brand sm:mt-2 text-right sm:text-center">{data.recommend_status}</div>
             </div>
           </div>
+
+          {/* AI 綜合解讀：把上面各項已算好的報告整合成一段話，純敘述不重算分數 */}
+          {(aiCommentaryLoading || aiCommentary) && (
+            <div className="gsap-card p-4 sm:p-5 rounded-xl bg-brand-muted/50 border border-brand/15 flex items-start gap-2.5">
+              <Sparkles size={15} className="text-brand shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-brand mb-1">AI 綜合解讀</div>
+                {aiCommentaryLoading ? (
+                  <div className="h-4 w-3/4 max-w-sm bg-brand/10 rounded animate-pulse" />
+                ) : (
+                  <p className="text-sm text-ink-2 leading-relaxed">{aiCommentary}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="gsap-card bg-panel border border-line p-1.5 rounded-xl flex gap-1 overflow-x-auto">

@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from src.backend.analyzer import StockAnalyzer
 from src.backend.data_fetcher import DataFetcher
-from src.backend.ai_commentary import attach_commentary
+from src.backend.ai_commentary import attach_commentary, generate_stock_analysis_commentary
 
 import math
 
@@ -919,6 +919,15 @@ async def analyze_raw_data(payload: RawDataPayload):
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
     return sanitize_data(res)
+
+@app.post("/api/ai-commentary/stock-analysis")
+async def ai_commentary_stock_analysis(payload: Dict[str, Any]):
+    """個股分析頁專用：前端在本地算完技術指標/診斷/CDP/基本面等資料後，
+    把節錄送來這裡由 NVIDIA NIM 產生一段綜合解讀（純敘述，不重算任何分數）。
+    沒有設定 NVIDIA_API_KEY 或呼叫失敗時，commentary 為 null，前端直接隱藏該區塊。"""
+    loop = asyncio.get_event_loop()
+    text = await loop.run_in_executor(api_executor, generate_stock_analysis_commentary, payload)
+    return {"commentary": text}
 
 @app.get("/api/analyze/{query}")
 async def analyze_stock(query: str):

@@ -25,35 +25,37 @@ SYSTEM_PROMPT = (
     "直接輸出說明文字，不要加開場白或引號。"
 )
 
+ANALYSIS_SYSTEM_PROMPT = (
+    "你是台股量化系統的個股分析助手。系統已經用固定規則算好所有分數、"
+    "技術指標與訊號，你的唯一工作是把這些「已經算好的數據」整合成一段"
+    "3 到 5 句的繁體中文綜合解讀，幫使用者快速看懂系統在說什麼。"
+    "你可以綜合技術面（均線/KD/RSI/MACD/量能）、籌碼面診斷、CDP 區間、"
+    "基本面（本益比/殖利率/ROE）等資訊，指出多空訊號是否一致、有沒有互相"
+    "矛盾的地方、以及主要風險。絕對不要自己編造任何分數、價位或數據，"
+    "不要給出買賣建議、目標價或保證獲利的字眼，只針對系統已提供的資訊做"
+    "客觀解讀。字數控制在 200 字以內，直接輸出說明文字，不要加開場白、"
+    "不要加項目符號、不要加引號。"
+)
 
-def generate_commentary(stock_name, stock_id, score, status, signals, price=None, change_pct=None):
-    """呼叫 NVIDIA NIM，將已算好的分數/訊號整理成一句話評論。失敗回傳 None。"""
+
+def _call_nvidia(system_prompt, user_prompt, max_tokens=150, temperature=0.4):
+    """共用的 NVIDIA NIM 呼叫邏輯。沒有金鑰或任何失敗都安靜回傳 None。"""
     if not NVIDIA_API_KEY:
         return None
     try:
-        signal_text = "、".join(signals[:5]) if signals else "無特別訊號"
-        user_prompt = (
-            f"股票：{stock_name}（{stock_id}）\n"
-            f"目前股價：{price if price is not None else '未知'}"
-            f"（漲跌 {change_pct if change_pct is not None else '未知'}%）\n"
-            f"系統評分：{score} 分\n"
-            f"系統狀態標籤：{status or '無'}\n"
-            f"系統偵測到的訊號：{signal_text}\n"
-            f"請用一到兩句話白話解讀以上「已經算好」的資訊。"
-        )
         resp = requests.post(
             NVIDIA_API_URL,
             headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
             json={
                 "model": NVIDIA_MODEL,
                 "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                "temperature": 0.4,
-                "max_tokens": 150,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
             },
-            timeout=12,
+            timeout=15,
         )
         if resp.status_code != 200:
             return None
@@ -61,6 +63,66 @@ def generate_commentary(stock_name, stock_id, score, status, signals, price=None
         return text or None
     except Exception:
         return None
+
+
+def generate_commentary(stock_name, stock_id, score, status, signals, price=None, change_pct=None):
+    """呼叫 NVIDIA NIM，將已算好的分數/訊號整理成一句話評論。失敗回傳 None。"""
+    signal_text = "、".join(signals[:5]) if signals else "無特別訊號"
+    user_prompt = (
+        f"股票：{stock_name}（{stock_id}）\n"
+        f"目前股價：{price if price is not None else '未知'}"
+        f"（漲跌 {change_pct if change_pct is not None else '未知'}%）\n"
+        f"系統評分：{score} 分\n"
+        f"系統狀態標籤：{status or '無'}\n"
+        f"系統偵測到的訊號：{signal_text}\n"
+        f"請用一到兩句話白話解讀以上「已經算好」的資訊。"
+    )
+    return _call_nvidia(SYSTEM_PROMPT, user_prompt, max_tokens=150)
+
+
+def generate_stock_analysis_commentary(payload):
+    """個股分析頁專用：綜合技術面/籌碼面/基本面/CDP 等已算好的資料，
+    產出一段 3~5 句的整體解讀。payload 是前端已經算好的分析結果節錄。
+    失敗（無金鑰、逾時等）安靜回傳 None。"""
+    if not NVIDIA_API_KEY:
+        return None
+
+    def g(key, default='未知'):
+        v = payload.get(key)
+        return default if v is None or v == '' else v
+
+    diagnosis = payload.get('diagnosis') or []
+    volume_patterns = payload.get('volume_patterns') or []
+    cdp = payload.get('cdp') or {}
+
+    lines = [
+        f"股票：{g('stock_name')}（{g('stock_id')}）",
+        f"目前股價：{g('price')}（漲跌 {g('change_percent')}%），分類：{g('category')}",
+        f"系統綜合評分：{g('total_score')} 分，狀態標籤：{g('recommend_status', '無')}",
+        f"技術指標：KD {g('kd')}、RSI {g('rsi')}、MACD {g('macd')}、"
+        f"5日均線 {g('ma5')}、20日均線 {g('ma20')}、60日均線 {g('ma60')}、"
+        f"量比 {g('vol_ratio')}、年化波動率 {g('volatility')}%",
+        f"基本面：本益比 {g('pe')}、殖利率 {g('yield')}%、ROE {g('roe')}%、負債比 {g('debt_ratio')}%",
+    ]
+    if diagnosis:
+        lines.append("系統診斷訊號：" + "；".join(str(d) for d in diagnosis[:8]))
+    if volume_patterns:
+        lines.append("成交量形態：" + "、".join(str(v) for v in volume_patterns[:5]))
+    if cdp.get('CDP') is not None:
+        lines.append(
+            f"CDP 區間：AH {cdp.get('AH')} / NH {cdp.get('NH')} / "
+            f"CDP {cdp.get('CDP')} / NL {cdp.get('NL')} / AL {cdp.get('AL')}"
+        )
+    if g('strategy_name', None):
+        lines.append(
+            f"系統建議策略：{g('strategy_name')}，進場價位 {g('entry_range')}，"
+            f"停損價位 {g('stop_loss')}，出場鐵律：{g('exit_rule')}"
+        )
+
+    lines.append("請將以上「已經算好」的資訊整合成一段 3~5 句的繁體中文綜合解讀。")
+    user_prompt = "\n".join(lines)
+
+    return _call_nvidia(ANALYSIS_SYSTEM_PROMPT, user_prompt, max_tokens=350)
 
 
 def _extract_score_context(stock):

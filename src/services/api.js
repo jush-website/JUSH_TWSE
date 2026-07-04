@@ -134,6 +134,19 @@ export const getQuotes = async (ids = []) => {
   }
 };
 
+// 個股分析頁：把前端已經算好的技術指標/診斷/CDP/基本面節錄送給後端，
+// 由 NVIDIA NIM 產生一段綜合解讀。沒設定金鑰或呼叫失敗都回傳 null，
+// 呼叫端只要判斷 null 就不顯示這個區塊即可，不影響其餘分析結果。
+export const getStockAnalysisCommentary = async (analysisData) => {
+  try {
+    const res = await api.post('/api/ai-commentary/stock-analysis', analysisData);
+    return res.data?.commentary || null;
+  } catch (err) {
+    console.warn('AI 綜合解讀取得失敗', err);
+    return null;
+  }
+};
+
 // 透過後端 Proxy 取得 FinMind 歷史資料 (避免瀏覽器 CORS 或無 token 造成的 Rate Limit)
 const fetchFinmind = async (dataset, stockId, daysAgo) => {
   const d = new Date();
