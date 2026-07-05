@@ -842,7 +842,7 @@ async def get_capital_flow_recommendations(force: bool = False):
     # 從官方快取中獲取大盤的真實最後交易日
     official_cache = getattr(fetcher, '_official_cache', {})
     taiex_info = official_cache.get("TAIEX", {})
-    actual_date = taiex_info.get("date") or fetcher.get_actual_trading_date()
+    actual_date = taiex_info.get("date") or fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
     now_tw = datetime.now(pytz.timezone("Asia/Taipei"))
 
     wrapper = {
