@@ -131,6 +131,8 @@ INTEGRATED_SYSTEM_PROMPT = (
     "你的工作是把這些「已經算好/整理好」的資訊，整合成一份分段式的繁體中文報告，"
     "格式嚴格如下（每段以【標題】起頭獨立一行，之後接該段內文 2~4 句）：\n"
     "【技術面】...\n【籌碼面】...\n【分點動向】...\n【基本面】...\n【消息面】...\n【整體結論】...\n"
+    "【技術面】請結合提供的日 K 走勢資料（每日開高低收與量能、近期高低點位置）"
+    "描述價格型態與趨勢，例如是否創高/破低、上下影線、量價配合情況。"
     "若某一面向的資料標示為「無資料」，該段就寫一句說明資料不足即可。"
     "在【整體結論】中指出各面向訊號是否一致、有無矛盾、以及主要風險。"
     "絕對不要自己編造任何分數、價位或數據，不要給出買賣建議、目標價或"
@@ -165,6 +167,10 @@ def generate_integrated_analysis(payload):
         lines.append("系統診斷：" + "；".join(str(d) for d in payload['diagnosis'][:8]))
     if payload.get('volume_patterns'):
         lines.append("成交量形態：" + "、".join(str(v) for v in payload['volume_patterns'][:5]))
+
+    lines.append("")
+    lines.append("== 日 K 走勢（近 20 個交易日，含近 60 日高低點）==")
+    lines.append(payload.get('kline_summary') or "無資料")
 
     lines.append("")
     lines.append("== 籌碼面（近 5 個交易日）==")

@@ -104,6 +104,19 @@ const StockAnalysis = () => {
     if (lastMargin) chipSummary += `。融資餘額 ${lastMargin.margin_bal} 張、融券餘額 ${lastMargin.short_bal} 張`;
     if (lastHold) chipSummary += `。外資持股比例 ${lastHold.ratio}%`;
 
+    // K 線節錄：近 20 日逐日 OHLCV + 近 60 日高低點，讓 AI 能解讀實際價格型態
+    let klineSummary = null;
+    const bars = data.chart_data || [];
+    if (bars.length > 0) {
+      const win60 = bars.slice(-60);
+      const hi60 = Math.max(...win60.map(b => b.high));
+      const lo60 = Math.min(...win60.map(b => b.low));
+      const daily = bars.slice(-20)
+        .map(b => `${b.date} 開${b.open} 高${b.high} 低${b.low} 收${b.close} 量${b.volume}張`)
+        .join('；');
+      klineSummary = `近60日最高 ${hi60}、最低 ${lo60}，目前收盤 ${bars[bars.length - 1].close}。近20日日K：${daily}`;
+    }
+
     const revs = (data.revenue_data || []).slice(-3)
       .map(r => `${r.date} 營收 ${(r.revenue / 1e8).toFixed(1)} 億(年增 ${r.revenue_year_on_year}%)`).join('、');
     const eps = (data.financial_data || []).filter(d => d.type === 'EPS').slice(-4)
@@ -119,6 +132,7 @@ const StockAnalysis = () => {
       vol_ratio: data.vol_ratio, volatility: data.volatility,
       pe: data.pe, yield: data.yield, roe: data.roe, debt_ratio: data.debt_ratio,
       diagnosis: data.diagnosis, volume_patterns: (data.volume_patterns || []).map(vp => vp.pattern),
+      kline_summary: klineSummary,
       chip_summary: chipSummary || null,
       branch_summary: branchSummary,
       fundamental_summary: fundamentalSummary,
