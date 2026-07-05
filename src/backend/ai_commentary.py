@@ -125,6 +125,74 @@ def generate_stock_analysis_commentary(payload):
     return _call_nvidia(ANALYSIS_SYSTEM_PROMPT, user_prompt, max_tokens=350)
 
 
+INTEGRATED_SYSTEM_PROMPT = (
+    "你是台股量化系統的個股整合分析助手。系統已經用固定規則算好所有分數、"
+    "技術指標與訊號，前端也整理好了籌碼、分點、基本面與新聞的節錄資料。"
+    "你的工作是把這些「已經算好/整理好」的資訊，整合成一份分段式的繁體中文報告，"
+    "格式嚴格如下（每段以【標題】起頭獨立一行，之後接該段內文 2~4 句）：\n"
+    "【技術面】...\n【籌碼面】...\n【分點動向】...\n【基本面】...\n【消息面】...\n【整體結論】...\n"
+    "若某一面向的資料標示為「無資料」，該段就寫一句說明資料不足即可。"
+    "在【整體結論】中指出各面向訊號是否一致、有無矛盾、以及主要風險。"
+    "絕對不要自己編造任何分數、價位或數據，不要給出買賣建議、目標價或"
+    "保證獲利的字眼，只針對系統已提供的資訊做客觀解讀。"
+    "直接輸出報告內容，不要加開場白、不要加引號、不要用 markdown 符號。"
+)
+
+
+def _fmt_num(v):
+    return '未知' if v is None or v == '' else v
+
+
+def generate_integrated_analysis(payload):
+    """AI 整合分析分頁專用：把技術/籌碼/分點/基本面/新聞五個面向的節錄
+    整合成一份分段報告。payload 由前端整理，失敗安靜回傳 None。"""
+    if not NVIDIA_API_KEY:
+        return None
+
+    g = lambda k, d='未知': _fmt_num(payload.get(k)) if payload.get(k) not in (None, '') else d
+
+    lines = [
+        f"股票：{g('stock_name')}（{g('stock_id')}），分類：{g('category')}",
+        f"目前股價：{g('price')}（漲跌 {g('change_percent')}%），系統綜合評分：{g('total_score')} 分，"
+        f"狀態標籤：{g('recommend_status', '無')}",
+        "",
+        "== 技術面 ==",
+        f"KD {g('kd')}、RSI {g('rsi')}、MACD {g('macd')}、"
+        f"5日均線 {g('ma5')}、20日均線 {g('ma20')}、60日均線 {g('ma60')}、"
+        f"量比 {g('vol_ratio')}、年化波動率 {g('volatility')}%",
+    ]
+    if payload.get('diagnosis'):
+        lines.append("系統診斷：" + "；".join(str(d) for d in payload['diagnosis'][:8]))
+    if payload.get('volume_patterns'):
+        lines.append("成交量形態：" + "、".join(str(v) for v in payload['volume_patterns'][:5]))
+
+    lines.append("")
+    lines.append("== 籌碼面（近 5 個交易日）==")
+    lines.append(payload.get('chip_summary') or "無資料")
+
+    lines.append("")
+    lines.append("== 分點動向（最新交易日主力進出）==")
+    lines.append(payload.get('branch_summary') or "無資料")
+
+    lines.append("")
+    lines.append("== 基本面 ==")
+    lines.append(
+        f"本益比 {g('pe')}、殖利率 {g('yield')}%、ROE {g('roe')}%、負債比 {g('debt_ratio')}%"
+    )
+    lines.append(payload.get('fundamental_summary') or "無其他財報節錄")
+
+    lines.append("")
+    lines.append("== 消息面（近期新聞標題）==")
+    news = payload.get('news_titles') or []
+    lines.append("；".join(str(t) for t in news[:10]) if news else "無資料")
+
+    lines.append("")
+    lines.append("請依指定格式輸出整合分析報告。")
+
+    return _call_nvidia(INTEGRATED_SYSTEM_PROMPT, "\n".join(lines),
+                        max_tokens=900, temperature=0.4)
+
+
 def _extract_score_context(stock):
     """從各策略的巢狀欄位（short_term_rec / overnight / ...）取出分數、狀態、訊號。
     找不到已知子欄位時退回頂層的 total_score / diagnosis。"""

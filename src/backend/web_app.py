@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from src.backend.analyzer import StockAnalyzer
 from src.backend.data_fetcher import DataFetcher
-from src.backend.ai_commentary import attach_commentary, generate_stock_analysis_commentary
+from src.backend.ai_commentary import attach_commentary, generate_stock_analysis_commentary, generate_integrated_analysis
 
 import math
 
@@ -928,6 +928,15 @@ async def ai_commentary_stock_analysis(payload: Dict[str, Any]):
     loop = asyncio.get_event_loop()
     text = await loop.run_in_executor(api_executor, generate_stock_analysis_commentary, payload)
     return {"commentary": text}
+
+@app.post("/api/ai-commentary/integrated")
+async def ai_commentary_integrated(payload: Dict[str, Any]):
+    """AI 整合分析分頁：前端把技術/籌碼/分點/基本面/新聞五個面向的節錄
+    送來這裡，由 NVIDIA NIM 產生一份分段式整合報告（純敘述，不重算分數）。
+    沒有設定 NVIDIA_API_KEY 或呼叫失敗時，report 為 null。"""
+    loop = asyncio.get_event_loop()
+    text = await loop.run_in_executor(api_executor, generate_integrated_analysis, payload)
+    return {"report": text}
 
 @app.get("/api/analyze/{query}")
 async def analyze_stock(query: str):

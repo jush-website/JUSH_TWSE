@@ -147,6 +147,18 @@ export const getStockAnalysisCommentary = async (analysisData) => {
   }
 };
 
+// AI 整合分析分頁：把五個面向（技術/籌碼/分點/基本面/新聞）的節錄送給後端，
+// 由 NVIDIA NIM 產生分段式整合報告。失敗回傳 null，呼叫端顯示錯誤提示即可。
+export const getIntegratedAnalysis = async (payload) => {
+  try {
+    const res = await api.post('/api/ai-commentary/integrated', payload, { timeout: 90000 });
+    return res.data?.report || null;
+  } catch (err) {
+    console.warn('AI 整合分析取得失敗', err);
+    return null;
+  }
+};
+
 // 透過後端 Proxy 取得 FinMind 歷史資料 (避免瀏覽器 CORS 或無 token 造成的 Rate Limit)
 const fetchFinmind = async (dataset, stockId, daysAgo) => {
   const d = new Date();

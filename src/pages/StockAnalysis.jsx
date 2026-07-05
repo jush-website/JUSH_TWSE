@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { analyzeStockRaw, getStockAnalysisCommentary } from '../services/api';
+import api, { analyzeStockRaw, getStockAnalysisCommentary, getIntegratedAnalysis } from '../services/api';
 import {
   TrendingUp, TrendingDown, AlertCircle, CheckCircle,
   Target, ShieldAlert, BarChart, PieChart, Info, Search, Sparkles
@@ -25,6 +25,8 @@ const StockAnalysis = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [aiCommentary, setAiCommentary] = useState(null);
   const [aiCommentaryLoading, setAiCommentaryLoading] = useState(false);
+  // AI 整合分析：{ status: 'loading' | 'done' | 'error', text }，換股票時重置
+  const [aiReport, setAiReport] = useState(null);
 
   const fetchAnalysis = async (searchQuery) => {
     if (!searchQuery) return;
@@ -74,6 +76,61 @@ const StockAnalysis = () => {
     });
     return () => { cancelled = true; };
   }, [data]);
+
+  // AI 整合分析：切到該分頁時才觸發（分點資料 + LLM 呼叫較慢，不預先打）。
+  // 把五個面向濃縮成文字節錄送後端，由 NVIDIA NIM 產出分段報告。
+  const fetchIntegratedReport = async () => {
+    if (!data) return;
+    setAiReport({ status: 'loading' });
+
+    // 分點資料另外抓（其他四個面向都已在 data 裡）
+    let branchSummary = null;
+    try {
+      const res = await api.get(`/api/stock/${data.stock_id}/branch-data`);
+      const b = res.data?.data;
+      if (b) {
+        const fmt = (arr) => (arr || []).slice(0, 5)
+          .map(x => `${x.name} ${x.net_buy > 0 ? '+' : ''}${x.net_buy.toLocaleString()}張(均價${x.price?.toFixed?.(2) ?? x.price})`)
+          .join('、');
+        branchSummary = `買超前五：${fmt(b.buy_branches) || '無'}；賣超前五：${fmt(b.sell_branches) || '無'}`;
+      }
+    } catch { /* 無分點資料時後端會標示無資料 */ }
+
+    const sign = (v) => (v > 0 ? `+${v}` : `${v}`);
+    let chipSummary = (data.chip_processed || []).slice(-5)
+      .map(c => `${c.date} 外資${sign(c.foreign_net)}張/投信${sign(c.trust_net)}張`).join('；');
+    const lastMargin = (data.margin_processed || []).slice(-1)[0];
+    const lastHold = (data.shareholding_processed || []).slice(-1)[0];
+    if (lastMargin) chipSummary += `。融資餘額 ${lastMargin.margin_bal} 張、融券餘額 ${lastMargin.short_bal} 張`;
+    if (lastHold) chipSummary += `。外資持股比例 ${lastHold.ratio}%`;
+
+    const revs = (data.revenue_data || []).slice(-3)
+      .map(r => `${r.date} 營收 ${(r.revenue / 1e8).toFixed(1)} 億(年增 ${r.revenue_year_on_year}%)`).join('、');
+    const eps = (data.financial_data || []).filter(d => d.type === 'EPS').slice(-4)
+      .map(e => `${e.date} EPS ${e.value}`).join('、');
+    const fundamentalSummary = [revs, eps].filter(Boolean).join('；') || null;
+
+    const text = await getIntegratedAnalysis({
+      stock_name: data.stock_name, stock_id: data.stock_id,
+      price: data.price, change_percent: data.change_percent, category: data.category,
+      total_score: data.total_score, recommend_status: data.recommend_status,
+      kd: data.kd, rsi: data.rsi, macd: data.macd,
+      ma5: data.ma5, ma20: data.ma20, ma60: data.ma60,
+      vol_ratio: data.vol_ratio, volatility: data.volatility,
+      pe: data.pe, yield: data.yield, roe: data.roe, debt_ratio: data.debt_ratio,
+      diagnosis: data.diagnosis, volume_patterns: (data.volume_patterns || []).map(vp => vp.pattern),
+      chip_summary: chipSummary || null,
+      branch_summary: branchSummary,
+      fundamental_summary: fundamentalSummary,
+      news_titles: (data.news_data || []).slice().reverse().slice(0, 10).map(n => n.title),
+    });
+    setAiReport(text ? { status: 'done', text } : { status: 'error' });
+  };
+
+  useEffect(() => { setAiReport(null); }, [data]);
+  useEffect(() => {
+    if (activeTab === 'ai' && data && !aiReport) fetchIntegratedReport();
+  }, [activeTab, data]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -225,7 +282,8 @@ const StockAnalysis = () => {
               { id: 'chips', label: '籌碼分析' },
               { id: 'branch', label: '分點籌碼' },
               { id: 'fundamentals', label: '基本面' },
-              { id: 'news', label: '個股新聞' }
+              { id: 'news', label: '個股新聞' },
+              { id: 'ai', label: '✨ AI 整合分析' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -765,6 +823,60 @@ const StockAnalysis = () => {
             </div>
           )}
 
+          {activeTab === 'ai' && (
+            <div className="gsap-tab-content space-y-4 sm:space-y-5">
+              {aiReport?.status === 'loading' && (
+                <div className="card p-12 flex flex-col items-center justify-center text-center">
+                  <Sparkles className="w-8 h-8 text-brand mb-3 animate-pulse" />
+                  <p className="text-ink-2 font-semibold">AI 正在整合五大面向資料...</p>
+                  <p className="text-ink-3 text-sm mt-1">綜合分析 / 籌碼 / 分點 / 基本面 / 新聞，約需 10~30 秒</p>
+                </div>
+              )}
+              {aiReport?.status === 'error' && (
+                <div className="card p-12 flex flex-col items-center justify-center text-center">
+                  <AlertCircle className="w-10 h-10 text-ink-3 mb-3" />
+                  <p className="text-ink-2 font-semibold">AI 整合分析暫時無法使用</p>
+                  <p className="text-ink-3 text-sm mt-1">可能是 AI 服務未設定或額度用盡，請稍後再試</p>
+                  <button
+                    onClick={fetchIntegratedReport}
+                    className="mt-4 bg-brand text-brand-fg px-5 py-2 rounded-xl font-semibold text-sm transition hover:opacity-90"
+                  >
+                    重新產生
+                  </button>
+                </div>
+              )}
+              {aiReport?.status === 'done' && (
+                <>
+                  <div className="grid sm:grid-cols-2 gap-4 sm:gap-5">
+                    {parseAiReport(aiReport.text).filter(s => s.title !== '整體結論').map((sec, idx) => (
+                      <div key={idx} className="card p-4 sm:p-5">
+                        {sec.title && (
+                          <div className="flex items-center gap-2 mb-2 text-brand">
+                            <Sparkles size={14} />
+                            <h2 className="font-semibold text-ink-1 text-sm">{sec.title}</h2>
+                          </div>
+                        )}
+                        <p className="text-sm text-ink-2 leading-relaxed">{sec.body.join(' ')}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {parseAiReport(aiReport.text).filter(s => s.title === '整體結論').map((sec, idx) => (
+                    <div key={idx} className="p-4 sm:p-5 rounded-xl bg-brand-muted/50 border border-brand/15">
+                      <div className="flex items-center gap-2 mb-2 text-brand">
+                        <Sparkles size={15} />
+                        <h2 className="font-bold text-ink-1">整體結論</h2>
+                      </div>
+                      <p className="text-sm text-ink-2 leading-relaxed">{sec.body.join(' ')}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-ink-3 text-center">
+                    本報告由 AI 依系統既有數據自動整理，僅為資訊解讀，不構成投資建議。
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           {activeTab === 'news' && (
             <div className="gsap-tab-content space-y-4 sm:space-y-5">
               <div className="card p-4 sm:p-5">
@@ -791,6 +903,28 @@ const StockAnalysis = () => {
       )}
     </div>
   );
+};
+
+// 把 AI 回傳的「【標題】內文」分段文字解析成 [{ title, body: [] }]
+// 模型沒照格式輸出時，整段當成無標題內文顯示，不會壞版
+const parseAiReport = (text) => {
+  const sections = [];
+  let cur = null;
+  (text || '').split('\n').forEach(raw => {
+    const line = raw.trim();
+    if (!line) return;
+    const m = line.match(/^【(.+?)】\s*(.*)/);
+    if (m) {
+      cur = { title: m[1], body: m[2] ? [m[2]] : [] };
+      sections.push(cur);
+    } else if (cur) {
+      cur.body.push(line);
+    } else {
+      cur = { title: null, body: [line] };
+      sections.push(cur);
+    }
+  });
+  return sections;
 };
 
 // Activity icon for the diagnosis section
