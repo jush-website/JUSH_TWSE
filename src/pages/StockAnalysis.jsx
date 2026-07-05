@@ -113,18 +113,33 @@ const StockAnalysis = () => {
     if (!data) return;
     setAiReport({ status: 'loading' });
 
-    // 分點資料另外抓（其他四個面向都已在 data 裡）
+    // 分點與 PTT 輿情要另外打 API，並行抓（其餘面向都已在 data 裡）
     let branchSummary = null;
-    try {
-      const res = await api.get(`/api/stock/${data.stock_id}/branch-data`);
-      const b = res.data?.data;
-      if (b) {
-        const fmt = (arr) => (arr || []).slice(0, 5)
-          .map(x => `${x.name} ${x.net_buy > 0 ? '+' : ''}${x.net_buy.toLocaleString()}張(均價${x.price?.toFixed?.(2) ?? x.price})`)
-          .join('、');
-        branchSummary = `買超前五：${fmt(b.buy_branches) || '無'}；賣超前五：${fmt(b.sell_branches) || '無'}`;
-      }
-    } catch { /* 無分點資料時後端會標示無資料 */ }
+    let communitySummary = null;
+    await Promise.all([
+      (async () => {
+        try {
+          const res = await api.get(`/api/stock/${data.stock_id}/branch-data`);
+          const b = res.data?.data;
+          if (b) {
+            const fmt = (arr) => (arr || []).slice(0, 5)
+              .map(x => `${x.name} ${x.net_buy > 0 ? '+' : ''}${x.net_buy.toLocaleString()}張(均價${x.price?.toFixed?.(2) ?? x.price})`)
+              .join('、');
+            branchSummary = `買超前五：${fmt(b.buy_branches) || '無'}；賣超前五：${fmt(b.sell_branches) || '無'}`;
+          }
+        } catch { /* 無分點資料時後端會標示無資料 */ }
+      })(),
+      (async () => {
+        try {
+          const res = await api.get(`/api/stock/${data.stock_id}/ptt`, { params: { name: data.stock_name } });
+          const posts = res.data?.data || [];
+          if (posts.length > 0) {
+            communitySummary = posts.slice(0, 10)
+              .map(p => `${p.date} ${p.title}(推文數${p.push || '0'})`).join('；');
+          }
+        } catch { /* 抓不到就標示無資料 */ }
+      })(),
+    ]);
 
     const sign = (v) => (v > 0 ? `+${v}` : `${v}`);
     let chipSummary = (data.chip_processed || []).slice(-5)
@@ -165,6 +180,7 @@ const StockAnalysis = () => {
       kline_summary: klineSummary,
       chip_summary: chipSummary || null,
       branch_summary: branchSummary,
+      community_summary: communitySummary,
       fundamental_summary: fundamentalSummary,
       // 帶日期讓 AI 能對照 K 線日期，推測股價受哪些新聞題材影響
       news_titles: (data.news_data || []).slice().reverse().slice(0, 15).map(n => `${n.date} ${n.title}`),
@@ -815,12 +831,48 @@ const StockAnalysis = () => {
                   <div className="text-ink-3 text-center py-10 text-sm">暫無近期新聞</div>
                 )}
               </div>
+              <PttDiscussion stockId={data.stock_id} stockName={data.stock_name} />
             </div>
           )}
 
 
         </div>
       )}
+    </div>
+  );
+};
+
+// PTT 股板討論列表：個股新聞分頁下方顯示，抓不到就整塊不顯示
+const PttDiscussion = ({ stockId, stockName }) => {
+  const [posts, setPosts] = useState(null);
+
+  useEffect(() => {
+    if (!stockId) return;
+    let cancelled = false;
+    api.get(`/api/stock/${stockId}/ptt`, { params: { name: stockName } })
+      .then(res => { if (!cancelled) setPosts(res.data?.data || []); })
+      .catch(() => { if (!cancelled) setPosts([]); });
+    return () => { cancelled = true; };
+  }, [stockId]);
+
+  if (!posts || posts.length === 0) return null;
+
+  return (
+    <div className="card p-4 sm:p-5">
+      <h2 className="font-semibold text-ink-1 mb-3">PTT 股板討論</h2>
+      <div className="divide-y divide-line">
+        {posts.map((p, idx) => (
+          <a key={idx} href={p.url} target="_blank" rel="noreferrer"
+            className="flex items-center gap-3 py-2.5 hover:bg-overlay -mx-1 px-1 rounded-lg transition-colors group">
+            <span className={`shrink-0 w-8 text-center text-xs font-bold nums ${
+              p.push === '爆' ? 'text-bull' : p.push?.startsWith('X') ? 'text-bear' : 'text-ink-3'
+            }`}>{p.push || '-'}</span>
+            <span className="text-xs text-ink-3 shrink-0 w-10">{p.date}</span>
+            <span className="text-sm text-ink-1 group-hover:text-brand transition-colors truncate">{p.title}</span>
+          </a>
+        ))}
+      </div>
+      <p className="mt-2 text-[10px] text-ink-3">資料來源：PTT Stock 板標題搜尋，推文數僅代表討論熱度，非投資建議。</p>
     </div>
   );
 };

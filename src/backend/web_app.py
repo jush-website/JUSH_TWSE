@@ -1241,6 +1241,14 @@ async def get_market_distribution():
 
     return final_res
 
+@app.get("/api/stock/{stock_id}/ptt")
+async def get_stock_ptt(stock_id: str, name: str = None):
+    """PTT 股板近期討論：給個股新聞分頁顯示與 AI 整合分析的市場情緒段落。"""
+    from src.backend.ptt_scraper import fetch_ptt_posts
+    loop = asyncio.get_event_loop()
+    posts = await loop.run_in_executor(api_executor, fetch_ptt_posts, stock_id, name)
+    return {"data": posts}
+
 @app.get("/api/stock/{stock_id}/branch-data")
 async def get_stock_branch_data(stock_id: str):
     from src.backend.branch_scraper import fetch_branch_data
