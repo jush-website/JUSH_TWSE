@@ -136,7 +136,8 @@ const StockAnalysis = () => {
       chip_summary: chipSummary || null,
       branch_summary: branchSummary,
       fundamental_summary: fundamentalSummary,
-      news_titles: (data.news_data || []).slice().reverse().slice(0, 10).map(n => n.title),
+      // 帶日期讓 AI 能對照 K 線日期，推測股價受哪些新聞題材影響
+      news_titles: (data.news_data || []).slice().reverse().slice(0, 15).map(n => `${n.date} ${n.title}`),
     });
     setAiReport(text ? { status: 'done', text } : { status: 'error' });
   };

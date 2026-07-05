@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { getGlobalMarket, getNews, getFutures, getMarketOutlook } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { getGlobalMarket, getNews, getFutures, getMarketOutlook, getMarketAiCommentary } from '../services/api';
 import {
   Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown,
-  Activity, Clock, AlertTriangle, CheckCircle, BarChart2,
+  Activity, Clock, AlertTriangle, CheckCircle, BarChart2, Sparkles,
 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
@@ -24,6 +24,9 @@ const Dashboard = () => {
   const [futures, setFutures] = useState(null);
   const [outlook, setOutlook] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [marketAi, setMarketAi] = useState(null);
+  const [marketAiLoading, setMarketAiLoading] = useState(false);
+  const marketAiRequested = useRef(false); // 只打一次，60 秒輪詢不重打省 NIM 額度
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,6 +48,23 @@ const Dashboard = () => {
     const interval = setInterval(fetchData, 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // 首頁資料到齊後，非阻塞地請 NIM 產生一段大盤解讀（含新聞題材歸因）。
+  // 失敗回傳 null 就不顯示區塊，完全不影響其餘內容。
+  useEffect(() => {
+    if (loading || marketAiRequested.current) return;
+    marketAiRequested.current = true;
+    setMarketAiLoading(true);
+    getMarketAiCommentary({
+      outlook_trend: outlook?.trend,
+      outlook_desc: outlook?.trend_desc,
+      outlook_signals: (outlook?.signals || []).map(s => s.replace(/^✅ |^⚠️ /, '')),
+      futures: futures?.price ? `${futures.price}（${futures.change_pct}%，${futures.session}）` : null,
+      markets: Object.entries(markets).map(([n, d]) => `${n} ${d.change_pct}%`).join('、') || null,
+      taiwan_news: (news.taiwan || []).slice(0, 10).map(n => n.title),
+      global_news: (news.global || []).slice(0, 5).map(n => n.title),
+    }).then(text => setMarketAi(text)).finally(() => setMarketAiLoading(false));
+  }, [loading]);
 
   const containerRef = useCardAnimation('.gsap-dashboard-card', [loading], {
     enabled: !loading, duration: 0.7, stagger: 0.08, ease: 'power3.out',
@@ -91,6 +111,24 @@ const Dashboard = () => {
           <p className="mt-3 text-[10px] text-ink-3 italic">
             分析基於美股科技指數、台積電 ADR、外資資金流向、台指期等即時評估
           </p>
+        </section>
+      )}
+
+      {/* ── AI 大盤解讀：整合展望/期貨/全球市場/新聞題材 ── */}
+      {(marketAiLoading || marketAi) && (
+        <section className="gsap-dashboard-card p-4 sm:p-5 rounded-xl bg-brand-muted/50 border border-brand/15 flex items-start gap-2.5">
+          <Sparkles size={15} className="text-brand shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-brand mb-1">AI 大盤解讀</div>
+            {marketAiLoading ? (
+              <div className="space-y-2">
+                <div className="h-4 w-full max-w-lg bg-brand/10 rounded animate-pulse" />
+                <div className="h-4 w-3/4 max-w-md bg-brand/10 rounded animate-pulse" />
+              </div>
+            ) : (
+              <p className="text-sm text-ink-2 leading-relaxed">{marketAi}</p>
+            )}
+          </div>
         </section>
       )}
 

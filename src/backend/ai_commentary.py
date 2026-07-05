@@ -133,6 +133,9 @@ INTEGRATED_SYSTEM_PROMPT = (
     "【技術面】...\n【籌碼面】...\n【分點動向】...\n【基本面】...\n【消息面】...\n【整體結論】...\n"
     "【技術面】請結合提供的日 K 走勢資料（每日開高低收與量能、近期高低點位置）"
     "描述價格型態與趨勢，例如是否創高/破低、上下影線、量價配合情況。"
+    "【消息面】的新聞標題前附有日期，請對照日 K 各日的漲跌與量能變化，"
+    "推測近期股價波動最可能與哪些新聞事件或題材有關（例如某日放量大漲前後"
+    "剛好有相關利多新聞），若看不出明顯關聯就照實說明。"
     "若某一面向的資料標示為「無資料」，該段就寫一句說明資料不足即可。"
     "在【整體結論】中指出各面向訊號是否一致、有無矛盾、以及主要風險。"
     "絕對不要自己編造任何分數、價位或數據，不要給出買賣建議、目標價或"
@@ -188,15 +191,52 @@ def generate_integrated_analysis(payload):
     lines.append(payload.get('fundamental_summary') or "無其他財報節錄")
 
     lines.append("")
-    lines.append("== 消息面（近期新聞標題）==")
+    lines.append("== 消息面（近期新聞，格式：日期 標題）==")
     news = payload.get('news_titles') or []
-    lines.append("；".join(str(t) for t in news[:10]) if news else "無資料")
+    lines.append("；".join(str(t) for t in news[:15]) if news else "無資料")
 
     lines.append("")
     lines.append("請依指定格式輸出整合分析報告。")
 
     return _call_nvidia(INTEGRATED_SYSTEM_PROMPT, "\n".join(lines),
                         max_tokens=900, temperature=0.4)
+
+
+MARKET_SYSTEM_PROMPT = (
+    "你是台股大盤解讀助手。系統已提供即時的市場數據（台指期、全球指數漲跌、"
+    "系統走勢展望訊號）與最新財經新聞標題，你的唯一工作是把這些資訊整合成"
+    "一段 3~5 句的繁體中文大盤解讀：說明目前多空氛圍、全球市場與台股的連動，"
+    "並指出近期哪些新聞事件或題材最可能正在影響盤勢。"
+    "絕對不要編造任何數據或新聞，不要給出買賣建議、點位預測或保證獲利的字眼，"
+    "只針對提供的資訊做客觀解讀。字數控制在 180 字以內，直接輸出說明文字，"
+    "不要加開場白、項目符號或引號。"
+)
+
+
+def generate_market_commentary(payload):
+    """首頁大盤 AI 解讀：整合走勢展望、台指期、全球市場與新聞標題。
+    失敗（無金鑰、逾時等）安靜回傳 None。"""
+    if not NVIDIA_API_KEY:
+        return None
+
+    lines = []
+    if payload.get('outlook_trend'):
+        lines.append(f"系統走勢展望：{payload['outlook_trend']}。{payload.get('outlook_desc') or ''}")
+    if payload.get('outlook_signals'):
+        lines.append("系統訊號：" + "；".join(str(s) for s in payload['outlook_signals'][:8]))
+    if payload.get('futures'):
+        lines.append(f"台指期：{payload['futures']}")
+    if payload.get('markets'):
+        lines.append(f"全球市場漲跌：{payload['markets']}")
+    if payload.get('taiwan_news'):
+        lines.append("台股要聞：" + "；".join(str(t) for t in payload['taiwan_news'][:10]))
+    if payload.get('global_news'):
+        lines.append("國際財經：" + "；".join(str(t) for t in payload['global_news'][:5]))
+    if not lines:
+        return None
+    lines.append("請整合以上資訊，產出一段大盤解讀。")
+
+    return _call_nvidia(MARKET_SYSTEM_PROMPT, "\n".join(lines), max_tokens=400)
 
 
 def _extract_score_context(stock):

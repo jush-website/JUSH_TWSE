@@ -159,6 +159,17 @@ export const getIntegratedAnalysis = async (payload) => {
   }
 };
 
+// 首頁大盤 AI 解讀：整合走勢展望/台指期/全球市場/新聞標題。失敗回傳 null。
+export const getMarketAiCommentary = async (payload) => {
+  try {
+    const res = await api.post('/api/ai-commentary/market', payload, { timeout: 90000 });
+    return res.data?.commentary || null;
+  } catch (err) {
+    console.warn('大盤 AI 解讀取得失敗', err);
+    return null;
+  }
+};
+
 // 透過後端 Proxy 取得 FinMind 歷史資料 (避免瀏覽器 CORS 或無 token 造成的 Rate Limit)
 const fetchFinmind = async (dataset, stockId, daysAgo) => {
   const d = new Date();
