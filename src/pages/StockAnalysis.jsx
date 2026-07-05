@@ -15,6 +15,36 @@ import { useGSAP } from '@gsap/react';
 import { useCardAnimation } from '../hooks/useCardAnimation';
 import CountUp from '../components/bits/CountUp';
 
+// 頁面五張 recharts 圖共用的漸層/glow 定義（原本同一份 <defs> 複製了五次）
+const CHART_DEFS = (
+  <defs>
+    <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+    </linearGradient>
+    <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
+      <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
+    </linearGradient>
+    <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
+      <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
+    </linearGradient>
+    <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
+      <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
+    </linearGradient>
+    <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
+      <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+);
+
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
   const navigate = useNavigate();
@@ -564,32 +594,7 @@ const StockAnalysis = () => {
                         <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.chip_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
+                      {CHART_DEFS}
 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} opacity={0.4} />
                         <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                         <YAxis stroke="#9CA3AF" fontSize={10} />
@@ -612,32 +617,7 @@ const StockAnalysis = () => {
                         <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.margin_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
+                      {CHART_DEFS}
 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} opacity={0.4} />
                         <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                         <YAxis yAxisId="left" stroke="#F87171" fontSize={10} />
@@ -661,32 +641,7 @@ const StockAnalysis = () => {
                         <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.shareholding_processed.slice(-60)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
+                      {CHART_DEFS}
 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} opacity={0.4} />
                         <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                         <YAxis domain={['auto', 'auto']} stroke="#9CA3AF" fontSize={10} />
@@ -724,32 +679,7 @@ const StockAnalysis = () => {
                         <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.revenue_data.slice(-36).map(d => ({ date: d.date, rev: d.revenue/100000000, yoy: d.revenue_year_on_year }))} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
+                      {CHART_DEFS}
 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} opacity={0.4} />
                         <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                         <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} />
@@ -773,32 +703,7 @@ const StockAnalysis = () => {
                         <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={data.financial_data.filter(d => d.type === 'EPS').slice(-12)} margin={{ top: 10, right: 35, left: 35, bottom: 0 }}>
                         
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6B7280" stopOpacity={0.5}/>
-                          <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1}/>
-                        </linearGradient>
-                        <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F87171" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorShort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorRatio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}/>
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
+                      {CHART_DEFS}
 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} opacity={0.4} />
                         <XAxis dataKey="date" stroke="#9CA3AF" fontSize={10} tickMargin={5} />
                         <YAxis stroke="#9CA3AF" fontSize={10} />
