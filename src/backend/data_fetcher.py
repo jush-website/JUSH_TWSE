@@ -1666,11 +1666,40 @@ class DataFetcher:
         except: pass
         return None
 
+    def get_fugle_quote(self, sid):
+        """Fugle 行情 REST API 單檔即時報價，MIS 查不到時的備援。
+        免費版每分鐘 60 次、單檔查詢，所以只放在 fallback 位置，不當批次主源。
+        未設定 FUGLE_API_KEY 或任何失敗都安靜回傳 None。"""
+        key = os.environ.get("FUGLE_API_KEY")
+        if not key:
+            return None
+        try:
+            r = self._session.get(
+                f"https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/{sid}",
+                headers={"X-API-KEY": key}, timeout=6,
+            )
+            if r.status_code != 200:
+                return None
+            d = r.json()
+            price = d.get("lastPrice") or d.get("closePrice") or d.get("previousClose")
+            if not price:
+                return None
+            chg = d.get("changePercent")
+            if chg is None:
+                prev = d.get("previousClose")
+                if not prev:
+                    return None
+                chg = (float(price) - float(prev)) / (float(prev) + 1e-9) * 100
+            return {"price": round(float(price), 2), "change_pct": round(float(chg), 2)}
+        except Exception:
+            return None
+
     def get_realtime_quotes(self, stock_ids):
         """批次取得即時報價。優先順序：
         1. 證交所官方即時快照 (MIS) — 準確、單次批次呼叫，涵蓋盤中與盤後最後成交價
-        2. yfinance fast_info — MIS 未涵蓋的代碼 (例如興櫃) 之備援
-        3. 官方收盤快取 — 兩者皆失敗時的最終備援
+        2. Fugle 行情 API — MIS 未涵蓋的代碼之備援（需 FUGLE_API_KEY）
+        3. yfinance fast_info — 前兩者皆失敗之備援
+        4. 官方收盤快取 — 全部失敗時的最終備援
         回傳 {sid: {"price": float, "change_pct": float}}。輕量、30 秒快取。"""
         results = {}
         if not stock_ids:
@@ -1716,9 +1745,10 @@ class DataFetcher:
 
         def fetch_one(sid):
             sid = str(sid)
-            quote = None
-            # 2. yfinance 備援（僅 MIS 查不到的代碼）
-            if is_trading:
+            # 2. Fugle 行情 API 備援（盤後也能拿到最後成交價）
+            quote = self.get_fugle_quote(sid)
+            # 3. yfinance 備援
+            if quote is None and is_trading:
                 try:
                     symbol = sym_map.get(sid, f"{sid}.TW")
                     fi = yf.Ticker(symbol).fast_info
@@ -1732,7 +1762,7 @@ class DataFetcher:
                 except Exception:
                     quote = None
 
-            # 3. 回退官方收盤快取
+            # 4. 回退官方收盤快取
             if quote is None:
                 off = self._official_cache.get(sid)
                 if off and off.get("price") is not None and not pd.isna(off.get("price")):

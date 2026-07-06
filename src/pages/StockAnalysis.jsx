@@ -13,6 +13,7 @@ import LightweightChart from '../components/LightweightChart';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useCardAnimation } from '../hooks/useCardAnimation';
+import { backtestCdpDayTrade } from '../utils/backtest';
 import CountUp from '../components/bits/CountUp';
 
 // 頁面五張 recharts 圖共用的漸層/glow 定義（原本同一份 <defs> 複製了五次）
@@ -181,6 +182,10 @@ const StockAnalysis = () => {
       chip_summary: chipSummary || null,
       branch_summary: branchSummary,
       community_summary: communitySummary,
+      backtest_summary: backtest
+        ? `CDP 當沖規則近 ${backtest.days} 日模擬：觸發 ${backtest.trades} 次、勝率 ${backtest.winRate}%、` +
+          `平均單次 ${backtest.avgReturn}%、累積 ${backtest.cumReturn}%、最差單次 ${backtest.worst}%（未計手續費稅費）`
+        : null,
       fundamental_summary: fundamentalSummary,
       // 帶日期讓 AI 能對照 K 線日期，推測股價受哪些新聞題材影響
       news_titles: (data.news_data || []).slice().reverse().slice(0, 15).map(n => `${n.date} ${n.title}`),
@@ -228,6 +233,9 @@ const StockAnalysis = () => {
       { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
     );
   }, { scope: containerRef, dependencies: [activeTab, data, loading] });
+
+  // CDP 當沖規則的歷史模擬（純本地計算，chart_data 已載入、零 API 成本）
+  const backtest = data?.chart_data ? backtestCdpDayTrade(data.chart_data) : null;
 
   // Process data for charts
   const epsData = data?.financial_data?.filter(d => d.type === 'EPS') || [];
@@ -490,6 +498,36 @@ const StockAnalysis = () => {
                               {sig}
                             </span>
                           ))}
+                        </div>
+                      )}
+
+                      {/* CDP 當沖規則回測：固定規則模擬，非 AI 計算 */}
+                      {backtest && (
+                        <div className="border-t border-line pt-3">
+                          <div className="text-xs font-semibold text-ink-2 mb-2">
+                            CDP 當沖規則回測（近 {backtest.days} 個交易日模擬）
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div className="bg-overlay p-2.5 rounded-lg text-center">
+                              <div className="text-[10px] text-ink-3 mb-0.5">觸發次數</div>
+                              <div className="font-bold text-ink-1 nums">{backtest.trades}</div>
+                            </div>
+                            <div className="bg-overlay p-2.5 rounded-lg text-center">
+                              <div className="text-[10px] text-ink-3 mb-0.5">勝率</div>
+                              <div className={`font-bold nums ${backtest.winRate >= 50 ? 'text-bull' : 'text-bear'}`}>{backtest.winRate}%</div>
+                            </div>
+                            <div className="bg-overlay p-2.5 rounded-lg text-center">
+                              <div className="text-[10px] text-ink-3 mb-0.5">平均單次</div>
+                              <div className={`font-bold nums ${backtest.avgReturn >= 0 ? 'text-bull' : 'text-bear'}`}>{backtest.avgReturn}%</div>
+                            </div>
+                            <div className="bg-overlay p-2.5 rounded-lg text-center">
+                              <div className="text-[10px] text-ink-3 mb-0.5">累積報酬</div>
+                              <div className={`font-bold nums ${backtest.cumReturn >= 0 ? 'text-bull' : 'text-bear'}`}>{backtest.cumReturn}%</div>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-[10px] text-ink-3">
+                            模擬規則：開盤高於 NL、盤中觸及 NL 進場，觸及 NH 或收盤出場。未計手續費稅費與滑價，僅供參考，不代表未來績效。
+                          </p>
                         </div>
                       )}
                     </div>
