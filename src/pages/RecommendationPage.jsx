@@ -9,8 +9,10 @@ import {
   getEtfRecommendations,
   getCdpRecommendations,
   getDayTradeCdpRecommendations,
+  getLiveRecommendations,
   getQuotes
 } from '../services/api';
+import { RefreshCw } from 'lucide-react';
 import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
@@ -53,15 +55,46 @@ const RecommendationPage = () => {
         case 'day-trade-cdp': res = await getDayTradeCdpRecommendations(); break;
         default: res = { data: [] };
       }
-      const baseStocks = res.data || [];
+      let baseStocks = res.data || [];
+      let baseUpdatedAt = res.updated_at || null;
+      // Firestore 空的（同步失敗或還沒跑）→ 自動改用 Render 即時 API 互補
+      if (baseStocks.length === 0) {
+        const live = await getLiveRecommendations(type).catch(() => null);
+        if (live?.data?.length) {
+          baseStocks = live.data;
+          baseUpdatedAt = live.updated_at;
+        }
+      }
       setStocks(baseStocks);
-      setUpdatedAt(res.updated_at || null);
+      setUpdatedAt(baseUpdatedAt);
       // 盤中以即時報價覆蓋過時收盤價
       overlayQuotes(baseStocks);
     } catch (err) {
       console.error('Fetch recommendations failed', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 手動更新：直接跟 Render 要即時運算的清單（不等 Firestore 同步），
+  // 失敗時退回重抓 Firestore。冷快取時後端要現算，可能等 1~2 分鐘。
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const live = await getLiveRecommendations(type);
+      if (live?.data?.length) {
+        setStocks(live.data);
+        setUpdatedAt(live.updated_at);
+        overlayQuotes(live.data);
+      } else {
+        await fetchData();
+      }
+    } catch {
+      await fetchData();
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -138,6 +171,19 @@ const RecommendationPage = () => {
           </p>
         </div>
         
+        <div className="flex items-center gap-2">
+          {!loading && (
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="不等每日同步，直接向伺服器要求即時運算最新清單"
+              className="flex items-center gap-1.5 bg-panel border border-line text-ink-2 hover:text-ink-1 hover:bg-overlay text-sm px-3 py-1.5 rounded-lg transition disabled:opacity-60"
+            >
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              {refreshing ? '更新中...' : '手動更新'}
+            </button>
+          )}
+
         {!loading && stocks.length > 0 && (
           <div className="flex items-center gap-2 bg-panel border border-line p-1 rounded-lg">
             <select
@@ -158,6 +204,7 @@ const RecommendationPage = () => {
             </select>
           </div>
         )}
+        </div>
       </div>
 
       {loading ? (

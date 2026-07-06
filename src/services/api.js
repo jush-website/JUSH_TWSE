@@ -122,6 +122,31 @@ export const syncData = (mode = "1") => api.post(`/api/sync?mode=${mode}`);
 export const getFutures = () => api.get('/api/futures');
 export const getMarketOutlook = () => api.get('/api/market-outlook');
 
+// Firestore 資料過時/沒同步時的即時互補：直接跟 Render 要現算的推薦清單
+// （後端有自己的快取，熱快取秒回；冷快取會現算，可能耗時 1~2 分鐘）
+const LIVE_REC_ENDPOINTS = {
+  'short-term': '/api/short-term-recommendations',
+  'overnight': '/api/overnight-recommendations',
+  'bottom': '/api/bottom-fishing-recommendations',
+  'burst': '/api/short-term-burst-recommendations',
+  'long-term': '/api/long-term-recommendations',
+  'etf': '/api/etf-recommendations',
+  'cdp': '/api/cdp-recommendations',
+  'day-trade-cdp': '/api/recommendations/day-trade-cdp',
+};
+
+export const getLiveRecommendations = async (type) => {
+  const url = LIVE_REC_ENDPOINTS[type];
+  if (!url) return null;
+  const res = await api.get(url, { timeout: 150000 });
+  const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+  const now = new Date();
+  return {
+    data: list,
+    updated_at: `${now.toLocaleDateString('zh-TW')} ${now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })} 即時運算`,
+  };
+};
+
 // 批次即時報價：盤中將策略卡片過時的收盤價覆蓋為即時價
 export const getQuotes = async (ids = []) => {
   if (!ids || ids.length === 0) return {};
