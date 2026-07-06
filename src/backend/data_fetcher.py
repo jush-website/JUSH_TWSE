@@ -1821,7 +1821,7 @@ class DataFetcher:
                     self._quote_cache[sid] = (time.time(), quote)
             return sid, quote
 
-        with ThreadPoolExecutor(max_workers=10) as ex:
+        with ThreadPoolExecutor(max_workers=4) as ex:
             for sid, q in ex.map(fetch_one, still_missing):
                 if q is not None:
                     results[sid] = q
@@ -1885,7 +1885,7 @@ class DataFetcher:
             return name, None
 
         try:
-            with ThreadPoolExecutor(max_workers=7) as ex:
+            with ThreadPoolExecutor(max_workers=4) as ex:
                 for name, val in ex.map(fetch_fm_us, fm_us_stocks.items()):
                     if val is not None:
                         results[name] = val

@@ -540,7 +540,8 @@ async def get_news():
 
 
 bg_executor = ThreadPoolExecutor(max_workers=3)
-api_executor = ThreadPoolExecutor(max_workers=10)
+# ponytail: 512MB 免費機上執行緒越多 glibc arena 碎片化越兇，10 → 6 換記憶體餘裕
+api_executor = ThreadPoolExecutor(max_workers=6)
 
 def analyze_wrap(sid):
     return analyzer.analyze(sid)
@@ -1058,7 +1059,8 @@ async def get_raw_data(query: str):
                 return df.fillna(0).to_dict('records') if (df is not None and not df.empty) else []
             except: return []
 
-        with ThreadPoolExecutor(max_workers=8) as ex:
+        # ponytail: 每請求臨時開 8 條執行緒是 arena 碎片化主因之一，4 條夠用
+        with ThreadPoolExecutor(max_workers=4) as ex:
             fut_price = ex.submit(get_price)
             fut_chip = ex.submit(get_chip)
             fut_margin = ex.submit(get_margin)
