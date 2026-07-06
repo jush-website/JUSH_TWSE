@@ -569,6 +569,39 @@ class DataFetcher:
         except: pass
         return pd.DataFrame()
 
+    def _mis_intraday_fallback(self, stock_id):
+        """yfinance 分 K 抓不到時（Render 機房 IP 常被 Yahoo 限流）改用 MIS
+        官方快照組出今日盤中 bar，讓個股分析盤中仍有即時價與今日 K。
+        CDP 基準（昨日高低收）從官方收盤快取補；缺欄位時下游都有存在檢查。"""
+        now = datetime.now(pytz.timezone("Asia/Taipei"))
+        snap = None
+        try:
+            q = self.get_twse_mis_quotes([stock_id]).get(str(stock_id))
+            if q and q.get("price") and q.get("date"):
+                snap = {
+                    "stock_id": stock_id,
+                    "price": q["price"],
+                    "date": q["date"],
+                    "open": q.get("open"),
+                    "high": q.get("high"),
+                    "low": q.get("low"),
+                    "volume": q.get("volume") or 0,
+                    "yesterday_close": q.get("prev_close"),
+                }
+                off = self._official_cache.get(stock_id)
+                if off and off.get("high") is not None and off.get("date") != snap["date"]:
+                    snap.update({
+                        "yesterday_high": float(off["high"]),
+                        "yesterday_low": float(off["low"]),
+                        "yesterday_close": float(off["price"]),
+                        "cdp_base_date": off.get("date"),
+                    })
+        except Exception:
+            snap = None
+        with self._lock:
+            self._intraday_cache[stock_id] = (now, snap)
+        return snap
+
     def get_intraday_data(self, stock_id: str):
         with self._lock:
             if stock_id in self._intraday_cache:
@@ -582,7 +615,7 @@ class DataFetcher:
             t = yf.Ticker(symbol)
             # 獲取分K數據
             df = t.history(period="5d", interval="1m", auto_adjust=False)
-            if df.empty: return None
+            if df.empty: return self._mis_intraday_fallback(stock_id)
             df.index = df.index.tz_convert("Asia/Taipei")
             # 確保價格精確度
             for col in ['Open', 'High', 'Low', 'Close']:
@@ -723,8 +756,7 @@ class DataFetcher:
             return res
         except Exception as e:
             if self.logger: self.logger.error(f"Intraday fetch error for {stock_id}: {e}")
-            with self._lock: self._intraday_cache[stock_id] = (datetime.now(pytz.timezone("Asia/Taipei")), None)
-        return None
+            return self._mis_intraday_fallback(stock_id)
 
     def get_price_data(self, stock_id: str, days: int = 60):
         expected_date = self.get_last_expected_trading_date()
@@ -1632,11 +1664,24 @@ class DataFetcher:
                         if price is None or prev_close is None or prev_close <= 0:
                             continue
                         change_pct = round(((price - prev_close) / prev_close) * 100, 2)
+
+                        def fnum(key):
+                            v = item.get(key)
+                            try:
+                                return float(v) if v and v != "-" else None
+                            except (TypeError, ValueError):
+                                return None
+
+                        d_raw = item.get("d") or ""  # 最新成交日 yyyymmdd
                         results[sid] = {
                             "price": round(price, 2),
                             "change_pct": change_pct,
                             "prev_close": round(prev_close, 2),
                             "name": item.get("n", ""),
+                            "open": fnum("o"), "high": fnum("h"), "low": fnum("l"),
+                            # v 為累積成交量(張)，轉成股數與 FinMind 單位一致
+                            "volume": int((fnum("v") or 0) * 1000),
+                            "date": f"{d_raw[:4]}-{d_raw[4:6]}-{d_raw[6:]}" if len(d_raw) == 8 else None,
                         }
                     except (TypeError, ValueError):
                         continue
