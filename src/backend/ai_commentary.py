@@ -25,6 +25,19 @@ SYSTEM_PROMPT = (
     "直接輸出說明文字，不要加開場白或引號。"
 )
 
+# 當沖偵測專用：允許「轉述」系統已算好的 CDP 參考區間，但必須強調僅供參考。
+# 價位一律來自系統的 CDP 計算，模型仍然禁止自己發明任何數字。
+DAY_TRADE_SYSTEM_PROMPT = (
+    "你是台股量化系統的當沖偵測簡評助手。系統已經用固定規則算好分數、訊號"
+    "與 CDP 五個價位（AH 追買/NH 高檔/CDP 分界/NL 低檔/AL 追賣），"
+    "你的工作是用兩到三句繁體中文白話解讀：先說明系統為什麼認為這檔適合"
+    "當沖觀察與風險，最後引用「系統提供的 CDP 價位」點出參考進場區間"
+    "（例如拉回接近 NL 的低檔承接區、反彈至 NH 附近轉弱的偏空區），"
+    "並以「僅供參考，非投資建議」收尾。"
+    "絕對不要自己編造任何系統未提供的價位或數據，不要使用保證獲利的字眼。"
+    "字數控制在 100 字以內，直接輸出說明文字，不要加開場白或引號。"
+)
+
 ANALYSIS_SYSTEM_PROMPT = (
     "你是台股量化系統的個股分析助手。系統已經用固定規則算好所有分數、"
     "技術指標與訊號，你的唯一工作是把這些「已經算好的數據」整合成一段"
@@ -65,19 +78,38 @@ def _call_nvidia(system_prompt, user_prompt, max_tokens=150, temperature=0.4):
         return None
 
 
-def generate_commentary(stock_name, stock_id, score, status, signals, price=None, change_pct=None):
-    """呼叫 NVIDIA NIM，將已算好的分數/訊號整理成一句話評論。失敗回傳 None。"""
+def generate_commentary(stock_name, stock_id, score, status, signals, price=None, change_pct=None, cdp=None):
+    """呼叫 NVIDIA NIM，將已算好的分數/訊號整理成一句話評論。失敗回傳 None。
+    cdp 有值時（當沖偵測清單）改用當沖 prompt，附上系統算好的 CDP 區間
+    讓模型點出參考進場區間，並保證輸出帶有「僅供參考」聲明。"""
     signal_text = "、".join(signals[:5]) if signals else "無特別訊號"
-    user_prompt = (
-        f"股票：{stock_name}（{stock_id}）\n"
+    lines = [
+        f"股票：{stock_name}（{stock_id}）",
         f"目前股價：{price if price is not None else '未知'}"
-        f"（漲跌 {change_pct if change_pct is not None else '未知'}%）\n"
-        f"系統評分：{score} 分\n"
-        f"系統狀態標籤：{status or '無'}\n"
-        f"系統偵測到的訊號：{signal_text}\n"
-        f"請用一到兩句話白話解讀以上「已經算好」的資訊。"
+        f"（漲跌 {change_pct if change_pct is not None else '未知'}%）",
+        f"系統評分：{score} 分",
+        f"系統狀態標籤：{status or '無'}",
+        f"系統偵測到的訊號：{signal_text}",
+    ]
+
+    is_day_trade = bool(cdp and cdp.get('CDP') is not None)
+    if is_day_trade:
+        lines.append(
+            f"系統算好的 CDP 價位：AH {cdp.get('AH')} / NH {cdp.get('NH')} / "
+            f"CDP {cdp.get('CDP')} / NL {cdp.get('NL')} / AL {cdp.get('AL')}"
+        )
+        lines.append("請解讀以上資訊，並引用 CDP 價位點出參考進場區間。")
+    else:
+        lines.append("請用一到兩句話白話解讀以上「已經算好」的資訊。")
+
+    text = _call_nvidia(
+        DAY_TRADE_SYSTEM_PROMPT if is_day_trade else SYSTEM_PROMPT,
+        "\n".join(lines), max_tokens=200 if is_day_trade else 150,
     )
-    return _call_nvidia(SYSTEM_PROMPT, user_prompt, max_tokens=150)
+    # 保底：不管模型有沒有照做，當沖評語一律帶「僅供參考」聲明
+    if text and is_day_trade and '僅供參考' not in text:
+        text += '（以上區間僅供參考，非投資建議）'
+    return text
 
 
 def generate_stock_analysis_commentary(payload):
@@ -269,8 +301,9 @@ def _extract_score_context(stock):
     )
 
 
-def attach_commentary(stock_list, top_n=5, max_workers=3):
+def attach_commentary(stock_list, top_n=5, max_workers=3, include_cdp_range=False):
     """為清單前 top_n 檔（假設已依分數排序）附加 ai_commentary 欄位。
+    include_cdp_range=True（當沖偵測清單）時附上 CDP 區間讓評語包含參考進場區間。
     沒有設定 NVIDIA_API_KEY 時直接原樣返回，不產生任何額外延遲或錯誤。"""
     if not NVIDIA_API_KEY or not stock_list:
         return stock_list
@@ -283,6 +316,7 @@ def attach_commentary(stock_list, top_n=5, max_workers=3):
             stock.get('stock_name', ''), stock.get('stock_id', ''),
             score, status, signals,
             price=stock.get('price'), change_pct=stock.get('change_percent'),
+            cdp=stock.get('cdp') if include_cdp_range else None,
         )
         if text:
             stock['ai_commentary'] = text

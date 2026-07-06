@@ -110,7 +110,8 @@ def sync_doc_to_firestore(doc_id, data_list):
     base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
     if doc_id in AI_COMMENTARY_DOCS and isinstance(data_list, list):
         try:
-            data_list = attach_commentary(data_list, top_n=5)
+            # 當沖偵測清單額外附 CDP 區間，讓 AI 評語包含參考進場區間（僅供參考）
+            data_list = attach_commentary(data_list, top_n=5, include_cdp_range=(doc_id == 'day_trade_cdp'))
         except Exception as e:
             print(f"[系統] AI 敘述層生成失敗（不影響原始推薦資料）: {e}")
     doc_ref = firebase_db.collection('recommendations').document(doc_id)
