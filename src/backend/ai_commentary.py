@@ -254,13 +254,42 @@ def generate_integrated_analysis(payload):
 
 MARKET_SYSTEM_PROMPT = (
     "你是台股大盤解讀助手。系統已提供即時的市場數據（台指期、全球指數漲跌、"
-    "系統走勢展望訊號）與最新財經新聞標題，你的唯一工作是把這些資訊整合成"
-    "一段 3~5 句的繁體中文大盤解讀：說明目前多空氛圍、全球市場與台股的連動，"
-    "並指出近期哪些新聞事件或題材最可能正在影響盤勢。"
+    "系統走勢展望訊號、上漲下跌家數分布、產業資金流向）與最新財經新聞標題，"
+    "你的唯一工作是把這些資訊整合成一段 3~5 句的繁體中文大盤解讀："
+    "說明目前多空氛圍（多空家數與資金集中的產業是重要依據）、"
+    "全球市場與台股的連動，並指出近期哪些新聞事件或題材最可能正在影響盤勢。"
     "絕對不要編造任何數據或新聞，不要給出買賣建議、點位預測或保證獲利的字眼，"
     "只針對提供的資訊做客觀解讀。字數控制在 180 字以內，直接輸出說明文字，"
     "不要加開場白、項目符號或引號。"
 )
+
+
+CAPITAL_FLOW_SYSTEM_PROMPT = (
+    "你是台股資金流向解讀助手。系統已提供今日各產業的成交比重與平均漲跌"
+    "（資金流向熱力圖的原始數據），以及最新的台股與國際新聞標題。"
+    "你的唯一工作是整合成一段 3~5 句的繁體中文熱門產業解讀：指出今天資金"
+    "集中在哪些產業、哪些產業轉弱，並對照新聞標題推測背後可能的題材或"
+    "國際連動（例如美股某族群大漲、政策消息等），若看不出關聯就照實說。"
+    "絕對不要編造任何數據或新聞，不要給出買賣建議或保證獲利的字眼。"
+    "字數控制在 180 字以內，直接輸出說明文字，不要加開場白、項目符號或引號。"
+)
+
+
+def generate_capital_flow_commentary(payload):
+    """資金流向頁 AI 摘要：整合產業資金分布與新聞題材。失敗安靜回傳 None。"""
+    if not NVIDIA_API_KEY:
+        return None
+    lines = []
+    if payload.get('industries'):
+        lines.append("今日產業資金分布（成交比重/平均漲跌）：" + "；".join(str(i) for i in payload['industries'][:10]))
+    if payload.get('taiwan_news'):
+        lines.append("台股要聞：" + "；".join(str(t) for t in payload['taiwan_news'][:10]))
+    if payload.get('global_news'):
+        lines.append("國際財經：" + "；".join(str(t) for t in payload['global_news'][:5]))
+    if not lines:
+        return None
+    lines.append("請整合以上資訊，解讀今日熱門產業與可能的題材。")
+    return _call_nvidia(CAPITAL_FLOW_SYSTEM_PROMPT, "\n".join(lines), max_tokens=400)
 
 
 def generate_market_commentary(payload):
@@ -278,6 +307,10 @@ def generate_market_commentary(payload):
         lines.append(f"台指期：{payload['futures']}")
     if payload.get('markets'):
         lines.append(f"全球市場漲跌：{payload['markets']}")
+    if payload.get('breadth'):
+        lines.append(f"大盤多空分布：{payload['breadth']}")
+    if payload.get('capital_flow'):
+        lines.append(f"資金流向（產業成交比重/平均漲跌）：{payload['capital_flow']}")
     if payload.get('taiwan_news'):
         lines.append("台股要聞：" + "；".join(str(t) for t in payload['taiwan_news'][:10]))
     if payload.get('global_news'):

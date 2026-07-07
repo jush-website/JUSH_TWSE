@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getGlobalMarket, getNews, getFutures, getMarketOutlook, getMarketAiCommentary } from '../services/api';
+import { getGlobalMarket, getNews, getFutures, getMarketOutlook, getMarketAiCommentary, getMarketBreadth, getCapitalFlow } from '../services/api';
 import {
   Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown,
   Activity, Clock, AlertTriangle, CheckCircle, BarChart2, Sparkles,
@@ -55,7 +55,26 @@ const Dashboard = () => {
     if (loading || marketAiRequested.current) return;
     marketAiRequested.current = true;
     setMarketAiLoading(true);
+    (async () => {
+    // 多空分布與資金流向是選配素材，抓不到就略過、不擋 AI 解讀
+    let breadth = null, capitalFlow = null;
+    await Promise.all([
+      getMarketBreadth().then(res => {
+        const s = res.data?.summary;
+        if (s) breadth = `上漲 ${s.up} 家、下跌 ${s.down} 家、漲停 ${s.limit_up}、跌停 ${s.limit_down}、平盤 ${s.unchanged}`;
+      }).catch(() => {}),
+      getCapitalFlow().then(res => {
+        const inds = Array.isArray(res.data) ? res.data : res.data?.industries;
+        if (inds?.length) {
+          capitalFlow = inds.slice(0, 5)
+            .map(i => `${i.industry} ${i.value_ratio}%/${i.avg_change_pct > 0 ? '+' : ''}${i.avg_change_pct}%`)
+            .join('、');
+        }
+      }).catch(() => {}),
+    ]);
     getMarketAiCommentary({
+      breadth,
+      capital_flow: capitalFlow,
       outlook_trend: outlook?.trend,
       outlook_desc: outlook?.trend_desc,
       outlook_signals: (outlook?.signals || []).map(s => s.replace(/^✅ |^⚠️ /, '')),
@@ -64,6 +83,7 @@ const Dashboard = () => {
       taiwan_news: (news.taiwan || []).slice(0, 10).map(n => n.title),
       global_news: (news.global || []).slice(0, 5).map(n => n.title),
     }).then(text => setMarketAi(text)).finally(() => setMarketAiLoading(false));
+    })();
   }, [loading]);
 
   const containerRef = useCardAnimation('.gsap-dashboard-card', [loading], {

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { getCapitalFlow } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { getCapitalFlow, getNews, getCapitalFlowAiCommentary } from '../services/api';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X } from 'lucide-react';
+import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X, Sparkles } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -13,6 +13,28 @@ const CapitalFlowHeatmap = () => {
   const [error, setError] = useState(null);
   const [selectedIndustry, setSelectedIndustry] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const aiRequested = useRef(false); // 只打一次，3 分鐘輪詢不重打省 NIM 額度
+
+  // 資料到齊後，把產業資金分布 + 新聞題材送 NIM 產出熱門產業摘要
+  useEffect(() => {
+    if (!data || data.length === 0 || aiRequested.current) return;
+    aiRequested.current = true;
+    setAiLoading(true);
+    (async () => {
+      let news = { taiwan: [], global: [] };
+      try { news = (await getNews()).data || news; } catch { /* 沒新聞照樣能解讀 */ }
+      const text = await getCapitalFlowAiCommentary({
+        industries: data.slice(0, 10).map(i =>
+          `${i.industry} 比重${i.value_ratio}%/漲跌${i.avg_change_pct > 0 ? '+' : ''}${i.avg_change_pct}%`),
+        taiwan_news: (news.taiwan || []).slice(0, 10).map(n => n.title),
+        global_news: (news.global || []).slice(0, 5).map(n => n.title),
+      });
+      setAiSummary(text);
+      setAiLoading(false);
+    })();
+  }, [data]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -176,6 +198,23 @@ const CapitalFlowHeatmap = () => {
         )}
       </div>
 
+      {/* AI 熱門產業摘要：產業資金分布 + 新聞題材 */}
+      {(aiLoading || aiSummary) && (
+        <div className="p-4 sm:p-5 rounded-xl bg-brand-muted/50 border border-brand/15 flex items-start gap-2.5">
+          <Sparkles size={15} className="text-brand shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-brand mb-1">AI 熱門產業解讀</div>
+            {aiLoading ? (
+              <div className="space-y-2">
+                <div className="h-4 w-full max-w-lg bg-brand/10 rounded animate-pulse" />
+                <div className="h-4 w-3/4 max-w-md bg-brand/10 rounded animate-pulse" />
+              </div>
+            ) : (
+              <p className="text-sm text-ink-2 leading-relaxed">{aiSummary}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Heatmap Section */}

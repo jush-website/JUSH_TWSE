@@ -195,6 +195,17 @@ export const getMarketAiCommentary = async (payload) => {
   }
 };
 
+// 資金流向頁 AI 摘要：整合產業資金分布與新聞題材。失敗回傳 null。
+export const getCapitalFlowAiCommentary = async (payload) => {
+  try {
+    const res = await api.post('/api/ai-commentary/capital-flow', payload, { timeout: 90000 });
+    return res.data?.commentary || null;
+  } catch (err) {
+    console.warn('資金流向 AI 摘要取得失敗', err);
+    return null;
+  }
+};
+
 // 透過後端 Proxy 取得 FinMind 歷史資料 (避免瀏覽器 CORS 或無 token 造成的 Rate Limit)
 const fetchFinmind = async (dataset, stockId, daysAgo) => {
   const d = new Date();

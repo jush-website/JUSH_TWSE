@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from src.backend.analyzer import StockAnalyzer
 from src.backend.data_fetcher import DataFetcher
-from src.backend.ai_commentary import attach_commentary, generate_stock_analysis_commentary, generate_integrated_analysis, generate_market_commentary
+from src.backend.ai_commentary import attach_commentary, generate_stock_analysis_commentary, generate_integrated_analysis, generate_market_commentary, generate_capital_flow_commentary
 
 import math
 
@@ -946,6 +946,14 @@ async def ai_commentary_market(payload: Dict[str, Any]):
     由 NVIDIA NIM 產生一段大盤解讀。失敗時 commentary 為 null，前端隱藏區塊。"""
     loop = asyncio.get_event_loop()
     text = await loop.run_in_executor(api_executor, generate_market_commentary, payload)
+    return {"commentary": text}
+
+@app.post("/api/ai-commentary/capital-flow")
+async def ai_commentary_capital_flow(payload: Dict[str, Any]):
+    """資金流向頁 AI 摘要：整合產業資金分布與新聞題材，解讀今日熱門產業。
+    失敗時 commentary 為 null，前端隱藏區塊。"""
+    loop = asyncio.get_event_loop()
+    text = await loop.run_in_executor(api_executor, generate_capital_flow_commentary, payload)
     return {"commentary": text}
 
 @app.get("/api/analyze/{query}")
