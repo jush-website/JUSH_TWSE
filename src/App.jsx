@@ -5,13 +5,15 @@ import { useGSAP } from '@gsap/react';
 import { ThemeProvider } from './context/ThemeContext';
 import { FontSizeProvider } from './context/FontSizeContext';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/Dashboard';
-import RecommendationPage from './pages/RecommendationPage';
-import StockAnalysis from './pages/StockAnalysis';
-import CapitalFlow from './pages/CapitalFlow';
-import MacroDashboard from './pages/MacroDashboard';
-import Derivatives from './pages/Derivatives';
 import { getShortTermRecommendations } from './services/api';
+
+// 路由級 code splitting（美化.md 2-5）：首包只留首頁，其餘頁面用到才載
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const RecommendationPage = React.lazy(() => import('./pages/RecommendationPage'));
+const StockAnalysis = React.lazy(() => import('./pages/StockAnalysis'));
+const CapitalFlow = React.lazy(() => import('./pages/CapitalFlow'));
+const MacroDashboard = React.lazy(() => import('./pages/MacroDashboard'));
+const Derivatives = React.lazy(() => import('./pages/Derivatives'));
 
 class ErrorBoundary extends React.Component {
   constructor(props) {

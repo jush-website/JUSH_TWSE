@@ -5,21 +5,21 @@
 /* ─── Design Tokens ──────────────────────────────────────────── */
 @layer base {
   :root {
-    /* Light mode */
-    --canvas:       220 20% 97%;   /* page bg    #F5F7FA */
+    /* Light mode — 暖色生活感（美化.md 設計 Token） */
+    --canvas:       33 47% 96%;    /* page bg    #FAF6F1 暖米白 */
     --panel:        0 0% 100%;     /* card bg    #FFFFFF */
-    --overlay:      220 16% 94%;   /* hover/alt  #ECEEF3 */
-    --line:         220 14% 88%;   /* border     #D9DCE6 */
-    --ink-1:        222 47% 11%;   /* text main  #0E1726 */
-    --ink-2:        220 12% 45%;   /* text sub   #67717F */
-    --ink-3:        220 10% 63%;   /* text muted #9AA0AD */
-    --brand:        221 83% 53%;   /* accent     #2563EB */
-    --brand-muted:  214 100% 96%;  /* tint bg    #EBF3FF */
+    --overlay:      33 30% 92%;    /* hover/alt  暖灰 */
+    --line:         33 22% 86%;    /* border     暖灰線 */
+    --ink-1:        27 12% 15%;    /* text main  #2B2622 暖黑 */
+    --ink-2:        27 7% 51%;     /* text sub   #8A8078 */
+    --ink-3:        27 8% 63%;     /* text muted 暖灰字 */
+    --brand:        21 90% 48%;    /* accent     #E8590C 暖橘 */
+    --brand-muted:  24 100% 95%;   /* tint bg    #FFF0E6 */
     --brand-fg:     0 0% 100%;     /* on brand   #FFFFFF */
-    --bull:         0 72% 51%;     /* up/多      #DC1F1F */
-    --bear:         142 64% 38%;   /* down/空    #23894A */
+    --bull:         339 66% 52%;   /* up/漲      #D6336C 桃紅（避開主色橘、色盲可辨） */
+    --bear:         162 88% 30%;   /* down/跌    #099268 藍綠（紅綠色盲可辨） */
 
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Noto Sans TC', 'Inter', system-ui, -apple-system, sans-serif;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -27,19 +27,19 @@
   }
 
   .dark {
-    /* Dark mode — deep navy, not generic gray */
-    --canvas:       224 22% 8%;    /* page bg    #0F1220 */
-    --panel:        226 20% 12%;   /* card bg    #171B2A */
-    --overlay:      226 16% 17%;   /* hover/alt  #20263A */
-    --line:         226 13% 24%;   /* border     #2E3549 */
-    --ink-1:        220 18% 92%;   /* text main  #E5E8F0 */
-    --ink-2:        220 11% 62%;   /* text sub   #93A0B5 */
-    --ink-3:        220 9% 40%;    /* text muted #5B6479 */
-    --brand:        213 94% 68%;   /* accent     #60AAFD */
-    --brand-muted:  215 40% 22%;   /* tint bg    #243354 */
+    /* Dark mode — 暖黑盤中模式（美化.md），漲跌用亮色變體 */
+    --canvas:       30 13% 9%;     /* page bg    #1A1714 */
+    --panel:        20 9% 14%;     /* card bg    #262220 */
+    --overlay:      24 9% 19%;     /* hover/alt  暖深灰 */
+    --line:         24 9% 26%;     /* border     暖深線 */
+    --ink-1:        30 33% 94%;    /* text main  #F5F0EB */
+    --ink-2:        27 8% 64%;     /* text sub   暖灰 */
+    --ink-3:        27 6% 44%;     /* text muted */
+    --brand:        21 92% 62%;    /* accent     亮暖橘 */
+    --brand-muted:  21 45% 18%;    /* tint bg    深橘底 */
     --brand-fg:     0 0% 100%;     /* on brand   #FFFFFF */
-    --bull:         0 88% 68%;     /* up/多      #F55454 */
-    --bear:         142 70% 50%;   /* down/空    #28D95E */
+    --bull:         340 100% 71%;  /* up/漲      #FF6B9D 亮桃紅 */
+    --bear:         164 66% 50%;   /* down/跌    #2DD4A7 亮藍綠 */
   }
 
   body {

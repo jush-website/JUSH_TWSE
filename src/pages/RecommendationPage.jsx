@@ -135,7 +135,7 @@ const RecommendationPage = () => {
           }));
         });
       }
-    }, 60 * 1000);
+    }, 15 * 1000); // 美化.md A2：盤中即時性，60s → 15s（配合後端報價快取 10s）
     return () => clearInterval(timer);
   }, []);
 

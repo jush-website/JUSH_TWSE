@@ -308,7 +308,7 @@ const StockAnalysis = () => {
                 <div className="flex items-center gap-2 sm:gap-4 mt-1.5 flex-wrap">
                   <span className="text-2xl sm:text-3xl font-bold text-ink-1 nums"><CountUp value={data.price} /></span>
                   <span className={`text-base font-bold nums ${isPositive ? 'text-bull' : 'text-bear'}`}>
-                    {isPositive ? '+' : ''}{data.change_percent}%
+                    {isPositive ? '▲+' : '▼'}{data.change_percent}%
                   </span>
                   <span className="text-xs text-ink-3 hidden sm:inline">昨收 {data.yesterday_close}</span>
                 </div>

@@ -1745,7 +1745,7 @@ class DataFetcher:
         2. Fugle 行情 API — MIS 未涵蓋的代碼之備援（需 FUGLE_API_KEY）
         3. yfinance fast_info — 前兩者皆失敗之備援
         4. 官方收盤快取 — 全部失敗時的最終備援
-        回傳 {sid: {"price": float, "change_pct": float}}。輕量、30 秒快取。"""
+        回傳 {sid: {"price": float, "change_pct": float}}。輕量、10 秒快取。"""
         results = {}
         if not stock_ids:
             return results
@@ -1756,7 +1756,7 @@ class DataFetcher:
         for sid in ids:
             with self._lock:
                 cached = self._quote_cache.get(sid)
-            if cached and (time.time() - cached[0] < 30):
+            if cached and (time.time() - cached[0] < 10):
                 results[sid] = cached[1]
             else:
                 need_fetch.append(sid)
