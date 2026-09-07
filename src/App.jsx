@@ -1,9 +1,8 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
 import { ThemeProvider } from './context/ThemeContext';
 import { FontSizeProvider } from './context/FontSizeContext';
+import { usePolling } from './hooks/usePolling';
 import Navbar from './components/Navbar';
 import { getShortTermRecommendations } from './services/api';
 
@@ -54,37 +53,31 @@ class ErrorBoundary extends React.Component {
 
 function App() {
   const [status, setStatus] = useState(null);
-  const appRef  = React.useRef(null);
-  const navRef  = React.useRef(null);
-  const mainRef = React.useRef(null);
 
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await getShortTermRecommendations();
-        if (res.updated_at) setStatus({ last_sync: res.updated_at });
-      } catch {}
-    };
-    fetchStatus();
-    const id = setInterval(fetchStatus, 60000);
-    return () => clearInterval(id);
-  }, []);
+  // 導覽列的「最後同步時間」。usePolling 會在分頁隱藏時停掉，
+  // 避免使用者把分頁丟在背景時仍持續累積 Firestore 讀取。
+  const fetchStatus = async () => {
+    try {
+      const res = await getShortTermRecommendations();
+      if (res.updated_at) setStatus({ last_sync: res.updated_at });
+    } catch (err) {
+      // 同步時間只是輔助資訊，抓不到就維持原值，不影響頁面其他內容
+      console.warn('取得最後同步時間失敗', err);
+    }
+  };
 
-  useGSAP(() => {
-    // 不做整頁 opacity:0 淡入 — 若動畫被中斷/節流，整個 App 會卡在看不見的狀態。
-    // 只做輕量的 nav/main 滑入，並以 clearProps 確保結束後不殘留 inline style。
-    gsap.from(navRef.current,  { y: -24, opacity: 0, duration: 0.45, ease: 'power2.out', clearProps: 'all' });
-    gsap.from(mainRef.current, { y: 14,  opacity: 0, duration: 0.45, ease: 'power2.out', delay: 0.1, clearProps: 'all' });
-  }, { scope: appRef, dependencies: [] });
+  usePolling(fetchStatus, 60000);
 
   return (
     <ThemeProvider>
       <FontSizeProvider>
       <ErrorBoundary>
         <Router>
-          <div ref={appRef} className="min-h-screen bg-canvas text-ink-1 font-sans">
-            <Navbar ref={navRef} status={status} />
-            <main ref={mainRef} className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-7xl">
+          <div className="min-h-screen bg-canvas text-ink-1 font-sans">
+            {/* 進場動畫改用 CSS keyframes（見 index.css 的 .intro-*）：
+                同樣的滑入效果不必為此把 gsap 拉進首包，也自動尊重 prefers-reduced-motion。 */}
+            <Navbar status={status} className="intro-slide-down" />
+            <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-7xl intro-slide-up">
               <Suspense fallback={
                 <div className="text-center py-20 text-ink-3 text-sm">載入中...</div>
               }>

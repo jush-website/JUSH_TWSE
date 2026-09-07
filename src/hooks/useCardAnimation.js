@@ -1,6 +1,5 @@
 import { useRef } from 'react';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import gsap, { useGSAP } from '../lib/gsap';
 
 /**
  * Sequential card-reveal animation. Each card animates one after another

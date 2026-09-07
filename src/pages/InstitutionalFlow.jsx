@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getInstitutionalFlow } from '../services/api';
 import { ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import ProgressLoader from '../components/ProgressLoader';
-import { Building, TrendingUp, TrendingDown, Clock, ShieldAlert } from 'lucide-react';
+import { Building, TrendingUp, Clock, ShieldAlert } from 'lucide-react';
+import { usePolling } from '../hooks/usePolling';
 
 const formatValue = (val) => {
   if (val === undefined || val === null) return '0';
@@ -37,26 +38,38 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// 定義在模組層級而非 render 裡：每次重繪都重新宣告元件，React 會把它視為
+// 不同的型別而整張卡拆掉重建，動畫與 DOM 狀態都留不住，也白費一次 mount。
+const StatCard = ({ title, value }) => {
+  const pos = value > 0;
+  return (
+    <div className="card p-4 sm:p-5">
+      <h3 className="text-ink-3 text-xs font-medium mb-2">{title}</h3>
+      <div className={`text-xl sm:text-2xl font-bold tracking-tight nums ${pos ? 'text-bull' : value < 0 ? 'text-bear' : 'text-ink-2'}`}>
+        {pos ? '+' : ''}{formatValue(value)}
+      </div>
+    </div>
+  );
+};
+
 const InstitutionalFlow = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await getInstitutionalFlow();
-        setData(res.data || []);
-      } catch (err) {
-        setError('無法取得資料，請稍後再試。');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const fetchData = async () => {
+    try {
+      const res = await getInstitutionalFlow();
+      setData(res.data || []);
+    } catch (err) {
+      console.error('取得三大法人買賣超失敗', err);
+      setError('無法取得資料，請稍後再試。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  usePolling(fetchData, 5 * 60 * 1000);
 
   if (loading) return <ProgressLoader text="正在載入法人資金動向..." />;
   if (error) return <div className="text-center py-20 text-red-400 font-bold flex flex-col items-center"><ShieldAlert size={48} className="mb-4" />{error}</div>;
@@ -64,18 +77,6 @@ const InstitutionalFlow = () => {
   if (!data || !Array.isArray(data) || data.length === 0) return <div className="text-center py-20 text-ink-3">目前沒有法人買賣超資料</div>;
 
   const latestData = data[data.length - 1];
-  
-  const StatCard = ({ title, value }) => {
-    const pos = value > 0;
-    return (
-      <div className="card p-4 sm:p-5">
-        <h3 className="text-ink-3 text-xs font-medium mb-2">{title}</h3>
-        <div className={`text-xl sm:text-2xl font-bold tracking-tight nums ${pos ? 'text-bull' : value < 0 ? 'text-bear' : 'text-ink-2'}`}>
-          {pos ? '+' : ''}{formatValue(value)}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-5 pb-10">

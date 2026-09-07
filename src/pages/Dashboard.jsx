@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getGlobalMarket, getNews, getFutures, getMarketOutlook, getMarketAiCommentary, getMarketBreadth, getCapitalFlow } from '../services/api';
 import {
   Globe, Newspaper, ExternalLink, TrendingUp, TrendingDown,
-  Activity, Clock, AlertTriangle, CheckCircle, BarChart2, Sparkles,
+  Activity, Clock, AlertTriangle, CheckCircle, Sparkles,
 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
 import CountUp from '../components/bits/CountUp';
+import { usePolling } from '../hooks/usePolling';
 
 const PctBadge = ({ value }) => {
   const pos = (value ?? 0) >= 0;
@@ -28,26 +29,23 @@ const Dashboard = () => {
   const [marketAiLoading, setMarketAiLoading] = useState(false);
   const marketAiRequested = useRef(false); // 只打一次，60 秒輪詢不重打省 NIM 額度
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [mRes, nRes, fRes, oRes] = await Promise.all([
-          getGlobalMarket(), getNews(), getFutures(), getMarketOutlook(),
-        ]);
-        setMarkets(mRes.data);
-        setNews(nRes.data);
-        setFutures(fRes.data);
-        setOutlook(oRes.data);
-      } catch (err) {
-        console.error('Dashboard data fetch failed', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const fetchData = async () => {
+    try {
+      const [mRes, nRes, fRes, oRes] = await Promise.all([
+        getGlobalMarket(), getNews(), getFutures(), getMarketOutlook(),
+      ]);
+      setMarkets(mRes.data || {});
+      setNews({ taiwan: nRes.data?.taiwan || [], global: nRes.data?.global || [] });
+      setFutures(fRes.data);
+      setOutlook(oRes.data);
+    } catch (err) {
+      console.error('Dashboard data fetch failed', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  usePolling(fetchData, 60 * 1000);
 
   // 首頁資料到齊後，非阻塞地請 NIM 產生一段大盤解讀（含新聞題材歸因）。
   // 失敗回傳 null 就不顯示區塊，完全不影響其餘內容。
@@ -203,7 +201,9 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="gsap-dashboard-card card divide-y divide-line max-h-[540px] overflow-y-auto">
-              {news[key].map((item, idx) => (
+              {/* 後端若回傳缺少 taiwan/global 欄位的內容，這裡原本會直接丟 TypeError
+                  並讓 ErrorBoundary 接管整個首頁；補上預設值讓其餘區塊照常顯示。 */}
+              {(news[key] || []).map((item, idx) => (
                 <a
                   key={idx}
                   href={item.url}

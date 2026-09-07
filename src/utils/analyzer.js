@@ -1,13 +1,13 @@
-import { sma, ewma, calculateMacd, calculateRsi, calculateKd, calculateBollingerBands, calculateAtr, calculateDmi, calculateObv, calculateAd } from './indicators.js';
+import { sma, calculateMacd, calculateRsi, calculateKd, calculateBollingerBands, calculateAtr, calculateDmi } from './indicators.js';
 
 function classifyCategory(stockId, stockName, industry, volVolatility) {
   if (volVolatility > 40) return "高波動飆股";
   return industry || "未知產業";
 }
 
-function evaluateShortTerm(closeSeries, volumeSeries, isHighPos, isLowPos) {
+function evaluateShortTerm(closeSeries, volumeSeries) {
   let score = 50;
-  let status = "中性整理";
+  let status;
   let volAvg = sma(volumeSeries.slice(-6, -1), 5)[4] || 1;
   let currVol = volumeSeries[volumeSeries.length - 1];
   let volRatio = currVol / volAvg;
@@ -116,7 +116,6 @@ function evaluateShortTermBurst(closeSeries, chipNetBuy, openSeries, highSeries,
   let prevClose = closeSeries[closeSeries.length - 2];
   let lastOpen = openSeries[openSeries.length - 1];
   let prevOpen = openSeries[openSeries.length - 2];
-  let lastHigh = highSeries[highSeries.length - 1];
   let lastLow = lowSeries[lowSeries.length - 1];
 
   let ma5 = sma(closeSeries, 5)[closeSeries.length - 1];
@@ -235,7 +234,7 @@ function evaluateDayTradeCdp(closeSeries, isLimitUp, isLimitDown, cdpRes, volume
   if (isLimitUp) { score += 20; signals.push("強勢鎖漲停 (隔日沖首選)"); status = "強勢隔日沖"; }
   else if (changePct >= 7) { score += 15; signals.push("漲幅逾7%，動能強"); }
   
-  let cdp = cdpRes.CDP, ah = cdpRes.AH, nh = cdpRes.NH;
+  let cdp = cdpRes.CDP, ah = cdpRes.AH;
   if (lastClose >= ah) { score += 10; signals.push("收盤突破 AH，極強勢"); }
   else if (lastClose >= cdp) { score += 5; signals.push("收盤站上 CDP，偏多"); }
   
@@ -357,7 +356,7 @@ function calculateEntryStrategy(closeSeries, volSeries, upper, middle, intradayS
 }
 
 export function analyzeStockData(payload) {
-  const { stock_id, stock_name, category, price_data, chip_data, margin_data, per_data, intraday, news_data, revenue_data, dividend_data, financial_data } = payload;
+  const { stock_id, stock_name, category, price_data, chip_data, per_data, intraday, news_data, revenue_data, dividend_data, financial_data } = payload;
   
   if (!price_data || price_data.length < 35) {
     return { error: "資料不足" };
@@ -397,7 +396,6 @@ export function analyzeStockData(payload) {
   // Inject real-time intraday data into the series
   // Exclude today's data if market hasn't opened (volume is 0)
   if (intraday && intraday.price && intraday.price > 0 && intraday.volume > 0) {
-    let lastFinMindClose = closeSeries[closeSeries.length - 1];
     let lastFinMindDate = dateSeries[dateSeries.length - 1];
     let isSameDay = false;
     
@@ -490,7 +488,6 @@ export function analyzeStockData(payload) {
   let bb = calculateBollingerBands(closeSeries);
   let dmi = calculateDmi(highSeries, lowSeries, closeSeries);
   let atr = calculateAtr(highSeries, lowSeries, closeSeries);
-  let obv = calculateObv(closeSeries, volumeSeries);
   
   let bias20 = [];
   for (let i = 0; i < closeSeries.length; i++) {
@@ -508,7 +505,7 @@ export function analyzeStockData(payload) {
   let categoryStr = category || classifyCategory(stock_id, stock_name, "未知", 20);
   let isEtf = categoryStr.includes("ETF") || stock_name.includes("ETF") || stock_id.startsWith("00");
   
-  let stRes = evaluateShortTerm(closeSeries, volumeSeries, false, false);
+  let stRes = evaluateShortTerm(closeSeries, volumeSeries);
   let stratRes = calculateEntryStrategy(closeSeries, volumeSeries, bb.upper, bb.middle, intraday, isEtf, currentPe, currentYield, ma20, ma60, bias20, chipNetBuy);
   let cdpRes = calculateCdp(highSeries, lowSeries, closeSeries, intraday, dateSeries[lastIdx]);
   let openingChecklist = evaluateOpeningChecklist(intraday);

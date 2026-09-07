@@ -1,50 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { Activity, Target, TrendingUp, TrendingDown, BarChart2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
+import { Activity, Target } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
 import api from '../services/api';
+import { usePolling } from '../hooks/usePolling';
 
 const Derivatives = () => {
   const [data, setData] = useState({ futures: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const startDate = new Date();
-        startDate.setMonth(startDate.getMonth() - 3);
-        const startDateStr = startDate.toISOString().split('T')[0];
+  const fetchData = async () => {
+    try {
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 3);
+      const startDateStr = startDate.toISOString().split('T')[0];
 
-        // TaiwanFuturesDaily: data_id is the futures symbol (TX = 台指期大台)
-        const futuresRes = await api.get(`/api/finmind/TaiwanFuturesDaily?data_id=TX&start_date=${startDateStr}`);
-        const raw = futuresRes.data?.data || [];
+      // TaiwanFuturesDaily: data_id is the futures symbol (TX = 台指期大台)
+      const futuresRes = await api.get(`/api/finmind/TaiwanFuturesDaily?data_id=TX&start_date=${startDateStr}`);
+      const raw = futuresRes.data?.data || [];
 
-        // Filter out after-market session (night session) to only show regular daily settlement
-        const regularSessions = raw.filter(item => item.trading_session === 'position');
+      // Filter out after-market session (night session) to only show regular daily settlement
+      const regularSessions = raw.filter(item => item.trading_session === 'position');
 
-        // 只取近月主力合約（成交量最大）後反轉排序
-        const grouped = {};
-        regularSessions.forEach(item => {
-          const key = item.date;
-          if (!grouped[key] || (item.volume ?? 0) > (grouped[key].volume ?? 0)) {
-            grouped[key] = item;
-          }
-        });
-        const futures = Object.values(grouped).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+      // 只取近月主力合約（成交量最大）後反轉排序
+      const grouped = {};
+      regularSessions.forEach(item => {
+        const key = item.date;
+        if (!grouped[key] || (item.volume ?? 0) > (grouped[key].volume ?? 0)) {
+          grouped[key] = item;
+        }
+      });
+      const futures = Object.values(grouped).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
 
-        setData({ futures });
-      } catch (err) {
-        console.error('Failed to fetch derivatives data', err);
-        setError('無法載入期貨數據');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+      setData({ futures });
+    } catch (err) {
+      console.error('Failed to fetch derivatives data', err);
+      setError('無法載入期貨數據');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  usePolling(fetchData, 5 * 60 * 1000);
 
 
   const containerRef = useCardAnimation('.gsap-derivative-card', [loading], {

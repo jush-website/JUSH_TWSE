@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import api from '../services/api';
 
-const BranchAnalysis = ({ stockId, stockName }) => {
+const BranchAnalysis = ({ stockId }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

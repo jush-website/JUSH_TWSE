@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 
 /**
  * react-bits 風格 Spotlight 卡片：滑鼠移動時卡片內浮現柔光。

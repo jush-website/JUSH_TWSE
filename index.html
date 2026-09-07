@@ -10,6 +10,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+      // 在首次繪製前就決定佈景與字級。過去這段邏輯在 React 的 useEffect 裡，
+      // 等於一定要先畫一張預設樣式的畫面再改，淺色使用者每次重新整理都會被
+      // 深色背景閃一下。這裡同步套好 class，React 掛載時再讀回同一份結論。
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          var dark = saved
+            ? saved === 'dark'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.classList.toggle('dark', dark);
+
+          var scale = { sm: 0.92, md: 1, lg: 1.12 };
+          var size = localStorage.getItem('fontSize');
+          if (!scale[size]) size = 'md';
+          document.documentElement.dataset.fontSize = size;
+          document.documentElement.style.fontSize = scale[size] * 100 + '%';
+        } catch (e) {
+          // 無痕視窗等情境讀不到 localStorage，維持預設樣式即可
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

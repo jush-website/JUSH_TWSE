@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Search, Activity, Home, TrendingUp, BarChart2,
+  Search, Home, TrendingUp, BarChart2,
   Menu, X, Flame, Globe, ChevronDown,
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import FontSizeToggle from './FontSizeToggle';
+import { usePolling } from '../hooks/usePolling';
 
 const getLocalMarketStatus = () => {
   const now = new Date();
@@ -35,7 +36,7 @@ const STRATEGIES = [
   { path: '/recommendations/long-term',     label: '長期精選' },
 ];
 
-const Navbar = React.forwardRef(({ status }, ref) => {
+const Navbar = React.forwardRef(({ status, className = '' }, ref) => {
   const [query, setQuery] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [stratOpen, setStratOpen] = useState(false);
@@ -43,10 +44,8 @@ const Navbar = React.forwardRef(({ status }, ref) => {
   const navigate  = useNavigate();
   const location  = useLocation();
 
-  useEffect(() => {
-    const t = setInterval(() => setMarketStatus(getLocalMarketStatus()), 60000);
-    return () => clearInterval(t);
-  }, []);
+  // 開/收盤狀態每分鐘重算一次；分頁在背景時不需要更新看不見的標籤。
+  usePolling(() => setMarketStatus(getLocalMarketStatus()), 60000, { immediate: false });
 
   // Close dropdown on route change
   useEffect(() => { setMobileOpen(false); setStratOpen(false); }, [location.pathname]);
@@ -69,7 +68,7 @@ const Navbar = React.forwardRef(({ status }, ref) => {
   return (
     <nav
       ref={ref}
-      className="sticky top-0 z-50 bg-panel/90 backdrop-blur-md border-b border-line transition-colors duration-300"
+      className={`sticky top-0 z-50 bg-panel/90 backdrop-blur-md border-b border-line transition-colors duration-300 ${className}`}
     >
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="flex items-center justify-between h-14">

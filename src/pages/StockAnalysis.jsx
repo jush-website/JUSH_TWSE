@@ -4,14 +4,13 @@ import api, { analyzeStockRaw, getStockAnalysisCommentary, getIntegratedAnalysis
 import {
   TrendingUp, TrendingDown, AlertCircle, CheckCircle,
   Target, ShieldAlert, BarChart, PieChart, Info, Search, Sparkles
-, Newspaper, FileText, BarChart2 } from 'lucide-react';
+ } from 'lucide-react';
 import { 
-  ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, Area
+  ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Area
 } from 'recharts';
 import BranchAnalysis from '../components/BranchAnalysis';
 import LightweightChart from '../components/LightweightChart';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import gsap, { useGSAP } from '../lib/gsap';
 import { useCardAnimation } from '../hooks/useCardAnimation';
 import { backtestCdpDayTrade } from '../utils/backtest';
 import CountUp from '../components/bits/CountUp';
@@ -56,8 +55,12 @@ const StockAnalysis = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [aiCommentary, setAiCommentary] = useState(null);
   const [aiCommentaryLoading, setAiCommentaryLoading] = useState(false);
-  // AI 整合分析：{ status: 'loading' | 'done' | 'error', text }，換股票時重置
-  const [aiReport, setAiReport] = useState(null);
+  // AI 整合分析：{ status: 'loading' | 'done' | 'error', text }。
+  // 報告連同「它是為哪一份 data 產生的」一起存，換股票時讀出來就是 null，
+  // 不必再用一個 useEffect 把它 setState 回去（那等於每次換股都多一輪重繪）。
+  const [aiReportState, setAiReportState] = useState({ source: null, report: null });
+  const aiReport = aiReportState.source === data ? aiReportState.report : null;
+  const setAiReport = (report) => setAiReportState({ source: data, report });
 
   const fetchAnalysis = async (searchQuery) => {
     if (!searchQuery) return;
@@ -76,8 +79,11 @@ const StockAnalysis = () => {
     }
   };
 
+  // 網址參數變動就重新查詢。fetchAnalysis 會同步設 loading/清空舊資料，
+  // 避免畫面在新結果回來前還顯示上一檔股票的內容。
   useEffect(() => {
     if (urlQuery) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 這是抓取流程的起點，同步標記 loading 是刻意的
       fetchAnalysis(urlQuery);
     }
   }, [urlQuery]);
@@ -88,6 +94,7 @@ const StockAnalysis = () => {
   useEffect(() => {
     if (!data) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 同上，抓取流程需要同步標記 loading
     setAiCommentaryLoading(true);
     getStockAnalysisCommentary({
       stock_name: data.stock_name, stock_id: data.stock_id,
@@ -193,10 +200,12 @@ const StockAnalysis = () => {
     setAiReport(text ? { status: 'done', text } : { status: 'error' });
   };
 
-  useEffect(() => { setAiReport(null); }, [data]);
+  // 切到 AI 分頁時才觸發（分點資料 + LLM 呼叫較慢，不預先打）。
+  // 抓取流程需同步標記 loading，否則在回應到達前 aiReport 仍是 null，這個 effect 會被重複觸發。
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 同上，這是抓取流程的起點
     if (activeTab === 'ai' && data && !aiReport) fetchIntegratedReport();
-  }, [activeTab, data]);
+  }, [activeTab, data, aiReport]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -236,21 +245,6 @@ const StockAnalysis = () => {
 
   // CDP 當沖規則的歷史模擬（純本地計算，chart_data 已載入、零 API 成本）
   const backtest = data?.chart_data ? backtestCdpDayTrade(data.chart_data) : null;
-
-  // Process data for charts
-  const epsData = data?.financial_data?.filter(d => d.type === 'EPS') || [];
-  const revData = data?.revenue_data || [];
-  
-  const chartRevData = revData.slice(-36).map(d => ({
-    date: d.date,
-    revenue: d.revenue / 100000000,
-    yoy: d.revenue_year_on_year
-  }));
-
-  const chartEpsData = epsData.slice(-12).map(d => ({
-    date: d.date,
-    value: d.value
-  }));
 
   return (
     <div ref={containerRef} className="max-w-6xl mx-auto space-y-4 sm:space-y-6">

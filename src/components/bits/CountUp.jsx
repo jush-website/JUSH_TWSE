@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import gsap from 'gsap';
+import { useRef, useEffect } from 'react';
+import gsap from '../../lib/gsap';
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&

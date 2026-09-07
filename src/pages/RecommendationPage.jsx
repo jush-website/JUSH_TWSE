@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   getShortTermRecommendations,
@@ -17,6 +17,15 @@ import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
 import BlurText from '../components/bits/BlurText';
+import { usePolling } from '../hooks/usePolling';
+
+// 台股盤中時段（週一至週五 09:00–13:30）；與元件狀態無關，放模組層級即可。
+const isMarketHours = () => {
+  const now = new Date();
+  const day = now.getDay();
+  const t = now.getHours() * 60 + now.getMinutes();
+  return day >= 1 && day <= 5 && t >= 9 * 60 && t <= 13 * 60 + 30;
+};
 
 const RecommendationPage = () => {
   const { type } = useParams();
@@ -98,12 +107,8 @@ const RecommendationPage = () => {
     }
   };
 
-  // 用即時報價覆蓋卡片上的 price / change_percent，不動策略分數與訊號
-  const overlayQuotes = async (baseStocks) => {
-    const ids = baseStocks.map(s => s.stock_id).filter(Boolean);
-    idsRef.current = ids;
-    if (ids.length === 0) return;
-    const quotes = await getQuotes(ids);
+  // 把即時報價套到卡片上：只覆蓋 price / change_percent，策略分數與訊號不動
+  const applyQuotes = (quotes) => {
     if (!quotes || Object.keys(quotes).length === 0) return;
     setStocks(prev => prev.map(s => {
       const q = quotes[s.stock_id];
@@ -112,32 +117,28 @@ const RecommendationPage = () => {
     }));
   };
 
+  const overlayQuotes = async (baseStocks) => {
+    const ids = baseStocks.map(s => s.stock_id).filter(Boolean);
+    idsRef.current = ids;
+    if (ids.length === 0) return;
+    applyQuotes(await getQuotes(ids));
+  };
+
+  // 換策略類型就重新查詢；fetchData 會同步設 loading，避免畫面殘留上一個類型的清單。
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 這是抓取流程的起點，同步標記 loading 是刻意的
     fetchData();
   }, [type]);
 
-  // 盤中每 60 秒刷新即時報價 (僅覆蓋價格，不重抓策略)
-  useEffect(() => {
-    const isMarketHours = () => {
-      const now = new Date();
-      const day = now.getDay();
-      const t = now.getHours() * 60 + now.getMinutes();
-      return day >= 1 && day <= 5 && t >= 9 * 60 && t <= 13 * 60 + 30;
-    };
-    const timer = setInterval(() => {
-      if (isMarketHours() && idsRef.current.length > 0) {
-        getQuotes(idsRef.current).then(quotes => {
-          if (!quotes || Object.keys(quotes).length === 0) return;
-          setStocks(prev => prev.map(s => {
-            const q = quotes[s.stock_id];
-            if (!q || q.price == null) return s;
-            return { ...s, price: q.price, change_percent: q.change_pct };
-          }));
-        });
-      }
-    }, 15 * 1000); // 美化.md A2：盤中即時性，60s → 15s（配合後端報價快取 10s）
-    return () => clearInterval(timer);
-  }, []);
+  // 盤中每 15 秒刷新即時報價（配合後端報價快取 10s）。
+  // usePolling 會在分頁隱藏時停掉：原本這支計時器不論分頁在不在前景都照打，
+  // 一個開著沒看的分頁一小時就是 240 次報價請求。
+  const refreshQuotes = async () => {
+    if (!isMarketHours() || idsRef.current.length === 0) return;
+    applyQuotes(await getQuotes(idsRef.current));
+  };
+
+  usePolling(refreshQuotes, 15 * 1000, { immediate: false });
 
   const getScore = (stock) => {
     if (type === 'overnight') return stock.overnight?.score || 0;

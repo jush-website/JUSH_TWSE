@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getFirestoreClient } from './firebase';
 
 const api = axios.create({
   // 回復使用 VITE_API_URL 讓前端呼叫 Render
@@ -36,14 +37,9 @@ api.interceptors.response.use(undefined, async (error) => {
   return api(cfg);
 });
 
-
-
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "./firebase";
-
 const fetchFromFirestore = async (collectionName, docId) => {
-  const docRef = doc(db, collectionName, docId);
-  const docSnap = await getDoc(docRef);
+  const { db, doc, getDoc } = await getFirestoreClient();
+  const docSnap = await getDoc(doc(db, collectionName, docId));
   if (docSnap.exists()) {
     const firestoreData = docSnap.data();
     let updatedAtStr = null;
@@ -206,38 +202,15 @@ export const getCapitalFlowAiCommentary = async (payload) => {
   }
 };
 
-// 透過後端 Proxy 取得 FinMind 歷史資料 (避免瀏覽器 CORS 或無 token 造成的 Rate Limit)
-const fetchFinmind = async (dataset, stockId, daysAgo) => {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  const startDate = d.toISOString().split('T')[0];
-  const url = `/api/finmind/${dataset}?data_id=${stockId}&start_date=${startDate}`;
-  const res = await api.get(url);
-  
-  if (res.data.msg === "超過使用次數") {
-    throw new Error("超過使用次數 (Backend API Rate Limited)");
-  }
-  return res.data.data || [];
-};
-
-import { analyzeStockData } from '../utils/analyzer';
-
-import stockDataMap from '../assets/stock_names.json';
-
 export const analyzeStockRaw = async (query) => {
-  // 1. 整理輸入
-  let rawQuery = query.trim();
-  
-  console.log("前端發送單一請求取得個股原始資料...");
-  // 透過後端一次性取得所需的所有歷史資料 (由後端做 FinMind 請求與快取)
-  const res = await api.get(`/api/raw-data/${rawQuery}`);
-  const payload = res.data; // 包含 price_data, chip_data, margin_data, per_data, intraday 等
+  // 後端一次性回傳所需的全部歷史資料（FinMind 請求與快取都在後端做），
+  // 前端只負責把 payload 交給本地分析器換算指標。
+  const res = await api.get(`/api/raw-data/${query.trim()}`);
 
-  console.log("資料獲取完畢，開始在本地端進行分析...");
+  // 分析器只有這條路徑會用到，動態載入讓它不進其他頁面的首包。
+  const { analyzeStockData } = await import('../utils/analyzer');
+  const analysisResult = analyzeStockData(res.data);
 
-  // 直接傳給前端 JS 分析器
-  const analysisResult = analyzeStockData(payload);
-  
   if (analysisResult.error) {
     throw new Error(analysisResult.error);
   }

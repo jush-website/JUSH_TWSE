@@ -1,6 +1,5 @@
-import React, { useRef } from 'react';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import { useRef } from 'react';
+import gsap, { useGSAP } from '../../lib/gsap';
 
 /**
  * react-bits 風格 BlurText：文字逐段從模糊淡入。
