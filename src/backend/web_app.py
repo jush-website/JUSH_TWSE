@@ -101,13 +101,24 @@ AI_COMMENTARY_DOCS = {
     'long_term', 'bottom_fishing', 'cdp', 'day_trade_cdp'
 }
 
+# 同步失敗的統計，供 /api/admin/sync-status 查詢。
+# 過去 Firebase 憑證沒設定時 sync_doc_to_firestore 是靜默 return，
+# 結果就是「同步每天照跑、但什麼都沒寫進去」而沒有任何跡象。
+_sync_health = {"last_write_at": None, "last_write_doc": None, "skipped_no_db": 0, "last_error": None}
+
 def sync_doc_to_firestore(doc_id, data_list):
     """把策略結果寫回 Firestore；個股清單型文件會先附加 AI 短評。
     排程同步（background_strategies_sync）與手動全量同步（/api/admin/force-full-sync）
     共用這支函式，確保兩條路徑的行為一致。"""
     if not firebase_db:
+        # 不再靜默跳過：沒有憑證就等於整個同步機制形同虛設，必須留下痕跡。
+        _sync_health["skipped_no_db"] += 1
+        _sync_health["last_error"] = "Firebase 未初始化（缺少 FIREBASE_SERVICE_ACCOUNT），資料未寫入"
+        print(f"[系統] 警告：Firebase 未初始化，跳過寫入 {doc_id}。請檢查 FIREBASE_SERVICE_ACCOUNT 環境變數。")
         return
-    base_date = fetcher.get_last_expected_trading_date().strftime("%Y-%m-%d")
+    # 用實際已收盤的交易日，不要用「今天遲早會有資料」的樂觀日期，
+    # 否則盤中觸發的同步會把昨天的結果標成今天。
+    base_date = fetcher.get_published_base_date().strftime("%Y-%m-%d")
     if doc_id in AI_COMMENTARY_DOCS and isinstance(data_list, list):
         try:
             # 當沖偵測清單額外附 CDP 區間，讓 AI 評語包含參考進場區間（僅供參考）
@@ -115,11 +126,18 @@ def sync_doc_to_firestore(doc_id, data_list):
         except Exception as e:
             print(f"[系統] AI 敘述層生成失敗（不影響原始推薦資料）: {e}")
     doc_ref = firebase_db.collection('recommendations').document(doc_id)
-    doc_ref.set({
-        'data': data_list,
-        'base_date': base_date,
-        'updated_at': firestore.SERVER_TIMESTAMP
-    })
+    try:
+        doc_ref.set({
+            'data': data_list,
+            'base_date': base_date,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        })
+    except Exception as e:
+        _sync_health["last_error"] = f"寫入 {doc_id} 失敗: {e}"
+        print(f"[系統] 寫入 Firestore 失敗 ({doc_id}): {e}")
+        raise
+    _sync_health["last_write_at"] = datetime.now(pytz.timezone("Asia/Taipei")).isoformat()
+    _sync_health["last_write_doc"] = doc_id
 
 
 @asynccontextmanager
@@ -189,6 +207,12 @@ async def background_strategies_sync():
             loop = asyncio.get_event_loop()
             executed_any = False
 
+            # 以下四段刻意用獨立的 if 而非 if/elif：elif 代表一次迴圈只會跑一個階段，
+            # 而迴圈間隔是 10 分鐘，等於冷啟動後要連續存活 30 分鐘才跑得完四個階段。
+            # Render 免費方案沒有流量約 15 分鐘就休眠，後面的階段（短線/隔日沖/長期/
+            # 抄底/CDP）因此常常永遠輪不到，Firestore 就一直停在舊資料。
+            # 改成獨立 if 之後，程序一醒來就會把當下所有「時間已到但還沒做」的階段
+            # 依序補完，不必賭它能撐多久。
             if time_int >= 1430 and not sync_status["stage1_done"]:
                 print(f"[系統] 執行階段一同歩 (14:30後): 價格與大盤資料")
                 hot_stocks = await get_hot_stocks(force=True)
@@ -201,7 +225,7 @@ async def background_strategies_sync():
                 executed_any = True
                 print("[系統] 階段一同歩完成")
 
-            elif time_int >= 1630 and not sync_status["stage2_done"]:
+            if time_int >= 1630 and not sync_status["stage2_done"]:
                 print(f"[系統] 執行階段二同歩 (16:30後): 法人買賣超與初步策略")
                 try:
                     institutional_flow = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
@@ -215,7 +239,7 @@ async def background_strategies_sync():
                 executed_any = True
                 print("[系統] 階段二同歩完成")
 
-            elif time_int >= 1800 and not sync_status["stage3_done"]:
+            if time_int >= 1800 and not sync_status["stage3_done"]:
                 print(f"[系統] 執行階段三同歩 (18:00後): 主力分點資料")
                 short_term = await get_short_term_recommendations(force=True)
                 await loop.run_in_executor(None, update_doc, 'short_term', short_term)
@@ -225,7 +249,7 @@ async def background_strategies_sync():
                 executed_any = True
                 print("[系統] 階段三同歩完成")
 
-            elif time_int >= 2100 and not sync_status["stage4_done"]:
+            if time_int >= 2100 and not sync_status["stage4_done"]:
                 print(f"[系統] 執行階段四同歩 (21:00後): 融資券與全策略總結算")
                 long_term = await get_long_term_recommendations(force=True)
                 await loop.run_in_executor(None, update_doc, 'long_term', long_term)
@@ -348,6 +372,10 @@ async def admin_sync_status():
         **_manual_sync_state,
         "admin_secret_configured": bool(os.environ.get("ADMIN_SYNC_SECRET")),
         "nvidia_key_configured": bool(os.environ.get("NVIDIA_API_KEY")),
+        # firestore_connected 為 false 時，所有同步都寫不進去，畫面就會一直是舊資料。
+        "firestore_connected": firebase_db is not None,
+        "expected_base_date": fetcher.get_published_base_date().strftime("%Y-%m-%d"),
+        **_sync_health,
     }
 
 # 設定前端靜態檔路徑

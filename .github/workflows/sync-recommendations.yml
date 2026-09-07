@@ -1,0 +1,102 @@
+name: 同步策略資料到 Firestore
+
+# 為什麼需要這個排程：
+# 寫入 Firestore 的 background_strategies_sync 是掛在 FastAPI 程序裡的背景任務，
+# 而後端跑在 Render 免費方案上——沒有 HTTP 流量約 15 分鐘就會休眠，背景任務跟著死。
+# 沒人在盤後逛網站的日子，同步等於完全沒跑，前端就一直顯示舊資料。
+#
+# 這個 workflow 做兩件事：
+#   1. 在四個同步時點主動把 Render 叫醒
+#   2. 觸發 force-full-sync 之後持續輪詢狀態，用流量把服務撐到跑完為止
+#
+# 需要的 repository secrets（Settings -> Secrets and variables -> Actions）：
+#   RENDER_API_URL     後端網址，例如 https://your-app.onrender.com（結尾不要加斜線）
+#   ADMIN_SYNC_SECRET  與 Render 環境變數 ADMIN_SYNC_SECRET 相同的值
+
+on:
+  schedule:
+    # cron 一律是 UTC；台北時間 = UTC + 8，週一到週五
+    - cron: '35 6 * * 1-5'    # 14:35 台北 — 階段一：價格與大盤
+    - cron: '35 8 * * 1-5'    # 16:35 台北 — 階段二：法人買賣超
+    - cron: '5 10 * * 1-5'    # 18:05 台北 — 階段三：主力分點
+    - cron: '5 13 * * 1-5'    # 21:05 台北 — 階段四：全策略總結算
+  workflow_dispatch:          # 也可以在 Actions 頁面手動觸發
+
+concurrency:
+  # 同步很吃外部 API 額度，不要讓兩輪疊在一起
+  group: sync-recommendations
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API_URL: ${{ secrets.RENDER_API_URL }}
+      SYNC_SECRET: ${{ secrets.ADMIN_SYNC_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查必要的 secrets
+        run: |
+          missing=0
+          if [ -z "$API_URL" ]; then
+            echo "::error::缺少 secret RENDER_API_URL"
+            missing=1
+          fi
+          if [ -z "$SYNC_SECRET" ]; then
+            echo "::error::缺少 secret ADMIN_SYNC_SECRET"
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then exit 1; fi
+          echo "secrets 就緒"
+
+      - name: 喚醒 Render（免費方案冷啟動可能要 30-60 秒）
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 \
+              "$API_URL/api/admin/sync-status" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "服務已就緒（第 $i 次嘗試）"
+              exit 0
+            fi
+            echo "等待服務啟動... (第 $i 次，HTTP $code)"
+            sleep 15
+          done
+          echo "::error::Render 服務在 5 分鐘內沒有回應"
+          exit 1
+
+      - name: 同步前檢查後端狀態
+        run: |
+          curl -s --max-time 60 "$API_URL/api/admin/sync-status" \
+            | tee /tmp/status.json | python3 -m json.tool || true
+          python3 .github/scripts/check_sync_status.py preflight < /tmp/status.json
+
+      - name: 觸發全量同步
+        run: |
+          resp=$(curl -s --max-time 120 -X POST \
+            "$API_URL/api/admin/force-full-sync?secret=$SYNC_SECRET")
+          echo "回應：$resp"
+          case "$resp" in
+            *started*|*already_running*) echo "同步已啟動" ;;
+            *) echo "::error::觸發同步失敗（secret 可能不符）"; exit 1 ;;
+          esac
+
+      - name: 輪詢直到完成（同時用流量避免 Render 中途休眠）
+        run: |
+          # 每 30 秒問一次，最多 35 分鐘。
+          # 這些請求本身就是讓 Render 不休眠、能跑完同步的關鍵。
+          for i in $(seq 1 70); do
+            curl -s --max-time 60 "$API_URL/api/admin/sync-status" > /tmp/status.json || echo '{}' > /tmp/status.json
+            running=$(python3 -c "import json;print(json.load(open('/tmp/status.json')).get('running','unknown'))" 2>/dev/null || echo unknown)
+            if [ "$running" = "False" ]; then
+              echo "同步完成，結果："
+              python3 -m json.tool < /tmp/status.json
+              python3 .github/scripts/check_sync_status.py result < /tmp/status.json
+              exit 0
+            fi
+            echo "同步進行中... (第 $i 次輪詢)"
+            sleep 30
+          done
+          echo "::error::同步在 35 分鐘內沒有回報完成"
+          exit 1

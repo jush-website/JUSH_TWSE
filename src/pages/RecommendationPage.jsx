@@ -12,12 +12,13 @@ import {
   getLiveRecommendations,
   getQuotes
 } from '../services/api';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import StockCard from '../components/StockCard';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
 import BlurText from '../components/bits/BlurText';
 import { usePolling } from '../hooks/usePolling';
+import { isStaleBaseDate } from '../utils/freshness';
 
 // 台股盤中時段（週一至週五 09:00–13:30）；與元件狀態無關，放模組層級即可。
 const isMarketHours = () => {
@@ -47,6 +48,8 @@ const RecommendationPage = () => {
   const [sortOrder, setSortOrder] = useState('desc');
 
   const [updatedAt, setUpdatedAt] = useState(null);
+  // 偵測到 Firestore 資料過期時記下原本的基準日，即時運算若也失敗就提示使用者
+  const [staleNotice, setStaleNotice] = useState(null);
   const idsRef = useRef([]);
 
   const fetchData = async () => {
@@ -66,13 +69,20 @@ const RecommendationPage = () => {
       }
       let baseStocks = res.data || [];
       let baseUpdatedAt = res.updated_at || null;
-      // Firestore 空的（同步失敗或還沒跑）→ 自動改用 Render 即時 API 互補
-      if (baseStocks.length === 0) {
+      // Firestore 沒資料，或資料的基準日已經落後太多（後端排程中斷時會發生：
+      // 文件還在、但停留在好幾天前），都改用 Render 即時運算補上。
+      // 過去只判斷「空」，所以「舊但存在」的資料會被一直顯示下去。
+      const stale = isStaleBaseDate(res.base_date);
+      if (baseStocks.length === 0 || stale) {
+        if (stale) setStaleNotice(res.base_date);
         const live = await getLiveRecommendations(type).catch(() => null);
         if (live?.data?.length) {
           baseStocks = live.data;
           baseUpdatedAt = live.updated_at;
+          setStaleNotice(null);
         }
+      } else {
+        setStaleNotice(null);
       }
       setStocks(baseStocks);
       setUpdatedAt(baseUpdatedAt);
@@ -170,6 +180,13 @@ const RecommendationPage = () => {
           <p className="text-ink-3 text-sm mt-0.5">
             選股策略每日盤後更新{updatedAt ? `（資料基準：${updatedAt}）` : ''}；盤中價格每分鐘即時刷新
           </p>
+          {/* 偵測到資料過期、且即時運算也補不上時才顯示，避免使用者把舊資料當成當日結果 */}
+          {staleNotice && (
+            <p className="text-bear text-xs mt-1.5 flex items-center gap-1">
+              <AlertTriangle size={12} className="shrink-0" />
+              每日同步似乎已中斷，以下為 {staleNotice} 的舊資料；即時運算暫時無法取得，請稍後再試或按「手動更新」。
+            </p>
+          )}
         </div>
         
         <div className="flex items-center gap-2">

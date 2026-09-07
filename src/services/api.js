@@ -57,10 +57,13 @@ const fetchFromFirestore = async (collectionName, docId) => {
     }
     return { 
       data: firestoreData.data || firestoreData,
-      updated_at: updatedAtStr
+      updated_at: updatedAtStr,
+      // 原始基準日另外帶出來，呼叫端才有辦法判斷這份資料是不是已經過期。
+      // updated_at 是給人看的字串，不適合拿來比較。
+      base_date: firestoreData.base_date || null
     };
   } else {
-    return { data: [], updated_at: null };
+    return { data: [], updated_at: null, base_date: null };
   }
 };
 
