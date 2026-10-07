@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Globe, DollarSign, BarChart2 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
-import api from '../services/api';
+import api, { getUsTreasury } from '../services/api';
 import { usePolling } from '../hooks/usePolling';
 
 const MacroDashboard = () => {
@@ -22,14 +22,15 @@ const MacroDashboard = () => {
 
       const [usdRes, usTreasuryRes] = await Promise.allSettled([
         api.get(`/api/finmind/TaiwanExchangeRate?data_id=USD&start_date=${startDateStr}`),
-        api.get(`/api/macro/us-treasury`),
+        // 美債殖利率改讀 Actions 預先算好的 Firestore 文件
+        getUsTreasury(),
       ]);
 
       const exchangeRates = usdRes.status === 'fulfilled'
         ? (usdRes.value.data?.data || []).slice(-30).reverse()
         : [];
       const usTreasury = usTreasuryRes.status === 'fulfilled'
-        ? (usTreasuryRes.value.data?.data || []).slice(-30).reverse()
+        ? (usTreasuryRes.value.data || []).slice(-30).reverse()
         : [];
 
       setData({ exchangeRates, usTreasury });

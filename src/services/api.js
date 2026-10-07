@@ -67,9 +67,57 @@ const fetchFromFirestore = async (collectionName, docId) => {
   }
 };
 
+/**
+ * 先讀 Firestore 上預先算好的資料，讀不到才退回 Render 的即時端點。
+ *
+ * 這些資料（全球指數、新聞、台指期、走勢展望、漲跌家數、多空分布…）都是
+ * 全市場共用、一天只變幾次，卻原本每次造訪都即時打 Render。Render 免費方案
+ * 休眠後的冷啟動要 30-60 秒，等於首頁最慢的一環是為了算一份人人相同的資料。
+ * 現在由 GitHub Actions 盤後算好寫進 Firestore（見 scripts/sync_market_data.py），
+ * 前端直讀，讀取延遲只剩 Firestore 的 CDN 等級。
+ *
+ * Render 仍留作退路，是為了讓這次遷移可以逐步進行：Firestore 上還沒有對應
+ * 文件時（例如第一次部署、或某項目當天同步失敗）行為與以前完全一樣。
+ *
+ * @param {string} docId      Firestore recommendations 集合裡的文件 id
+ * @param {string} apiPath    對應的 Render 端點，作為退路
+ * @returns {Promise<{data: any, updated_at: string|null, base_date: string|null, source: 'firestore'|'api'}>}
+ */
+// 後端各 handler 的回傳形狀不一致：有的是 { data: [...] , base_date }，
+// 有的直接就是 payload。呼叫端原本各自用 `res.data.data || res.data` 處理，
+// 這裡統一剝掉一層 data 包裝，讓兩條路徑（Firestore / API）給出相同形狀。
+const unwrap = (v) =>
+  v && typeof v === 'object' && !Array.isArray(v) && 'data' in v ? v.data : v;
+
+const isEmptyPayload = (v) =>
+  v == null
+  || (Array.isArray(v) && v.length === 0)
+  || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+
+const fetchPrecomputed = async (docId, apiPath) => {
+  try {
+    const res = await fetchFromFirestore('recommendations', docId);
+    const payload = unwrap(res.data);
+    // fetchFromFirestore 在文件不存在時回傳空陣列，要把那種情況視為「沒有資料」
+    if (!isEmptyPayload(payload)) {
+      return { data: payload, updated_at: res.updated_at, base_date: res.base_date, source: 'firestore' };
+    }
+  } catch (err) {
+    console.warn(`Firestore ${docId} 讀取失敗，改打 API`, err);
+  }
+  const apiRes = await api.get(apiPath);
+  const d = apiRes.data;
+  return {
+    data: unwrap(d),
+    updated_at: d?.updated_at ?? d?.base_date ?? null,
+    base_date: d?.base_date ?? null,
+    source: 'api',
+  };
+};
+
 export const getStatus = () => api.get('/api/status');
-export const getGlobalMarket = () => api.get('/api/global-market');
-export const getNews = () => api.get('/api/news');
+export const getGlobalMarket = () => fetchPrecomputed('global_market', '/api/global-market');
+export const getNews = () => fetchPrecomputed('news', '/api/news');
 export const getLongTermRecommendations = () => fetchFromFirestore('recommendations', 'long_term');
 export const getHotStocks = () => fetchFromFirestore('recommendations', 'hot_stocks');
 export const getShortTermRecommendations = () => fetchFromFirestore('recommendations', 'short_term');
@@ -79,47 +127,21 @@ export const getDayTradeCdpRecommendations = () => fetchFromFirestore('recommend
 export const getOvernightRecommendations = (mode = "1") => fetchFromFirestore('recommendations', `overnight_${mode}`);
 export const getCdpRecommendations = () => fetchFromFirestore('recommendations', 'cdp');
 export const getEtfRecommendations = () => fetchFromFirestore('recommendations', 'etf');
-export const getCapitalFlow = async () => {
-  try {
-    const apiRes = await api.get('/api/capital-flow');
-    if (apiRes && apiRes.data && apiRes.data.data) {
-      return {
-        data: apiRes.data.data,
-        updated_at: apiRes.data.updated_at || apiRes.data.base_date
-      };
-    }
-  } catch (err) {
-    console.warn("API capital_flow fetch failed, falling back to Firestore", err);
-  }
-  return fetchFromFirestore('recommendations', 'capital_flow');
-};
+export const getCapitalFlow = () => fetchPrecomputed('capital_flow', '/api/capital-flow');
 
-export const getMarketBreadth = async () => {
-  const apiRes = await api.get('/api/market-breadth');
-  const d = apiRes.data;
-  const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-  return { 
-    data: d.data || d, 
-    updated_at: d.base_date ? `${d.base_date} ${timeStr}` : `${new Date().toLocaleDateString('zh-TW')} ${timeStr}`
-  };
-};
+export const getMarketBreadth = () => fetchPrecomputed('market_breadth', '/api/market-breadth');
 
-export const getInstitutionalFlow = async () => {
-  try {
-    const res = await fetchFromFirestore('recommendations', 'institutional_flow');
-    if (res && res.data && res.data.length > 0) return res;
-  } catch (err) {
-    console.warn("Firestore institutional_flow fetch failed, falling back to API", err);
-  }
-  const apiRes = await api.get('/api/institutional-flow');
-  return { data: apiRes.data, updated_at: new Date().toLocaleDateString('zh-TW') + ' ' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) };
-};
+export const getInstitutionalFlow = () => fetchPrecomputed('institutional_flow', '/api/institutional-flow');
+
+// 大盤多空分布與美債殖利率：原本由頁面直接 api.get，現在一併走預先算好的路徑
+export const getMarketDistribution = () => fetchPrecomputed('market_distribution', '/api/market-distribution');
+export const getUsTreasury = () => fetchPrecomputed('us_treasury', '/api/macro/us-treasury');
 export const getIndustries = () => api.get('/api/industries');
 export const getIndustryStocks = (name) => api.get(`/api/industry/${name}`);
 export const analyzeStock = (query) => api.get(`/api/analyze/${query}`);
 export const syncData = (mode = "1") => api.post(`/api/sync?mode=${mode}`);
-export const getFutures = () => api.get('/api/futures');
-export const getMarketOutlook = () => api.get('/api/market-outlook');
+export const getFutures = () => fetchPrecomputed('futures', '/api/futures');
+export const getMarketOutlook = () => fetchPrecomputed('market_outlook', '/api/market-outlook');
 
 // Firestore 資料過時/沒同步時的即時互補：直接跟 Render 要現算的推薦清單
 // （後端有自己的快取，熱快取秒回；冷快取會現算，可能耗時 1~2 分鐘）

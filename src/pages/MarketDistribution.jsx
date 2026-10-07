@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../services/api';
+import { getMarketDistribution } from '../services/api';
 import { BarChart2, AlertCircle, X, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
@@ -14,9 +14,10 @@ const MarketDistribution = () => {
 
   const fetchData = async () => {
     try {
-      const res = await api.get('/api/market-distribution');
-      setData(res.data.data || res.data);
-      setUpdatedAt(res.data.updated_at || res.data.base_date || null);
+      // 改讀 Actions 預先算好的 Firestore 文件；Firestore 上沒有時才打 API
+      const res = await getMarketDistribution();
+      setData(res.data);
+      setUpdatedAt(res.updated_at || res.base_date || null);
       setError(null);
     } catch (err) {
       console.error("Fetch market distribution error:", err);
