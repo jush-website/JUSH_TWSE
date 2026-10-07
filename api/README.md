@@ -19,6 +19,17 @@ Firestore，前端直讀（見 `scripts/sync_market_data.py`）。
 證交所的 MIS 即時快照（`mis.twse.com.tw`）沒有 CORS 標頭，而且會檢查 `Referer`，
 瀏覽器打不到。AI 解讀則是必須把金鑰留在伺服器側。這一層同源代理就是為了這兩件事。
 
+## 函式跑在香港（hkg1）
+
+Vercel 函式預設跑在美東 `iad1`。部署後實測回應標頭是 `x-vercel-id: iad1`，
+對台股網站很糟：`/api/quotes` 要從華盛頓打台灣的 MIS、再把結果送回台灣的
+使用者，兩段都跨太平洋——而它盤中每 15 秒就被打一次。
+
+`vercel.json` 設 `"regions": ["hkg1"]` 後兩段都在亞洲。AI 解讀要打美國的
+NVIDIA，放哪都有一段跨洋，但 LLM 生成本身就要好幾秒，這點差異可忽略。
+
+改區域後可以看回應標頭 `x-vercel-id` 的開頭確認生效。
+
 ## vercel.json 的 rewrite
 
 SPA 的 catch-all 必須排除 `/api`：
