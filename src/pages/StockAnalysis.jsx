@@ -12,7 +12,7 @@ import BranchAnalysis from '../components/BranchAnalysis';
 import LightweightChart from '../components/LightweightChart';
 import gsap, { useGSAP } from '../lib/gsap';
 import { useCardAnimation } from '../hooks/useCardAnimation';
-import { backtestCdpDayTrade } from '../utils/backtest';
+import { backtestCdpDayTrade, VERDICT, VERDICT_LABEL } from '../utils/backtest';
 import CountUp from '../components/bits/CountUp';
 
 // 頁面五張 recharts 圖共用的漸層/glow 定義（原本同一份 <defs> 複製了五次）
@@ -44,6 +44,16 @@ const CHART_DEFS = (
     </filter>
   </defs>
 );
+
+// 統計裁決的配色。刻意不用「分數越高越綠」的直覺：
+// 樣本不足與疑似運氣都用中性/警示色，避免使用者把「還不知道」讀成「可以做」。
+const VERDICT_STYLE = {
+  [VERDICT.STATISTICAL_EDGE]: { icon: '🟩', box: 'bg-bull-muted border-bull/30', text: 'text-bull' },
+  [VERDICT.FRAGILE_EDGE]:     { icon: '🟨', box: 'bg-overlay border-line',       text: 'text-ink-1' },
+  [VERDICT.LUCK_SUSPECTED]:   { icon: '🟨', box: 'bg-overlay border-line',       text: 'text-ink-1' },
+  [VERDICT.INSUFFICIENT]:     { icon: '🟧', box: 'bg-overlay border-line',       text: 'text-ink-1' },
+  [VERDICT.GAMBLING]:         { icon: '🟥', box: 'bg-bear-muted border-bear/30', text: 'text-bear' },
+};
 
 const StockAnalysis = () => {
   const { query: urlQuery } = useParams();
@@ -114,6 +124,9 @@ const StockAnalysis = () => {
     });
     return () => { cancelled = true; };
   }, [data]);
+
+  // CDP 當沖規則的歷史模擬（純本地計算，chart_data 已載入、零 API 成本）
+  const backtest = data?.chart_data ? backtestCdpDayTrade(data.chart_data) : null;
 
   // AI 整合分析：切到該分頁時才觸發（分點資料 + LLM 呼叫較慢，不預先打）。
   // 把五個面向濃縮成文字節錄送後端，由 NVIDIA NIM 產出分段報告。
@@ -189,9 +202,18 @@ const StockAnalysis = () => {
       chip_summary: chipSummary || null,
       branch_summary: branchSummary,
       community_summary: communitySummary,
+      // 連同統計裁決一起送：只給勝率與累積報酬，AI 幾乎一定會把十幾筆的
+      // 小樣本講成「策略有效」。把 p 值、信賴區間與樣本外結果一起交出去，
+      // 並明確要求它不得把未達顯著的結果描述成優勢。
       backtest_summary: backtest
         ? `CDP 當沖規則近 ${backtest.days} 日模擬：觸發 ${backtest.trades} 次、勝率 ${backtest.winRate}%、` +
-          `平均單次 ${backtest.avgReturn}%、累積 ${backtest.cumReturn}%、最差單次 ${backtest.worst}%（未計手續費稅費）`
+          `平均單次 ${backtest.avgReturn}%、累積 ${backtest.cumReturn}%、最差單次 ${backtest.worst}%（未計手續費稅費）。` +
+          `統計裁決：${VERDICT_LABEL[backtest.verdict.level]}——${backtest.verdict.headline}${backtest.verdict.detail}` +
+          `（每筆期望 ${backtest.significance.mean}%、單尾 p=${backtest.significance.pValueT.toFixed(4)}、` +
+          `期望值 95% 信賴區間 [${backtest.significance.ciLow}%, ${backtest.significance.ciHigh}%]` +
+          `${backtest.needSamples ? `、要分辨優勢與運氣約需 ${backtest.needSamples} 筆` : ''}` +
+          `${backtest.holdout ? `、樣本內 ${backtest.holdout.inMean}% → 樣本外 ${backtest.holdout.outMean}%` : ''}）。` +
+          `撰寫時請以此裁決為準：裁決非「具統計優勢」時，不得把回測結果描述成策略有效或可依此進場。`
         : null,
       fundamental_summary: fundamentalSummary,
       // 帶日期讓 AI 能對照 K 線日期，推測股價受哪些新聞題材影響
@@ -242,9 +264,6 @@ const StockAnalysis = () => {
       { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
     );
   }, { scope: containerRef, dependencies: [activeTab, data, loading] });
-
-  // CDP 當沖規則的歷史模擬（純本地計算，chart_data 已載入、零 API 成本）
-  const backtest = data?.chart_data ? backtestCdpDayTrade(data.chart_data) : null;
 
   return (
     <div ref={containerRef} className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
@@ -519,8 +538,50 @@ const StockAnalysis = () => {
                               <div className={`font-bold nums ${backtest.cumReturn >= 0 ? 'text-bull' : 'text-bear'}`}>{backtest.cumReturn}%</div>
                             </div>
                           </div>
+                          {/* 統計裁決：勝率與累積報酬在小樣本下極易誤導，
+                              這一段才是「這組數字站不站得住腳」的答案。 */}
+                          <div className={`mt-2.5 rounded-lg border p-2.5 ${VERDICT_STYLE[backtest.verdict.level].box}`}>
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-xs shrink-0">{VERDICT_STYLE[backtest.verdict.level].icon}</span>
+                              <div className="min-w-0">
+                                <div className={`text-xs font-bold ${VERDICT_STYLE[backtest.verdict.level].text}`}>
+                                  統計裁決：{VERDICT_LABEL[backtest.verdict.level]}
+                                </div>
+                                <p className="text-[11px] text-ink-2 mt-0.5 leading-relaxed">{backtest.verdict.headline}</p>
+                                <p className="text-[10px] text-ink-3 mt-1 leading-relaxed">{backtest.verdict.detail}</p>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-line/60 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-ink-3">
+                              <div>每筆期望：<span className="nums text-ink-2">{backtest.significance.mean >= 0 ? '+' : ''}{backtest.significance.mean}%</span></div>
+                              <div>單尾 p 值：<span className="nums text-ink-2">{backtest.significance.pValueT < 0.001 ? '<0.001' : backtest.significance.pValueT.toFixed(3)}</span></div>
+                              <div className="col-span-2">
+                                期望值 95% 信賴區間：
+                                <span className="nums text-ink-2">[{backtest.significance.ciLow}%, {backtest.significance.ciHigh}%]</span>
+                                {backtest.significance.ciLow <= 0 && backtest.significance.ciHigh >= 0 && (
+                                  <span className="text-ink-3">（涵蓋 0）</span>
+                                )}
+                              </div>
+                              {backtest.needSamples && (
+                                <div className="col-span-2">
+                                  要分辨優勢與運氣，約需 <span className="nums text-ink-2">{backtest.needSamples}</span> 筆
+                                  （目前 <span className="nums text-ink-2">{backtest.trades}</span> 筆）
+                                </div>
+                              )}
+                              {backtest.holdout && (
+                                <div className="col-span-2">
+                                  樣本內 <span className="nums text-ink-2">{backtest.holdout.inMean >= 0 ? '+' : ''}{backtest.holdout.inMean}%</span>
+                                  （{backtest.holdout.inTrades} 筆）→ 樣本外
+                                  <span className="nums text-ink-2"> {backtest.holdout.outMean >= 0 ? '+' : ''}{backtest.holdout.outMean}%</span>
+                                  （{backtest.holdout.outTrades} 筆）
+                                </div>
+                              )}
+                            </div>
+                          </div>
                           <p className="mt-2 text-[10px] text-ink-3">
                             模擬規則：開盤高於 NL、盤中觸及 NL 進場，觸及 NH 或收盤出場。未計手續費稅費與滑價，僅供參考，不代表未來績效。
+                            統計方法採期望值顯著性檢定（t 檢定 + 置中 bootstrap）與樣本外驗證，沿用
+                            <a href="https://github.com/mars-tw/anti-gambling-trader-tw" target="_blank" rel="noreferrer" className="underline hover:text-ink-2">反詐投資王</a>
+                            的判準。p 值的意思是「假設其實沒有優勢，純靠運氣出現至少這麼好的結果的機率」，不是「有優勢的機率」。
                           </p>
                         </div>
                       )}
