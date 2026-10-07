@@ -39,9 +39,23 @@ export default defineConfig({
   ],
   build: {
     outDir: 'dist',
+    // entry 已縮到 ~19 kB，剩下的大塊都是 vendor 或 lazy route 分包，不需要再警告
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       // 確保不處理 Python 相關的資源
-      external: [/\.py$/, /\.pkl$/]
+      external: [/\.py$/, /\.pkl$/],
+      output: {
+        // 把不常變動的第三方套件釘在各自的檔案裡：改一行業務程式碼時
+        // 只有 app chunk 的 hash 會變，vendor chunk 仍命中瀏覽器快取。
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('/firebase/') || id.includes('/@firebase/')) return 'vendor-firebase';
+          if (id.includes('/gsap/') || id.includes('/@gsap/')) return 'vendor-gsap';
+          if (id.includes('/react-router') || id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) return 'vendor-react';
+          if (id.includes('/recharts/') || id.includes('/d3-') || id.includes('/victory-vendor/') || id.includes('/lightweight-charts/')) return; // 讓 rolldown 自行跟著用到它的 lazy route 分包
+          return 'vendor';
+        },
+      },
     }
   },
   server: {

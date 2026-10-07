@@ -300,6 +300,29 @@ class DataFetcher:
             
         return target.date()
 
+    def get_published_base_date(self):
+        """回報「目前實際上已經收盤、可以拿來當基準的交易日」。
+
+        跟 get_last_expected_trading_date() 的差別在於盤中：後者在 09:00 之後就會
+        回傳「今天」，因為它的用途是判斷快取該不該更新（今天的資料遲早會到）。
+        但拿它來標記發佈出去的資料就會說謊——早上十點跑一次同步，資料其實是用
+        昨天的收盤算的，卻會被標成今天，讓過期的資料看起來很新鮮。
+
+        這裡以 14:30（TWSE 全日收盤檔發佈時間）為界：還沒到就往前退一個交易日。
+        只給對外標記資料基準日用，快取新鮮度判斷請繼續用
+        get_last_expected_trading_date()。
+        """
+        now = datetime.now(pytz.timezone("Asia/Taipei"))
+        target = now
+        # 收盤檔還沒發佈，今天不能當基準日
+        if now.hour * 100 + now.minute < 1430:
+            target = target - timedelta(days=1)
+
+        while target.weekday() >= 5 or target.strftime("%Y-%m-%d") in config.TW_HOLIDAYS_2026:
+            target = target - timedelta(days=1)
+
+        return target.date()
+
     def prefetch_data(self, sids, fetch_chip=True, fetch_revenue=False, fetch_broker=False, fetch_fs=True):
         if not sids: return
         
@@ -1450,7 +1473,9 @@ class DataFetcher:
             res = self._session.get("https://tw.stock.yahoo.com/news/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
             if res.status_code == 200:
                 soup = BeautifulSoup(res.text, 'html.parser')
-                today_str = datetime.now().strftime("%Y-%m-%d")
+                # 新聞日期給使用者看，要用台北時間；伺服器（Actions runner / Render）是 UTC，
+                # 不指定時區的話台北 00:00-08:00 之間會標成前一天。
+                today_str = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
                 seen = set()
                 for a in soup.find_all('a'):
                     if 'href' in a.attrs and '/news/' in a['href']:
@@ -1483,7 +1508,7 @@ class DataFetcher:
                             "title": f"[公告] {title}", 
                             "url": url_link if url_link else "",
                             "source": "證交所",
-                            "time": datetime.now().strftime("%Y-%m-%d")
+                            "time": datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
                         })
         except: pass
 
@@ -1706,7 +1731,8 @@ class DataFetcher:
                     "price": price,
                     "change_pct": change_pct,
                     "session": "即時",
-                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    # 首頁會直接顯示這個時間；不指定時區會拿到伺服器的 UTC，差 8 小時
+                    "date": datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d %H:%M")
                 }
         except: pass
         return None

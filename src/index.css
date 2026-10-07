@@ -189,3 +189,30 @@
 :root:not(.dark) .hover\:bg-gray-700:hover,
 :root:not(.dark) .hover\:bg-gray-800:hover { background-color: hsl(var(--overlay)) !important; }
 :root:not(.dark) .hover\:bg-gray-700\/30:hover { background-color: hsl(var(--overlay) / 0.7) !important; }
+
+/* ─── App 進場動畫 ───────────────────────────────────────────────
+   原本由 gsap.from() 在 App.jsx 做，等於為了 0.45 秒的滑入把整個 gsap
+   （約 70 kB）綁在首包上。改成 CSS keyframes 後效果一樣，但動畫在樣式表
+   解析完就能跑，不必等 JS 下載執行，也天然支援 prefers-reduced-motion。 */
+@keyframes intro-slide-down {
+  from { opacity: 0; transform: translate3d(0, -24px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes intro-slide-up {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.intro-slide-down {
+  animation: intro-slide-down 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.intro-slide-up {
+  animation: intro-slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-slide-down,
+  .intro-slide-up {
+    animation: none;
+  }
+}

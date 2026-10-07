@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Activity, Globe, DollarSign, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
+import { useState } from 'react';
+import { Globe, DollarSign, BarChart2 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
-import api from '../services/api';
+import { getExchangeRate, getUsTreasury } from '../services/api';
+import { usePolling } from '../hooks/usePolling';
 
 const MacroDashboard = () => {
   const [data, setData] = useState({
@@ -12,38 +13,31 @@ const MacroDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchMacroData = async () => {
-      try {
-        // FinMind ExchangeRate: data_id is the currency code e.g. 'USD'
-        const startDate = new Date();
-        startDate.setMonth(startDate.getMonth() - 3);
-        const startDateStr = startDate.toISOString().split('T')[0];
+  const fetchMacroData = async () => {
+    try {
+      // 兩份都讀 Actions 預先算好的 Firestore 文件（讀不到會自動退回 API）
+      const [usdRes, usTreasuryRes] = await Promise.allSettled([
+        getExchangeRate(),
+        getUsTreasury(),
+      ]);
 
-        const [usdRes, usTreasuryRes] = await Promise.allSettled([
-          api.get(`/api/finmind/TaiwanExchangeRate?data_id=USD&start_date=${startDateStr}`),
-          api.get(`/api/macro/us-treasury`),
-        ]);
+      const exchangeRates = usdRes.status === 'fulfilled'
+        ? (usdRes.value.data || []).slice(-30).reverse()
+        : [];
+      const usTreasury = usTreasuryRes.status === 'fulfilled'
+        ? (usTreasuryRes.value.data || []).slice(-30).reverse()
+        : [];
 
-        const exchangeRates = usdRes.status === 'fulfilled'
-          ? (usdRes.value.data?.data || []).slice(-30).reverse()
-          : [];
-        const usTreasury = usTreasuryRes.status === 'fulfilled'
-          ? (usTreasuryRes.value.data?.data || []).slice(-30).reverse()
-          : [];
+      setData({ exchangeRates, usTreasury });
+    } catch (err) {
+      console.error('Failed to fetch macro data', err);
+      setError('無法載入總體經濟數據');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setData({ exchangeRates, usTreasury });
-      } catch (err) {
-        console.error('Failed to fetch macro data', err);
-        setError('無法載入總體經濟數據');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMacroData();
-    const interval = setInterval(fetchMacroData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(fetchMacroData, 5 * 60 * 1000);
 
 
   const containerRef = useCardAnimation('.gsap-macro-card', [loading], {

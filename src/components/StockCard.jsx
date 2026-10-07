@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, TrendingDown, Zap, ArrowRight, Sparkles } from 'lucide-react';
 import SpotlightCard from './bits/SpotlightCard';

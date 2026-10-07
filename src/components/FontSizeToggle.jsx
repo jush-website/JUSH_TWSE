@@ -1,4 +1,3 @@
-import React from 'react';
 import { Type } from 'lucide-react';
 import { useFontSize } from '../context/FontSizeContext';
 

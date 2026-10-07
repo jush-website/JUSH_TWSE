@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getCapitalFlow, getNews, getCapitalFlowAiCommentary } from '../services/api';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BarChart3, TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X, Sparkles } from 'lucide-react';
+import { TrendingUp, Layers, AlertCircle, RefreshCw, Flame, X, Sparkles } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
+import gsap, { useGSAP } from '../lib/gsap';
 import { useCardAnimation } from '../hooks/useCardAnimation';
+import { usePolling } from '../hooks/usePolling';
 
 const CapitalFlowHeatmap = () => {
   const [data, setData] = useState(null);
@@ -36,36 +36,33 @@ const CapitalFlowHeatmap = () => {
     })();
   }, [data]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const res = await getCapitalFlow();
-        if (Array.isArray(res.data)) {
-          // Backward compatibility: res.data is a list of industries
-          setData(res.data);
-        } else {
-          // Fallback just in case some cached data is still in dictionary format
-          setData(res.data.industries || []);
-        }
-        setLastUpdated(res.updated_at);
-        const indData = Array.isArray(res.data) ? res.data : res.data.industries;
-        if (indData && indData.length > 0) {
-          // 在電腦版 (>=1024px) 預設選中第一筆，手機版則不選中，避免直接跳出彈窗
-          if (window.innerWidth >= 1024) {
-            setSelectedIndustry(indData[0]);
-          }
-        }
-      } catch (err) {
-        setError(err.message || '無法取得資金流向資料');
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await getCapitalFlow();
+      if (Array.isArray(res.data)) {
+        // Backward compatibility: res.data is a list of industries
+        setData(res.data);
+      } else {
+        // Fallback just in case some cached data is still in dictionary format
+        setData(res.data.industries || []);
       }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 3 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+      setLastUpdated(res.updated_at);
+      const indData = Array.isArray(res.data) ? res.data : res.data.industries;
+      if (indData && indData.length > 0) {
+        // 在電腦版 (>=1024px) 預設選中第一筆，手機版則不選中，避免直接跳出彈窗
+        if (window.innerWidth >= 1024) {
+          setSelectedIndustry(indData[0]);
+        }
+      }
+    } catch (err) {
+      setError(err.message || '無法取得資金流向資料');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  usePolling(fetchData, 3 * 60 * 1000);
 
 
   const containerRef = useCardAnimation('.gsap-heatmap-block', [data], {

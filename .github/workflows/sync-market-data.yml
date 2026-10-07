@@ -1,0 +1,93 @@
+name: 預算全市場資料到 Firestore
+
+# 這支取代「叫醒 Render 幫我算」的做法：運算直接在 Actions 跑完寫進 Firestore，
+# 前端直讀 Firestore，讀取路徑上完全沒有長駐伺服器，也就沒有冷啟動。
+#
+# 需要的 repository secrets（Settings -> Secrets and variables -> Actions）：
+#   FIREBASE_SERVICE_ACCOUNT  Firebase service account 的 JSON 全文（必要）
+#   FINMIND_API_TOKEN         FinMind token（選用；沒有的話部分資料源會缺）
+#   NVIDIA_API_KEY            NVIDIA NIM 金鑰（選用；策略清單的 AI 短評要用）
+
+on:
+  schedule:
+    # cron 一律 UTC；台北 = UTC+8。盤後資料一天更新四次就夠，
+    # 盤中的即時性由前端的 Vercel Function（報價）負責，不靠這支。
+    - cron: '35 6 * * 1-5'    # 14:35 台北 — 收盤價格與大盤
+    - cron: '35 8 * * 1-5'    # 16:35 台北 — 法人買賣超
+    - cron: '5 10 * * 1-5'    # 18:05 台北 — 主力分點
+    - cron: '5 13 * * 1-5'    # 21:05 台北 — 全策略總結算
+  workflow_dispatch:
+    inputs:
+      only:
+        description: '只跑指定項目（逗號分隔，留空=全部）。可用項目見 scripts/sync_market_data.py --list'
+        required: false
+      dry_run:
+        description: '只運算不寫入 Firestore'
+        type: boolean
+        default: false
+
+concurrency:
+  # 同步很吃外部 API 額度，不要讓兩輪疊在一起
+  group: sync-market-data
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 跟 repo 的 .python-version 一致
+          python-version-file: '.python-version'
+          cache: 'pip'
+
+      - name: 安裝依賴
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: 檢查必要的 secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: python .github/scripts/check_firebase_secret.py
+
+      - name: 預算全市場資料
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          PYTHONUNBUFFERED: '1'
+        run: |
+          args=""
+          if [ -n "${{ inputs.only }}" ]; then args="$args --only ${{ inputs.only }}"; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then args="$args --dry-run"; fi
+          echo "執行：python -m scripts.sync_market_data $args"
+          python -m scripts.sync_market_data $args
+
+      - name: 預算策略清單
+        # 與全市場資料分成兩步：策略掃描比較重也比較容易被外部 API 限流，
+        # 失敗時不該把已經寫好的全市場資料一起算成失敗。
+        if: ${{ inputs.dry_run != true }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          PYTHONUNBUFFERED: '1'
+        run: python -m scripts.sync_strategies
+
+      - name: 暖個股原始資料快取
+        # 只在最後一個時段（台北 21:05）跑：這段很吃 FinMind 額度
+        # （每檔約 8-18 次請求），不需要一天四次。
+        # 暖好之後個股分析頁可以直接讀 Firestore，不必叫醒任何後端。
+        # continue-on-error：這是加速用的，失敗了前端仍會退回 API，
+        # 不該讓整個 workflow 紅掉。
+        if: ${{ inputs.dry_run != true && (github.event_name == 'workflow_dispatch' || github.event.schedule == '5 13 * * 1-5') }}
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
+          PYTHONUNBUFFERED: '1'
+        run: python -m scripts.warm_raw_cache --limit 15
