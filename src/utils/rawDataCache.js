@@ -43,12 +43,6 @@ export function isCacheFresh(updatedAt, now = new Date()) {
 }
 
 /**
- * 看起來像台股代號嗎？只有代號才有辦法直接查快取文件；
- * 中文名稱之類的要靠後端的 resolve_stock_id()，那條路仍走 API。
- */
-export const looksLikeStockId = (q) => /^[0-9]{4,6}[A-Z]?$/.test(String(q || '').trim());
-
-/**
  * 把即時報價組成 analyzer 需要的 intraday 形狀。
  *
  * 後端的 intraday 還有 yesterday_high / yesterday_low / cdp_base_date，

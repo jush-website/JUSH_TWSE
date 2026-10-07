@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { getFirestoreClient } from './firebase';
-import { isCacheFresh, looksLikeStockId, quoteToIntraday } from '../utils/rawDataCache';
+import { isCacheFresh, quoteToIntraday } from '../utils/rawDataCache';
+import { resolveStockId } from '../utils/resolveStock';
 
 const api = axios.create({
   // 回復使用 VITE_API_URL 讓前端呼叫 Render
@@ -277,21 +278,25 @@ export const analyzeStockRaw = async (query) => {
   const q = query.trim();
   let payload = null;
 
-  // 只有「看起來是代號」才查得動快取文件（文件 id 就是代號）。
-  // 中文名稱要靠後端的 resolve_stock_id()，那條路仍走 API。
-  if (looksLikeStockId(q)) {
-    payload = await readRawDataCache(q);
+  // 名稱也在前端解析（對照表動態載入，約 19 kB），所以「台積電」這種查詢
+  // 一樣走得到 Firestore 快取，不必只為了翻代號就叫醒後端。
+  // 對照表是靜態快照，新上市的股票會解析不出來 → 回 null → 退回後端。
+  const sid = await resolveStockId(q);
+
+  if (sid) {
+    payload = await readRawDataCache(sid);
     if (payload) {
       // 快取裡沒有 intraday（後端是每次請求才現抓並合併），用已搬到
       // Vercel Function 的即時報價補上，不必為此叫醒 Render。
-      const quotes = await getQuotes([q]).catch(() => ({}));
-      payload = { ...payload, intraday: quoteToIntraday(quotes[q]) };
+      const quotes = await getQuotes([sid]).catch(() => ({}));
+      payload = { ...payload, intraday: quoteToIntraday(quotes[sid]) };
     }
   }
 
   if (!payload) {
-    // 後端一次性回傳所需的全部歷史資料（FinMind 請求與快取都在後端做）
-    const res = await api.get(`/api/raw-data/${q}`);
+    // 後端一次性回傳所需的全部歷史資料（FinMind 請求與快取都在後端做）。
+    // 已經解析出代號就直接用它，省掉後端再解析一次。
+    const res = await api.get(`/api/raw-data/${sid || q}`);
     payload = res.data;
   }
 

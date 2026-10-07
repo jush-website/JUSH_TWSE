@@ -5,7 +5,8 @@
  * 盤後 4 小時），否則前端會拿過期資料當新鮮的用。盤中判斷刻意用台北時區，
  * 用本機時區的話海外使用者會得到完全錯誤的 TTL——所以特別測不同時區。
  */
-import { isMarketHours, isCacheFresh, looksLikeStockId, quoteToIntraday } from '../src/utils/rawDataCache.js';
+import { isMarketHours, isCacheFresh, quoteToIntraday } from '../src/utils/rawDataCache.js';
+import { looksLikeStockId } from '../src/utils/resolveStock.js';
 
 let fail = 0;
 const t = (n, ok, extra = '') => { if (!ok) fail++; console.log(`${ok ? 'PASS' : 'FAIL'}  ${n.padEnd(44)} ${extra}`); };

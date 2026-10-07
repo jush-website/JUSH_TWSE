@@ -128,3 +128,30 @@ node scripts/verify-raw-data-cache.mjs
 .venv/bin/python -m scripts.warm_raw_cache --limit 15
 .venv/bin/python -m scripts.warm_raw_cache --ids 2330,2317
 ```
+
+## verify-resolve-stock.mjs
+
+驗證 `src/utils/resolveStock.js` 的前端代號/名稱解析，用真實的
+`src/assets/stock_names.json`（2367 檔）：
+
+- 代號直接回、名稱完全相同、部分比對（確認回傳的名稱真的包含關鍵字）
+- **與後端 `resolve_stock_id()` 的等價性**：抽 600 筆代號與完全相同的名稱，
+  要求結果完全一致
+- 查不到回 `null`（讓呼叫端退回後端）、結果可重現、對照表只載一次
+- **建置輸出**：對照表必須是獨立 chunk、佔 75% 體積的 `industry` 必須被
+  tree-shaking 搖掉、且不出現在首包的 preload 清單（需先 `npm run build`）
+
+```bash
+npm run build && node scripts/verify-resolve-stock.mjs
+```
+
+測的是 `resolveFromMap`（純函式）而不是 `resolveStockId`：後者會動態 import
+JSON，那需要打包器支援（Node 的 ESM 要 import attribute）。動態載入與
+tree-shaking 由上面的建置輸出檢查涵蓋。
+
+### 與後端刻意不同的地方
+
+部分比對時後端取「迭代到的第一筆」，順序取決於 TWSE API 的回傳順序（任意）；
+前端取「最短的符合名稱，同長度比代號」，結果穩定且通常更貼近使用者想找的
+那檔（輸入「長榮」給長榮而不是長榮航）。因為前端查不到才會退回後端，
+所以使用者看到的結果是確定的。

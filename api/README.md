@@ -64,12 +64,13 @@ Render 已經不在任何**常見**路徑上，但還是退路，所以 `VITE_AP
 
 | 端點 | 什麼時候才會用到 |
 |---|---|
-| `/api/raw-data/:query` | 查「中文名稱」而不是代號時（代號要靠後端 `resolve_stock_id`）；或該檔的 `raw_data_cache` 過期／沒暖到 |
+| `/api/raw-data/:query` | 該檔的 `raw_data_cache` 過期／沒暖到，或名稱不在前端的靜態對照表裡（新上市股票） |
 | `/api/stock/:id/branch-data`、`/ptt` | 個股分析的分點與輿情分頁（爬蟲，尚未移植） |
 | `/api/finmind/:dataset` 等 | 上面各項預先算好的文件讀不到時的退路 |
 
-個股分析的常見路徑（直接輸入代號、該檔已被暖過）現在是
-**Firestore 讀 `raw_data_cache` + Vercel Function 補即時報價**，完全不碰 Render。
+個股分析的常見路徑現在是 **前端解析代號/名稱 + Firestore 讀 `raw_data_cache`
++ Vercel Function 補即時報價**，完全不碰 Render。名稱解析用
+`src/utils/resolveStock.js`，對照表動態載入（約 19 kB gzip，只在用名稱搜尋時載）。
 暖快取由 `scripts/warm_raw_cache.py` 在台北 21:05 的那輪 Actions 執行。
 
 已經搬過來的函式在前端是**明確指定同源**呼叫的（見 `src/services/api.js` 的
