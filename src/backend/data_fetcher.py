@@ -1473,7 +1473,9 @@ class DataFetcher:
             res = self._session.get("https://tw.stock.yahoo.com/news/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
             if res.status_code == 200:
                 soup = BeautifulSoup(res.text, 'html.parser')
-                today_str = datetime.now().strftime("%Y-%m-%d")
+                # 新聞日期給使用者看，要用台北時間；伺服器（Actions runner / Render）是 UTC，
+                # 不指定時區的話台北 00:00-08:00 之間會標成前一天。
+                today_str = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
                 seen = set()
                 for a in soup.find_all('a'):
                     if 'href' in a.attrs and '/news/' in a['href']:
@@ -1506,7 +1508,7 @@ class DataFetcher:
                             "title": f"[公告] {title}", 
                             "url": url_link if url_link else "",
                             "source": "證交所",
-                            "time": datetime.now().strftime("%Y-%m-%d")
+                            "time": datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
                         })
         except: pass
 
@@ -1729,7 +1731,8 @@ class DataFetcher:
                     "price": price,
                     "change_pct": change_pct,
                     "session": "即時",
-                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    # 首頁會直接顯示這個時間；不指定時區會拿到伺服器的 UTC，差 8 小時
+                    "date": datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d %H:%M")
                 }
         except: pass
         return None
