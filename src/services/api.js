@@ -169,10 +169,15 @@ export const getLiveRecommendations = async (type) => {
 };
 
 // 批次即時報價：盤中將策略卡片過時的收盤價覆蓋為即時價
+// 已經搬到 Vercel Function 的端點走這條：明確指定同源（baseURL 清空），
+// 不受 VITE_API_URL 影響。還沒搬完的端點仍指向 Render，兩邊可以並存，
+// 遷移才能一支一支來而不是一次切換。見 api/README.md。
+const callFunction = (path, config = {}) => api.get(path, { baseURL: '', ...config });
+
 export const getQuotes = async (ids = []) => {
   if (!ids || ids.length === 0) return {};
   try {
-    const res = await api.get(`/api/quotes?ids=${ids.join(',')}`);
+    const res = await callFunction(`/api/quotes?ids=${ids.join(',')}`, { timeout: 15000 });
     return res.data || {};
   } catch (err) {
     console.warn('getQuotes failed', err);
