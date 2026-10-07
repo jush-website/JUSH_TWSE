@@ -94,5 +94,21 @@ def main() -> int:
     return asyncio.run(run(ids, args.limit))
 
 
+def _exit_now(code: int) -> None:
+    """跑完立刻結束行程，不等背景執行緒。
+
+    DataFetcher 在官方快取過期時會開一條非 daemon 的背景執行緒
+    （data_fetcher.update_cache_with_realtime），用 yfinance 把全市場
+    約 2362 檔重抓一遍。在長駐的 Render 上那是合理的背景更新；但在
+    批次腳本裡，Python 結束前會等它跑完——實測印完結果後還要多掛約
+    2.5 分鐘，而且它更新的是即將被丟掉的記憶體快取，純屬浪費。
+
+    所有 Firestore 寫入都是同步完成並已 await 過的，這裡直接結束是安全的。
+    """
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(code)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    _exit_now(main())
