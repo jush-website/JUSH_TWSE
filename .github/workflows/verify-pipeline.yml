@@ -1,0 +1,56 @@
+name: 驗證資料管線（dry-run）
+
+# 暫時性的驗證用 workflow，合併前應刪除。
+#
+# 為什麼需要：正式的 sync-market-data.yml 只在 main 上才會被 GitHub 排程或
+# 顯示手動執行按鈕，所以合併前沒辦法用它驗證。但 push 觸發的 workflow 會從
+# 被推送的分支執行，這支就是靠這點在合併前驗證：
+#   1. Actions 環境能不能裝好 requirements.txt（FinMind 的 ta 依賴曾在某些
+#      環境編譯失敗）
+#   2. web_app 能不能在乾淨的 runner 上 import
+#   3. 對真實的 FinMind / TWSE / yfinance 跑一次，看 is_usable 的守門是否合理
+#
+# 刻意全程 --dry-run：不讀任何 secret、不寫任何東西進正式 Firestore。
+# 安裝與執行步驟與 sync-market-data.yml 保持一致，驗的才是同一件事。
+
+on:
+  push:
+    branches: [claude/system-optimization-m5ci99]
+    paths:
+      - 'scripts/sync_market_data.py'
+      - 'src/backend/**'
+      - 'requirements.txt'
+      - '.python-version'
+      - '.github/workflows/verify-pipeline.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: verify-pipeline
+  cancel-in-progress: true
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+
+      - name: 安裝依賴（與正式 workflow 相同）
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: 確認 web_app 能在乾淨環境 import
+        run: python -m scripts.sync_market_data --list
+
+      - name: 對真實資料源 dry-run（不寫 Firestore）
+        env:
+          PYTHONUNBUFFERED: '1'
+        # 不帶任何 secret：FinMind 以匿名額度跑，Firebase 不初始化。
+        # 有項目被 is_usable 擋下或失敗都會印出來，這正是要看的。
+        run: python -m scripts.sync_market_data --dry-run
