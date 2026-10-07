@@ -77,3 +77,17 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           PYTHONUNBUFFERED: '1'
         run: python -m scripts.sync_strategies
+
+      - name: 暖個股原始資料快取
+        # 只在最後一個時段（台北 21:05）跑：這段很吃 FinMind 額度
+        # （每檔約 8-18 次請求），不需要一天四次。
+        # 暖好之後個股分析頁可以直接讀 Firestore，不必叫醒任何後端。
+        # continue-on-error：這是加速用的，失敗了前端仍會退回 API，
+        # 不該讓整個 workflow 紅掉。
+        if: ${{ inputs.dry_run != true && (github.event_name == 'workflow_dispatch' || github.event.schedule == '5 13 * * 1-5') }}
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
+          PYTHONUNBUFFERED: '1'
+        run: python -m scripts.warm_raw_cache --limit 15

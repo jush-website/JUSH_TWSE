@@ -30,6 +30,8 @@ const handlers = {
   'capital_flow   (list)':         [{ industry: '半導體', value_ratio: 31.2 }],
   'institutional_flow (list)':     [{ date: '2026-10-07', 外資及陸資: 1e9 }],
   'us_treasury    ({data: list})': { data: [{ date: '2026-10-07', yield: 4.1 }] },
+  'exchange_rate  ({data: list})': { data: [{ date: '2026-10-07', currency: 'USD', cash_buy: 30.5 }] },
+  'futures_daily  ({data: list})': { data: [{ date: '2026-10-07', contract_date: '202610', trading_session: 'position', volume: 52000, close: 23150 }] },
 };
 
 let fail = 0;
@@ -53,6 +55,11 @@ const checks = [
   ['CapitalFlow 陣列',       viaFirestore(handlers['capital_flow   (list)']), v => Array.isArray(v)],
   ['InstitutionalFlow 陣列', viaFirestore(handlers['institutional_flow (list)']), v => Array.isArray(v)],
   ['MacroDashboard 美債陣列', viaFirestore(handlers['us_treasury    ({data: list})']), v => Array.isArray(v)],
+  ['MacroDashboard 匯率陣列', viaFirestore(handlers['exchange_rate  ({data: list})']), v => Array.isArray(v)],
+  // Derivatives 會 filter trading_session==='position' 再按 volume 取主力合約，
+  // 所以那兩個欄位必須存在，不然畫面會是空的
+  ['Derivatives 台指期欄位', viaFirestore(handlers['futures_daily  ({data: list})']),
+    v => Array.isArray(v) && v.every(x => 'trading_session' in x && 'volume' in x && 'date' in x)],
 ];
 for (const [label, payload, pred] of checks) {
   const ok = pred(payload);

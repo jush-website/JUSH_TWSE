@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Globe, DollarSign, BarChart2 } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
-import api, { getUsTreasury } from '../services/api';
+import { getExchangeRate, getUsTreasury } from '../services/api';
 import { usePolling } from '../hooks/usePolling';
 
 const MacroDashboard = () => {
@@ -15,19 +15,14 @@ const MacroDashboard = () => {
 
   const fetchMacroData = async () => {
     try {
-      // FinMind ExchangeRate: data_id is the currency code e.g. 'USD'
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 3);
-      const startDateStr = startDate.toISOString().split('T')[0];
-
+      // 兩份都讀 Actions 預先算好的 Firestore 文件（讀不到會自動退回 API）
       const [usdRes, usTreasuryRes] = await Promise.allSettled([
-        api.get(`/api/finmind/TaiwanExchangeRate?data_id=USD&start_date=${startDateStr}`),
-        // 美債殖利率改讀 Actions 預先算好的 Firestore 文件
+        getExchangeRate(),
         getUsTreasury(),
       ]);
 
       const exchangeRates = usdRes.status === 'fulfilled'
-        ? (usdRes.value.data?.data || []).slice(-30).reverse()
+        ? (usdRes.value.data || []).slice(-30).reverse()
         : [];
       const usTreasury = usTreasuryRes.status === 'fulfilled'
         ? (usTreasuryRes.value.data || []).slice(-30).reverse()

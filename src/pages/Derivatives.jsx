@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Activity, Target } from 'lucide-react';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCardAnimation } from '../hooks/useCardAnimation';
-import api from '../services/api';
+import { getFuturesDaily } from '../services/api';
 import { usePolling } from '../hooks/usePolling';
 
 const Derivatives = () => {
@@ -12,13 +12,9 @@ const Derivatives = () => {
 
   const fetchData = async () => {
     try {
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 3);
-      const startDateStr = startDate.toISOString().split('T')[0];
-
-      // TaiwanFuturesDaily: data_id is the futures symbol (TX = 台指期大台)
-      const futuresRes = await api.get(`/api/finmind/TaiwanFuturesDaily?data_id=TX&start_date=${startDateStr}`);
-      const raw = futuresRes.data?.data || [];
+      // 台指期日線（TX = 大台）改讀 Actions 預先算好的 Firestore 文件
+      const futuresRes = await getFuturesDaily();
+      const raw = futuresRes.data || [];
 
       // Filter out after-market session (night session) to only show regular daily settlement
       const regularSessions = raw.filter(item => item.trading_session === 'position');

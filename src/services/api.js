@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getFirestoreClient } from './firebase';
+import { isCacheFresh, looksLikeStockId, quoteToIntraday } from '../utils/rawDataCache';
 
 const api = axios.create({
   // 回復使用 VITE_API_URL 讓前端呼叫 Render
@@ -136,6 +137,19 @@ export const getInstitutionalFlow = () => fetchPrecomputed('institutional_flow',
 // 大盤多空分布與美債殖利率：原本由頁面直接 api.get，現在一併走預先算好的路徑
 export const getMarketDistribution = () => fetchPrecomputed('market_distribution', '/api/market-distribution');
 export const getUsTreasury = () => fetchPrecomputed('us_treasury', '/api/macro/us-treasury');
+
+// 匯率與台指期日線：全市場共用、一天只變一次，沒有理由讓每個使用者各自去打一次
+// FinMind（既浪費額度也要等 Render 冷啟動）。改讀 Actions 預先算好的文件，
+// 退路仍是原本的 FinMind 代理端點。
+const FINMIND_START = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return d.toISOString().split('T')[0];
+};
+export const getExchangeRate = () =>
+  fetchPrecomputed('exchange_rate', `/api/finmind/TaiwanExchangeRate?data_id=USD&start_date=${FINMIND_START()}`);
+export const getFuturesDaily = () =>
+  fetchPrecomputed('futures_daily', `/api/finmind/TaiwanFuturesDaily?data_id=TX&start_date=${FINMIND_START()}`);
 export const getIndustries = () => api.get('/api/industries');
 export const getIndustryStocks = (name) => api.get(`/api/industry/${name}`);
 export const analyzeStock = (query) => api.get(`/api/analyze/${query}`);
@@ -233,14 +247,57 @@ export const getCapitalFlowAiCommentary = async (payload) => {
   }
 };
 
+/**
+ * 直接讀 Firestore 上後端抓好的個股原始資料。
+ *
+ * 後端的 /api/raw-data 本來就是「先看 raw_data_cache 有沒有新鮮的，沒有才去
+ * 打 9 份 FinMind」。既然資料就在 Firestore，快取新鮮時繞過後端直接讀，
+ * 等於省掉一整輪的冷啟動 + 網路往返。
+ *
+ * 回傳 null 代表沒有可用的快取，呼叫端要退回 API。
+ */
+const readRawDataCache = async (stockId) => {
+  try {
+    const { db, doc, getDoc } = await getFirestoreClient();
+    const snap = await getDoc(doc(db, 'raw_data_cache', stockId));
+    if (!snap.exists()) return null;
+    const content = snap.data();
+    if (!isCacheFresh(content.updated_at)) return null;
+    const payload = content.payload;
+    // 沒有價格資料的 payload 分析不出東西，當成沒有快取
+    if (!payload?.price_data?.length) return null;
+    return payload;
+  } catch (err) {
+    console.warn('raw_data_cache 讀取失敗，改打 API', err);
+    return null;
+  }
+};
+
 export const analyzeStockRaw = async (query) => {
-  // 後端一次性回傳所需的全部歷史資料（FinMind 請求與快取都在後端做），
-  // 前端只負責把 payload 交給本地分析器換算指標。
-  const res = await api.get(`/api/raw-data/${query.trim()}`);
+  const q = query.trim();
+  let payload = null;
+
+  // 只有「看起來是代號」才查得動快取文件（文件 id 就是代號）。
+  // 中文名稱要靠後端的 resolve_stock_id()，那條路仍走 API。
+  if (looksLikeStockId(q)) {
+    payload = await readRawDataCache(q);
+    if (payload) {
+      // 快取裡沒有 intraday（後端是每次請求才現抓並合併），用已搬到
+      // Vercel Function 的即時報價補上，不必為此叫醒 Render。
+      const quotes = await getQuotes([q]).catch(() => ({}));
+      payload = { ...payload, intraday: quoteToIntraday(quotes[q]) };
+    }
+  }
+
+  if (!payload) {
+    // 後端一次性回傳所需的全部歷史資料（FinMind 請求與快取都在後端做）
+    const res = await api.get(`/api/raw-data/${q}`);
+    payload = res.data;
+  }
 
   // 分析器只有這條路徑會用到，動態載入讓它不進其他頁面的首包。
   const { analyzeStockData } = await import('../utils/analyzer');
-  const analysisResult = analyzeStockData(res.data);
+  const analysisResult = analyzeStockData(payload);
 
   if (analysisResult.error) {
     throw new Error(analysisResult.error);

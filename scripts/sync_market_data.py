@@ -31,6 +31,7 @@ import json
 import os
 import sys
 import traceback
+from datetime import datetime, timedelta
 
 # 允許從 repo 根目錄直接執行
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -40,6 +41,24 @@ def build_jobs():
     """延後 import：web_app 在 import 時就會初始化 DataFetcher 與 Firebase，
     放在函式裡才能先處理 --help 之類不需要那些副作用的情況。"""
     from src.backend import web_app as W
+
+    def finmind_job(dataset, days, **params):
+        """包一層 async，讓 FinMind 的同步呼叫能與其他 handler 一致地 await。
+
+        匯率與台指期日線原本是前端打 /api/finmind/<dataset> 即時代理。但那兩份
+        資料是全市場共用、一天只變一次——每個使用者各自去打一次 FinMind，
+        既浪費那 600 次/小時的額度，也要為此等 Render 冷啟動。改成在這裡算好。
+        """
+        async def run():
+            start = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+            loop = asyncio.get_running_loop()
+            data = await loop.run_in_executor(
+                None, lambda: W.fetcher.get_finmind_dataset(dataset, start_date=start, **params)
+            )
+            # 與 /api/finmind/<dataset> 的回傳形狀一致（{"data": [...]}），
+            # 前端的 unwrap() 兩邊都吃得下
+            return {"data": data} if data else None
+        return run
 
     # doc id → (產生資料的 handler, 說明)
     # doc id 刻意與前端的讀取鍵一致，前端只要換成讀 Firestore 就不用改其他東西。
@@ -53,6 +72,9 @@ def build_jobs():
         "capital_flow": (W.get_capital_flow_recommendations, "產業資金流向"),
         "institutional_flow": (W.get_institutional_flow_api, "三大法人買賣超"),
         "us_treasury": (W.get_us_treasury, "美債殖利率"),
+        # 近 3 個月，與前端原本的查詢範圍一致
+        "exchange_rate": (finmind_job("TaiwanExchangeRate", 90, data_id="USD"), "美元匯率"),
+        "futures_daily": (finmind_job("TaiwanFuturesDaily", 90, data_id="TX"), "台指期日線"),
     }
 
 

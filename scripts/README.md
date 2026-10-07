@@ -103,3 +103,28 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m scripts.sync_market_data --list
 .venv/bin/python -m scripts.sync_market_data --dry-run --only futures
 ```
+
+## verify-raw-data-cache.mjs
+
+驗證 `src/utils/rawDataCache.js`：快取 TTL 必須與後端
+`web_app.get_raw_data()` 的 `cache_ttl` 一致（盤中 30 分、盤後 4 小時），
+盤中判斷用台北時區（用本機時區的話海外使用者會得到完全錯誤的 TTL，
+所以特別測跨時區的邊界），以及報價轉 `intraday` 時不虛構後端才有的欄位。
+
+```bash
+node scripts/verify-raw-data-cache.mjs
+```
+
+## warm_raw_cache.py
+
+把熱門股的個股原始資料預先抓進 Firestore 的 `raw_data_cache`，讓個股分析頁
+可以直接讀 Firestore 而不必叫醒後端。直接呼叫 `web_app.get_raw_data()`，
+也就是 Render 上實際在跑的那條路徑。
+
+**很吃 FinMind 額度**：每檔約 8-18 次請求（新聞那段最多往前試 10 天），
+所以預設只暖 15 檔，且只在台北 21:05 那輪 Actions 執行。
+
+```bash
+.venv/bin/python -m scripts.warm_raw_cache --limit 15
+.venv/bin/python -m scripts.warm_raw_cache --ids 2330,2317
+```

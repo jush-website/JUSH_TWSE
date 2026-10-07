@@ -57,14 +57,20 @@ JS 的 `JSON.parse("22.0")` 得到 Number 印成 `22`。小數點那位資訊在
 
 `/api/quotes` 不需要任何金鑰。
 
-## 還沒搬過來的
+## Render 還剩什麼
 
-以下仍指向 `VITE_API_URL`（Render）。搬完之前 `VITE_API_URL` 不要清空，
-否則這些會 404：
+Render 已經不在任何**常見**路徑上，但還是退路，所以 `VITE_API_URL`
+**先不要清空**：
 
-- `/api/raw-data/:query` — 個股分析的原始資料
-- `/api/finmind/:dataset` — 匯率與台指期日線
-- `/api/stock/:id/branch-data`、`/api/stock/:id/ptt` — 分點與輿情
+| 端點 | 什麼時候才會用到 |
+|---|---|
+| `/api/raw-data/:query` | 查「中文名稱」而不是代號時（代號要靠後端 `resolve_stock_id`）；或該檔的 `raw_data_cache` 過期／沒暖到 |
+| `/api/stock/:id/branch-data`、`/ptt` | 個股分析的分點與輿情分頁（爬蟲，尚未移植） |
+| `/api/finmind/:dataset` 等 | 上面各項預先算好的文件讀不到時的退路 |
+
+個股分析的常見路徑（直接輸入代號、該檔已被暖過）現在是
+**Firestore 讀 `raw_data_cache` + Vercel Function 補即時報價**，完全不碰 Render。
+暖快取由 `scripts/warm_raw_cache.py` 在台北 21:05 的那輪 Actions 執行。
 
 已經搬過來的函式在前端是**明確指定同源**呼叫的（見 `src/services/api.js` 的
-`callFunction`），所以不受 `VITE_API_URL` 影響，兩邊可以並存直到搬完。
+`callFunction` / `postFunction`），所以不受 `VITE_API_URL` 影響，兩邊可以並存。
