@@ -1,0 +1,38 @@
+{
+  "stock-analysis": {
+    "stock_name": "台積電", "stock_id": "2330", "price": 1105, "change_percent": 1.38,
+    "category": "半導體", "total_score": 82, "recommend_status": "短線極佳",
+    "kd": 68.2, "rsi": 61.5, "macd": 12.3, "ma5": 1090, "ma20": 1050, "ma60": 980,
+    "vol_ratio": 1.8, "volatility": 32.1, "pe": 24.5, "yield": 1.6, "roe": 28.3,
+    "debt_ratio": 22.0, "diagnosis": ["均線多頭排列", "KD 高檔", "量能溫和放大"],
+    "volume_patterns": ["連續三日增量", "價漲量增"],
+    "cdp": { "AH": 1130, "NH": 1118, "CDP": 1100, "NL": 1082, "AL": 1070 },
+    "strategy_name": "順勢追多", "entry_range": "1095-1105", "stop_loss": 1070,
+    "exit_rule": "跌破開盤價立即停損"
+  },
+  "integrated": {
+    "stock_name": "台積電", "stock_id": "2330", "category": "半導體",
+    "price": 1105, "change_percent": 1.38, "total_score": 82, "recommend_status": "短線極佳",
+    "kd": 68.2, "rsi": 61.5, "macd": 12.3, "ma5": 1090, "ma20": 1050, "ma60": 980,
+    "vol_ratio": 1.8, "volatility": 32.1,
+    "diagnosis": ["均線多頭排列", "KD 高檔"], "volume_patterns": ["價漲量增"],
+    "kline_summary": "近60日最高 1120、最低 940，目前收盤 1105。",
+    "chip_summary": "外資連三買", "branch_summary": "凱基-松山 買超 1200 張",
+    "pe": 24.5, "yield": 1.6, "roe": 28.3, "debt_ratio": 22.0,
+    "fundamental_summary": "2026-08 營收 2800.0 億(年增 32%)",
+    "news_titles": ["2026-10-06 法人看好先進封裝", "2026-10-05 外資調高目標價"],
+    "community_summary": "2026-10-06 台積電衝了(推 320)",
+    "backtest_summary": "CDP 當沖規則近 60 日模擬：觸發 14 次、勝率 57.1%。統計裁決：樣本不足"
+  },
+  "market": {
+    "outlook_trend": "偏多", "outlook_desc": "電子權值領漲",
+    "outlook_signals": ["費半收紅", "台指期正價差"],
+    "futures": "23150（+0.8%，盤後）", "markets": "費半 +1.2%、那斯達克 -0.3%",
+    "breadth": "上漲 620 家、下跌 280 家", "capital_flow": "半導體 31.2%/+1.5%",
+    "taiwan_news": ["台積電法說會釋出樂觀展望"], "global_news": ["美股四大指數收紅"]
+  },
+  "capital-flow": {
+    "industries": ["半導體 31.2%/+1.5%", "航運 8.4%/-0.6%"],
+    "taiwan_news": ["記憶體報價續揚"], "global_news": ["費半創高"]
+  }
+}

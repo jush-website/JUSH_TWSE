@@ -173,6 +173,7 @@ export const getLiveRecommendations = async (type) => {
 // 不受 VITE_API_URL 影響。還沒搬完的端點仍指向 Render，兩邊可以並存，
 // 遷移才能一支一支來而不是一次切換。見 api/README.md。
 const callFunction = (path, config = {}) => api.get(path, { baseURL: '', ...config });
+const postFunction = (path, body, config = {}) => api.post(path, body, { baseURL: '', ...config });
 
 export const getQuotes = async (ids = []) => {
   if (!ids || ids.length === 0) return {};
@@ -190,7 +191,7 @@ export const getQuotes = async (ids = []) => {
 // 呼叫端只要判斷 null 就不顯示這個區塊即可，不影響其餘分析結果。
 export const getStockAnalysisCommentary = async (analysisData) => {
   try {
-    const res = await api.post('/api/ai-commentary/stock-analysis', analysisData);
+    const res = await postFunction('/api/ai-commentary/stock-analysis', analysisData, { timeout: 30000 });
     return res.data?.commentary || null;
   } catch (err) {
     console.warn('AI 綜合解讀取得失敗', err);
@@ -202,7 +203,7 @@ export const getStockAnalysisCommentary = async (analysisData) => {
 // 由 NVIDIA NIM 產生分段式整合報告。失敗回傳 null，呼叫端顯示錯誤提示即可。
 export const getIntegratedAnalysis = async (payload) => {
   try {
-    const res = await api.post('/api/ai-commentary/integrated', payload, { timeout: 90000 });
+    const res = await postFunction('/api/ai-commentary/integrated', payload, { timeout: 90000 });
     return res.data?.report || null;
   } catch (err) {
     console.warn('AI 整合分析取得失敗', err);
@@ -213,7 +214,7 @@ export const getIntegratedAnalysis = async (payload) => {
 // 首頁大盤 AI 解讀：整合走勢展望/台指期/全球市場/新聞標題。失敗回傳 null。
 export const getMarketAiCommentary = async (payload) => {
   try {
-    const res = await api.post('/api/ai-commentary/market', payload, { timeout: 90000 });
+    const res = await postFunction('/api/ai-commentary/market', payload, { timeout: 90000 });
     return res.data?.commentary || null;
   } catch (err) {
     console.warn('大盤 AI 解讀取得失敗', err);
@@ -224,7 +225,7 @@ export const getMarketAiCommentary = async (payload) => {
 // 資金流向頁 AI 摘要：整合產業資金分布與新聞題材。失敗回傳 null。
 export const getCapitalFlowAiCommentary = async (payload) => {
   try {
-    const res = await api.post('/api/ai-commentary/capital-flow', payload, { timeout: 90000 });
+    const res = await postFunction('/api/ai-commentary/capital-flow', payload, { timeout: 90000 });
     return res.data?.commentary || null;
   } catch (err) {
     console.warn('資金流向 AI 摘要取得失敗', err);

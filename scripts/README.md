@@ -37,3 +37,69 @@ cd /tmp/agt && python3 -I -c "..."   # 見 verify-significance.mjs 檔頭說明
 ```bash
 node scripts/verify-backtest-verdict.mjs
 ```
+
+## verify-precomputed-shapes.mjs
+
+用後端九個 handler 的真實回傳形狀，驗證「Firestore 直讀」與「退回 Render API」
+兩條路徑給出相同 payload，並逐一檢查呼叫端實際讀取的欄位存在。形狀不一致
+不會丟錯、只會讓圖表默默變空，所以必須明確測。
+
+```bash
+node scripts/verify-precomputed-shapes.mjs
+```
+
+## verify-quotes-function.mjs
+
+用假的上游測 `api/quotes.js`：代號白名單過濾、MIS 欄位轉換（成交價／漲跌幅／
+張數轉股數／日期）、尚無成交時退回昨收、分批、部分失敗降級、CDN 快取標頭、405。
+
+```bash
+node scripts/verify-quotes-function.mjs
+```
+
+## verify-function-routing.mjs
+
+真的起一個 `node:http` server 掛上函式做 HTTP 呼叫，並驗證 `vercel.json` 的
+rewrite 正則確實放行 `/api` 而攔下其他路徑（SPA 的 catch-all 若沒排除 `/api`，
+函式會永遠回 `index.html`）。
+
+```bash
+node scripts/verify-function-routing.mjs
+```
+
+## verify-ai-prompts.mjs
+
+把 `api/ai-commentary/[kind].js` 送往 NVIDIA 的 prompt 與 Python 原版
+（`src/backend/ai_commentary.py`）逐字比對，外加回應形狀、無金鑰／429／逾時／
+素材不足都安靜回 `null`、金鑰不外洩等行為。
+
+```bash
+node scripts/verify-ai-prompts.mjs scripts/prompt-golden.json scripts/payloads.json
+```
+
+### 重新產生 prompt 黃金檔
+
+在裝好 `requirements.txt` 的環境下，用假的 `_call_nvidia` 攔下 prompt：
+
+```python
+import json, os
+os.environ["NVIDIA_API_KEY"] = "dummy"       # 不設的話 generate_* 會直接回 None
+from src.backend import ai_commentary as A
+captured = {}
+A._call_nvidia = lambda s, u, max_tokens=150, temperature=0.4: (
+    captured.update(system=s, user=u, max_tokens=max_tokens, temperature=temperature) or "X")
+A.generate_market_commentary(json.load(open("scripts/payloads.json"))["market"])
+print(captured)
+```
+
+## Python 端的驗證
+
+`scripts/sync_market_data.py` 與 `scripts/sync_strategies.py` 需要
+`requirements.txt` 的依賴。本機建議用 venv（系統 Python 的 setuptools 可能
+讓 FinMind 的 `ta` 依賴編譯失敗）：
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m scripts.sync_market_data --list
+.venv/bin/python -m scripts.sync_market_data --dry-run --only futures
+```

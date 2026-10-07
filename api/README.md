@@ -34,6 +34,28 @@ SPA 的 catch-all 必須排除 `/api`：
 | 路徑 | 說明 | 上游 |
 |---|---|---|
 | `GET /api/quotes?ids=2330,2317` | 批次即時報價，供策略頁盤中覆蓋收盤價 | 證交所 MIS 快照 |
+| `POST /api/ai-commentary/stock-analysis` | 個股綜合解讀 → `{ commentary }` | NVIDIA NIM |
+| `POST /api/ai-commentary/integrated` | 分段式整合報告 → `{ report }` | NVIDIA NIM |
+| `POST /api/ai-commentary/market` | 首頁大盤解讀 → `{ commentary }` | NVIDIA NIM |
+| `POST /api/ai-commentary/capital-flow` | 熱門產業摘要 → `{ commentary }` | NVIDIA NIM |
+
+AI 解讀的提示詞放在 `_lib/prompts.js`，是從 `src/backend/ai_commentary.py`
+機械複製過來的。那些提示詞調過（禁止模型自己算分數、禁止買賣建議、字數上限、
+整合報告的分段格式），改寫就會讓輸出走鐘，所以兩邊要一起改。
+`scripts/verify-ai-prompts.mjs` 會逐字比對，分岔測試就會紅。
+
+**已知的無法消除差異**：Python 的 `json.loads("22.0")` 得到 float 印成 `22.0`，
+JS 的 `JSON.parse("22.0")` 得到 Number 印成 `22`。小數點那位資訊在 parse 當下
+就沒了，JS 端無法還原。prompt 裡會是「負債比 22%」而不是「22.0%」，語意相同。
+
+## 環境變數（在 Vercel 專案設定裡加）
+
+| 變數 | 用途 | 沒設的話 |
+|---|---|---|
+| `NVIDIA_API_KEY` | AI 解讀 | 四支都安靜回 `null`，頁面不顯示該區塊 |
+| `NVIDIA_MODEL` | 覆蓋模型代號 | 用 `meta/llama-3.1-8b-instruct` |
+
+`/api/quotes` 不需要任何金鑰。
 
 ## 還沒搬過來的
 
@@ -41,7 +63,6 @@ SPA 的 catch-all 必須排除 `/api`：
 否則這些會 404：
 
 - `/api/raw-data/:query` — 個股分析的原始資料
-- `/api/ai-commentary/*` — 四支 AI 解讀
 - `/api/finmind/:dataset` — 匯率與台指期日線
 - `/api/stock/:id/branch-data`、`/api/stock/:id/ptt` — 分點與輿情
 
