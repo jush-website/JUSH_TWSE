@@ -155,3 +155,12 @@ tree-shaking 由上面的建置輸出檢查涵蓋。
 前端取「最短的符合名稱，同長度比代號」，結果穩定且通常更貼近使用者想找的
 那檔（輸入「長榮」給長榮而不是長榮航）。因為前端查不到才會退回後端，
 所以使用者看到的結果是確定的。
+
+## verify-precomputed-freshness.mjs
+
+驗證 `fetchPrecomputed` 判定 Firestore 預算文件過期的門檻：基準日落後 1 個
+工作日（收盤前的正常狀態）算新鮮，落後 2 個以上（排程整天沒成功）才改打 API。
+
+```bash
+node scripts/verify-precomputed-freshness.mjs
+```

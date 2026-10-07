@@ -2,6 +2,7 @@ import axios from 'axios';
 import { getFirestoreClient } from './firebase';
 import { isCacheFresh, quoteToIntraday } from '../utils/rawDataCache';
 import { resolveStockId } from '../utils/resolveStock';
+import { isStaleBaseDate } from '../utils/freshness';
 
 const api = axios.create({
   // 回復使用 VITE_API_URL 讓前端呼叫 Render
@@ -83,7 +84,7 @@ const fetchFromFirestore = async (collectionName, docId) => {
  *
  * @param {string} docId      Firestore recommendations 集合裡的文件 id
  * @param {string} apiPath    對應的 Render 端點，作為退路
- * @returns {Promise<{data: any, updated_at: string|null, base_date: string|null, source: 'firestore'|'api'}>}
+ * @returns {Promise<{data: any, updated_at: string|null, base_date: string|null, source: 'firestore'|'api', stale?: boolean}>}
  */
 // 後端各 handler 的回傳形狀不一致：有的是 { data: [...] , base_date }，
 // 有的直接就是 payload。呼叫端原本各自用 `res.data.data || res.data` 處理，
@@ -96,25 +97,39 @@ const isEmptyPayload = (v) =>
   || (Array.isArray(v) && v.length === 0)
   || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
 
+// 預算資料一個交易日會同步好幾次，基準日落後超過 1 個工作日就代表排程整天沒成功
+// （例如 Actions 憑證失效），此時文件雖然還在，內容卻是舊的，不該直接拿來顯示。
+// 連假後第一天也會被判成過期而多打一次 API，代價只是慢一點、拿到同樣的資料。
+const PRECOMPUTED_MAX_LAG_WEEKDAYS = 1;
+
 const fetchPrecomputed = async (docId, apiPath) => {
+  let cached = null;
   try {
     const res = await fetchFromFirestore('recommendations', docId);
     const payload = unwrap(res.data);
     // fetchFromFirestore 在文件不存在時回傳空陣列，要把那種情況視為「沒有資料」
     if (!isEmptyPayload(payload)) {
-      return { data: payload, updated_at: res.updated_at, base_date: res.base_date, source: 'firestore' };
+      cached = { data: payload, updated_at: res.updated_at, base_date: res.base_date, source: 'firestore' };
+      if (!isStaleBaseDate(res.base_date, PRECOMPUTED_MAX_LAG_WEEKDAYS)) return cached;
+      console.warn(`Firestore ${docId} 基準日 ${res.base_date} 已過期，改打 API`);
     }
   } catch (err) {
     console.warn(`Firestore ${docId} 讀取失敗，改打 API`, err);
   }
-  const apiRes = await api.get(apiPath);
-  const d = apiRes.data;
-  return {
-    data: unwrap(d),
-    updated_at: d?.updated_at ?? d?.base_date ?? null,
-    base_date: d?.base_date ?? null,
-    source: 'api',
-  };
+  try {
+    const apiRes = await api.get(apiPath);
+    const d = apiRes.data;
+    return {
+      data: unwrap(d),
+      updated_at: d?.updated_at ?? d?.base_date ?? null,
+      base_date: d?.base_date ?? null,
+      source: 'api',
+    };
+  } catch (err) {
+    // API 也掛了：舊資料總比空白好，交還給頁面顯示（updated_at 會照實標出日期）
+    if (cached) return { ...cached, stale: true };
+    throw err;
+  }
 };
 
 export const getStatus = () => api.get('/api/status');
