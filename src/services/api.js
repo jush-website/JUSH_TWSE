@@ -1,7 +1,8 @@
 import axios from 'axios';
-import { getFirestoreClient } from './firebase';
+import { getDocumentCached } from './firestoreRest';
 import { isCacheFresh, quoteToIntraday } from '../utils/rawDataCache';
 import { resolveStockId } from '../utils/resolveStock';
+import { isStaleBaseDate } from '../utils/freshness';
 
 const api = axios.create({
   // 回復使用 VITE_API_URL 讓前端呼叫 Render
@@ -39,11 +40,9 @@ api.interceptors.response.use(undefined, async (error) => {
   return api(cfg);
 });
 
-const fetchFromFirestore = async (collectionName, docId) => {
-  const { db, doc, getDoc } = await getFirestoreClient();
-  const docSnap = await getDoc(doc(db, collectionName, docId));
-  if (docSnap.exists()) {
-    const firestoreData = docSnap.data();
+const fetchFromFirestore = async (collectionName, docId, opts) => {
+  const firestoreData = await getDocumentCached(collectionName, docId, opts);
+  if (firestoreData) {
     let updatedAtStr = null;
     if (firestoreData.updated_at) {
             const dateObj = typeof firestoreData.updated_at.toDate === 'function' 
@@ -83,7 +82,7 @@ const fetchFromFirestore = async (collectionName, docId) => {
  *
  * @param {string} docId      Firestore recommendations 集合裡的文件 id
  * @param {string} apiPath    對應的 Render 端點，作為退路
- * @returns {Promise<{data: any, updated_at: string|null, base_date: string|null, source: 'firestore'|'api'}>}
+ * @returns {Promise<{data: any, updated_at: string|null, base_date: string|null, source: 'firestore'|'api', stale?: boolean}>}
  */
 // 後端各 handler 的回傳形狀不一致：有的是 { data: [...] , base_date }，
 // 有的直接就是 payload。呼叫端原本各自用 `res.data.data || res.data` 處理，
@@ -96,25 +95,62 @@ const isEmptyPayload = (v) =>
   || (Array.isArray(v) && v.length === 0)
   || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
 
+// 預算資料一個交易日會同步好幾次，基準日落後超過 1 個工作日就代表排程整天沒成功
+// （例如 Actions 憑證失效），此時文件雖然還在，內容卻是舊的，不該直接拿來顯示。
+// 連假後第一天也會被判成過期而多打一次 API，代價只是慢一點、拿到同樣的資料。
+const PRECOMPUTED_MAX_LAG_WEEKDAYS = 1;
+
 const fetchPrecomputed = async (docId, apiPath) => {
+  let cached = null;
   try {
     const res = await fetchFromFirestore('recommendations', docId);
     const payload = unwrap(res.data);
     // fetchFromFirestore 在文件不存在時回傳空陣列，要把那種情況視為「沒有資料」
     if (!isEmptyPayload(payload)) {
-      return { data: payload, updated_at: res.updated_at, base_date: res.base_date, source: 'firestore' };
+      cached = { data: payload, updated_at: res.updated_at, base_date: res.base_date, source: 'firestore' };
+      if (!isStaleBaseDate(res.base_date, PRECOMPUTED_MAX_LAG_WEEKDAYS)) return cached;
+      console.warn(`Firestore ${docId} 基準日 ${res.base_date} 已過期，改打 API`);
     }
   } catch (err) {
     console.warn(`Firestore ${docId} 讀取失敗，改打 API`, err);
   }
-  const apiRes = await api.get(apiPath);
-  const d = apiRes.data;
-  return {
-    data: unwrap(d),
-    updated_at: d?.updated_at ?? d?.base_date ?? null,
-    base_date: d?.base_date ?? null,
-    source: 'api',
-  };
+  try {
+    const apiRes = await api.get(apiPath);
+    const d = apiRes.data;
+    return {
+      data: unwrap(d),
+      updated_at: d?.updated_at ?? d?.base_date ?? null,
+      base_date: d?.base_date ?? null,
+      source: 'api',
+    };
+  } catch (err) {
+    // API 也掛了：舊資料總比空白好，交還給頁面顯示（updated_at 會照實標出日期）
+    if (cached) return { ...cached, stale: true };
+    throw err;
+  }
+};
+
+// 各路由一進來就會讀的 Firestore 文件。在 main.jsx 掛載 React 之前就先發出請求，
+// 讓資料與路由的 JS 分包同時下載，而不是等頁面元件載入、渲染後才開始抓。
+// 頁面之後的呼叫會命中 getDocumentCached 裡同一個進行中的請求，不會重複下載。
+const REC_DOC_BY_TYPE = {
+  'short-term': 'short_term', overnight: 'overnight_1', bottom: 'bottom_fishing',
+  burst: 'short_term_burst', 'long-term': 'long_term', etf: 'etf', cdp: 'cdp',
+  'day-trade-cdp': 'day_trade_cdp',
+};
+const ROUTE_DOCS = {
+  '/': ['global_market', 'news', 'futures', 'market_outlook', 'market_breadth', 'capital_flow'],
+  '/capital-flow': ['capital_flow', 'news'],
+  '/macro': ['exchange_rate', 'us_treasury'],
+  '/derivatives': ['futures_daily'],
+};
+
+export const prefetchRouteData = (pathname) => {
+  const rec = /^\/recommendations\/([^/]+)/.exec(pathname);
+  const docs = rec ? [REC_DOC_BY_TYPE[rec[1]]].filter(Boolean) : ROUTE_DOCS[pathname] || [];
+  // 失敗就算了：頁面自己的呼叫會再試一次並走原本的退路
+  for (const id of docs) getDocumentCached('recommendations', id).catch(() => {});
+  getSyncStatus().catch(() => {});
 };
 
 export const getStatus = () => api.get('/api/status');
@@ -123,6 +159,10 @@ export const getNews = () => fetchPrecomputed('news', '/api/news');
 export const getLongTermRecommendations = () => fetchFromFirestore('recommendations', 'long_term');
 export const getHotStocks = () => fetchFromFirestore('recommendations', 'hot_stocks');
 export const getShortTermRecommendations = () => fetchFromFirestore('recommendations', 'short_term');
+// 導覽列每分鐘輪詢一次「最後同步時間」，只取兩個欄位（約 0.3 kB），
+// 不必為了一個時間戳記反覆下載整份策略清單（約 50 kB）。
+export const getSyncStatus = () =>
+  fetchFromFirestore('recommendations', 'short_term', { fields: ['updated_at', 'base_date'] });
 export const getBottomFishingRecommendations = () => fetchFromFirestore('recommendations', 'bottom_fishing');
 export const getShortTermBurstRecommendations = () => fetchFromFirestore('recommendations', 'short_term_burst');
 export const getDayTradeCdpRecommendations = () => fetchFromFirestore('recommendations', 'day_trade_cdp');
@@ -259,10 +299,8 @@ export const getCapitalFlowAiCommentary = async (payload) => {
  */
 const readRawDataCache = async (stockId) => {
   try {
-    const { db, doc, getDoc } = await getFirestoreClient();
-    const snap = await getDoc(doc(db, 'raw_data_cache', stockId));
-    if (!snap.exists()) return null;
-    const content = snap.data();
+    const content = await getDocumentCached('raw_data_cache', stockId);
+    if (!content) return null;
     if (!isCacheFresh(content.updated_at)) return null;
     const payload = content.payload;
     // 沒有價格資料的 payload 分析不出東西，當成沒有快取
