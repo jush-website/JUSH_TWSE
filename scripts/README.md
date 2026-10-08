@@ -164,3 +164,12 @@ tree-shaking 由上面的建置輸出檢查涵蓋。
 ```bash
 node scripts/verify-precomputed-freshness.mjs
 ```
+
+## verify-firestore-rest.mjs
+
+驗證 `src/services/firestoreRest.js`（取代 firebase SDK 的輕量讀取器）的型別
+解碼。移除 SDK 前已對正式環境全部文件做過 SDK ↔ REST 逐一比對，結果一致。
+
+```bash
+node scripts/verify-firestore-rest.mjs
+```

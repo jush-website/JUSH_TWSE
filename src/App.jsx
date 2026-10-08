@@ -4,7 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { FontSizeProvider } from './context/FontSizeContext';
 import { usePolling } from './hooks/usePolling';
 import Navbar from './components/Navbar';
-import { getShortTermRecommendations } from './services/api';
+import { getSyncStatus } from './services/api';
 
 // 路由級 code splitting（美化.md 2-5）：首包只留首頁，其餘頁面用到才載
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -58,7 +58,7 @@ function App() {
   // 避免使用者把分頁丟在背景時仍持續累積 Firestore 讀取。
   const fetchStatus = async () => {
     try {
-      const res = await getShortTermRecommendations();
+      const res = await getSyncStatus();
       if (res.updated_at) setStatus({ last_sync: res.updated_at });
     } catch (err) {
       // 同步時間只是輔助資訊，抓不到就維持原值，不影響頁面其他內容

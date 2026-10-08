@@ -49,7 +49,6 @@ export default defineConfig({
         // 只有 app chunk 的 hash 會變，vendor chunk 仍命中瀏覽器快取。
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
-          if (id.includes('/firebase/') || id.includes('/@firebase/')) return 'vendor-firebase';
           if (id.includes('/gsap/') || id.includes('/@gsap/')) return 'vendor-gsap';
           if (id.includes('/react-router') || id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) return 'vendor-react';
           if (id.includes('/recharts/') || id.includes('/d3-') || id.includes('/victory-vendor/') || id.includes('/lightweight-charts/')) return; // 讓 rolldown 自行跟著用到它的 lazy route 分包
