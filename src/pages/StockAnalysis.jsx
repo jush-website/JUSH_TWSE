@@ -81,7 +81,11 @@ const StockAnalysis = () => {
       const response = await analyzeStockRaw(searchQuery);
       setData(response.data);
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || '分析失敗，請檢查代號是否正確。';
+      // 沒有 response 代表連不上後端（Render 休眠中喚醒失敗、逾時或斷線），
+      // 原本直接顯示 axios 的「Network Error」，使用者看不懂也不知道能怎麼辦
+      const msg = !err.response && err.isAxiosError
+        ? '暫時連不上分析伺服器（可能正在喚醒，約需 30–60 秒），請稍後再按一次「開始診斷」。'
+        : err.response?.data?.detail || err.message || '分析失敗，請檢查代號是否正確。';
       setError(msg === "超過使用次數" ? "FinMind 免費版限制：超過單小時 300 次請求，請稍後再試！" : msg);
       setData(null);
     } finally {

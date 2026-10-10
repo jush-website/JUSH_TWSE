@@ -14,10 +14,26 @@ const cases = [
   ['週一上午，基準日上週五',         '2026-10-02', at('2026-10-05'), false],
   ['週三，基準日週一（週二整天沒同步）', '2026-10-05', at('2026-10-07'), true],
   ['兩個月前的策略文件',             '2026-08-03', at('2026-10-07'), true],
+  ['國慶補假後週一，基準日 10/8（上個交易日）', '2026-10-08', at('2026-10-12'), false],
+  ['國慶補假後週二，基準日仍是 10/8',  '2026-10-08', at('2026-10-13'), true],
   ['沒有基準日（交給空資料邏輯）',   null,         at('2026-10-07'), false],
 ];
 
 let fail = 0;
+
+// 前端的休市日清單必須與後端 config.py 完全一致
+{
+  const { readFileSync } = await import('node:fs');
+  const { TW_HOLIDAYS } = await import('../src/utils/twHolidays.js');
+  const py = readFileSync(new URL('../src/backend/config.py', import.meta.url), 'utf8');
+  const block = /TW_HOLIDAYS_2026\s*=\s*\[([\s\S]*?)\]/.exec(py)?.[1] ?? '';
+  const backend = [...block.matchAll(/"(\d{4}-\d{2}-\d{2})"/g)].map(m => m[1]).sort();
+  const frontend = [...TW_HOLIDAYS].sort();
+  const same = backend.length > 0 && JSON.stringify(backend) === JSON.stringify(frontend);
+  if (!same) fail++;
+  console.log(`${same ? 'PASS' : 'FAIL'}  休市日清單與 config.py 一致（${frontend.length} 天）`);
+}
+
 for (const [label, base, now, expected] of cases) {
   const got = isStaleBaseDate(base, LAG, now);
   if (got !== expected) fail++;

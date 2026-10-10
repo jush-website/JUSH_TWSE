@@ -13,6 +13,7 @@ const StockAnalysis = React.lazy(() => import('./pages/StockAnalysis'));
 const CapitalFlow = React.lazy(() => import('./pages/CapitalFlow'));
 const MacroDashboard = React.lazy(() => import('./pages/MacroDashboard'));
 const Derivatives = React.lazy(() => import('./pages/Derivatives'));
+const NotFound = React.lazy(() => import('./pages/NotFound'));
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -89,6 +90,7 @@ function App() {
                   <Route path="/analyze/:query"         element={<StockAnalysis />} />
                   <Route path="/macro"                  element={<MacroDashboard />} />
                   <Route path="/derivatives"            element={<Derivatives />} />
+                  <Route path="*"                       element={<NotFound />} />
                 </Routes>
               </Suspense>
             </main>

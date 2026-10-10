@@ -117,8 +117,12 @@ const fetchPrecomputed = async (docId, apiPath) => {
   try {
     const apiRes = await api.get(apiPath);
     const d = apiRes.data;
+    const payload = unwrap(d);
+    // 即時端點也可能「成功但沒東西」（資料源限流時回 [] 或 {error}）。
+    // 手上有舊資料就別拿空白去換它。
+    if (cached && (isEmptyPayload(payload) || payload?.error)) return { ...cached, stale: true };
     return {
-      data: unwrap(d),
+      data: payload,
       updated_at: d?.updated_at ?? d?.base_date ?? null,
       base_date: d?.base_date ?? null,
       source: 'api',

@@ -173,3 +173,14 @@ node scripts/verify-precomputed-freshness.mjs
 ```bash
 node scripts/verify-firestore-rest.mjs
 ```
+
+## verify_sync_guards.py
+
+後端同步與安全防線的離線驗證（不需網路、不需 Firebase 憑證，以假的 Firestore 代替）：
+空資料不覆寫、時間無關的補同步（過期判斷與冷卻）、三大法人改用證交所 BFI82U 的退路、
+靜態檔路由不能跳出 `dist`、FinMind 代理白名單、FinMind 快取時效。
+
+```bash
+pip install -r requirements.txt
+python3 scripts/verify_sync_guards.py
+```

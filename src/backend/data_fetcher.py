@@ -126,15 +126,19 @@ class DataFetcher:
                 pickle.dump(data, f)
         except: pass
 
+    # FinMind 通用快取的有效時間。原本以「伺服器（UTC）日期」當快取鍵：早上先抓過
+    # 一次（當天資料還沒發佈），之後整天都拿那份，要到台北隔天 08:00 換日才會
+    # 重抓，匯率、台指期日線因此常常少最新一天。改成固定時效。
+    FM_CACHE_TTL_SECONDS = 3600
+
     def _get_fm_cache(self, dataset, kwargs_key):
-        cache_key = f"{dataset}_{kwargs_key}_{datetime.now().strftime('%Y-%m-%d')}"
-        if cache_key in self._history_cache:
-            return self._history_cache[cache_key]
+        entry = self._history_cache.get(f"fm:{dataset}_{kwargs_key}")
+        if isinstance(entry, tuple) and len(entry) == 2 and time.time() - entry[0] < self.FM_CACHE_TTL_SECONDS:
+            return entry[1]
         return None
 
     def _set_fm_cache(self, dataset, kwargs_key, data):
-        cache_key = f"{dataset}_{kwargs_key}_{datetime.now().strftime('%Y-%m-%d')}"
-        self._history_cache[cache_key] = data
+        self._history_cache[f"fm:{dataset}_{kwargs_key}"] = (time.time(), data)
 
     def get_finmind_dataset(self, dataset, **kwargs):
         """Generic method to fetch and cache any FinMind dataset, with retry on rate limit."""
@@ -2201,7 +2205,85 @@ class DataFetcher:
     def get_institutional_flow(self, days=30):
         """
         獲取大盤三大法人買賣超 (法人資金動向) 歷史資料 (近N天)
+
+        先問 FinMind；它沒回資料（沒 token 時共用 IP 的匿名額度很容易用完，
+        Render 上就長期如此，三大法人頁因此整頁空白）就改用證交所官方的
+        BFI82U 日報表。兩邊欄位一致，前端不必知道資料來自哪裡。
         """
+        results = self._institutional_flow_finmind(days)
+        if isinstance(results, list) and results:
+            return results
+        print("[資料] FinMind 三大法人沒有回資料，改用證交所 BFI82U")
+        try:
+            return self._institutional_flow_twse(days)
+        except Exception as e:
+            print(f"[資料] 證交所 BFI82U 也失敗: {e}")
+            return []
+
+    # 證交所 BFI82U 的單位名稱 → 與 FinMind 路徑相同的欄位名
+    BFI82U_NAME_MAP = {
+        '自營商(自行買賣)': '自營商(自行買賣)',
+        '自營商(避險)': '自營商(避險)',
+        '投信': '投信',
+        '外資及陸資(不含外資自營商)': '外資及陸資',
+        '外資自營商': '外資自營商',
+        '合計': '合計',
+    }
+
+    @classmethod
+    def parse_bfi82u(cls, payload, day):
+        """把 BFI82U 一天的回應轉成 {date, 外資及陸資, 投信, 自營商, 合計, ...}。
+        非交易日或格式不對回傳 None。"""
+        if not isinstance(payload, dict) or payload.get('stat') != 'OK':
+            return None
+        fields = payload.get('fields') or []
+        rows = payload.get('data') or []
+        try:
+            net_idx = fields.index('買賣差額')
+        except ValueError:
+            return None
+        day_data = {'date': day.strftime('%Y-%m-%d')}
+        for row in rows:
+            if not row or len(row) <= net_idx:
+                continue
+            name = str(row[0]).strip()
+            if name not in cls.BFI82U_NAME_MAP:
+                continue
+            try:
+                day_data[cls.BFI82U_NAME_MAP[name]] = int(str(row[net_idx]).replace(',', ''))
+            except ValueError:
+                continue
+        if '合計' not in day_data:
+            return None
+        day_data['自營商'] = day_data.get('自營商(自行買賣)', 0) + day_data.get('自營商(避險)', 0)
+        return day_data
+
+    def _institutional_flow_twse(self, days=30, max_trading_days=12):
+        """逐日抓 BFI82U。證交所對短時間大量請求會暫時封鎖 IP（約每 5 秒 3 次），
+        所以請求之間刻意間隔，並只抓最近 max_trading_days 個交易日——這是
+        FinMind 失效時的退路，圖表少幾天總比整頁空白好。"""
+        tz = pytz.timezone("Asia/Taipei")
+        day = datetime.now(tz).date()
+        start = day - timedelta(days=days)
+        results, tried = [], 0
+        while day >= start and tried < max_trading_days:
+            if day.weekday() < 5 and day.strftime("%Y-%m-%d") not in config.TW_HOLIDAYS_2026:
+                if tried:
+                    time.sleep(1.7)
+                tried += 1
+                res = requests.get(
+                    "https://www.twse.com.tw/rwd/zh/fund/BFI82U",
+                    params={"type": "day", "dayDate": day.strftime("%Y%m%d"), "response": "json"},
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=10,
+                )
+                row = self.parse_bfi82u(res.json(), day) if res.ok else None
+                if row:
+                    results.append(row)
+            day -= timedelta(days=1)
+        return sorted(results, key=lambda x: x['date'])
+
+    def _institutional_flow_finmind(self, days=30):
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         try:
             df = self.fm_loader.taiwan_stock_institutional_investors_total(start_date=start_date)
