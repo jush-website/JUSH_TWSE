@@ -149,20 +149,32 @@ class DataFetcher:
         data = self._get_finmind_dataset(dataset, **kwargs)
         if data:
             return data
-        fallback = {
-            "TaiwanExchangeRate": self._exchange_rate_from_bot,
-            "TaiwanFuturesDaily": self._futures_daily_from_taifex,
+        fallbacks = {
+            # 臺灣銀行優先（銀行買賣價，與 FinMind 相同）；拿不到再用 Yahoo 的市場收盤匯率
+            "TaiwanExchangeRate": [("臺灣銀行", self._exchange_rate_from_bot), ("Yahoo", self._exchange_rate_from_yahoo)],
+            "TaiwanFuturesDaily": [("期交所", self._futures_daily_from_taifex)],
         }.get(dataset)
-        if not fallback:
+        if not fallbacks:
             return data
-        try:
-            rows = fallback(**kwargs)
-        except Exception as e:
-            print(f"[資料] {dataset} 官方來源也失敗: {e}")
-            return data
+        # 各來源最近一次的結果，供 /api/admin/sync-status 查看；Render 的 log
+        # 不容易看到，失敗原因要能從外面查得到才修得了
+        status = self.__dict__.setdefault("fallback_status", {})
+        rows, notes = None, []
+        for source, fetch in fallbacks:
+            self._last_fallback_detail = ""
+            try:
+                rows = fetch(**kwargs)
+            except Exception as e:
+                notes.append(f"{source} 失敗：{type(e).__name__}: {e}"[:300])
+                continue
+            if rows:
+                notes.append(f"{source} 成功 {len(rows)} 筆")
+                break
+            notes.append(f"{source} 沒有資料（{getattr(self, '_last_fallback_detail', '')}）"[:300])
+        status[dataset] = {"at": datetime.now(pytz.timezone("Asia/Taipei")).isoformat(), "result": notes}
+        print(f"[資料] FinMind {dataset} 沒有回資料，官方來源：{'；'.join(notes)}")
         if not rows:
             return data
-        print(f"[資料] FinMind {dataset} 沒有回資料，改用官方來源（{len(rows)} 筆）")
         with self._lock:
             self._set_fm_cache(dataset, str(kwargs), rows)
         return rows
@@ -218,14 +230,35 @@ class DataFetcher:
         return sorted(out, key=lambda r: r["date"])
 
     def _exchange_rate_from_bot(self, data_id="USD", start_date=None, **_):
+        details = []
         for url in self.BOT_RATE_URLS:
             res = requests.get(url.format(currency=data_id), headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
             if not res.ok:
+                details.append(f"HTTP {res.status_code}")
                 continue
-            rows = self.parse_bot_rate_csv(res.content.decode("utf-8-sig", errors="replace"), start_date)
+            text = res.content.decode("utf-8-sig", errors="replace")
+            rows = self.parse_bot_rate_csv(text, start_date)
             if rows:
                 return rows
+            details.append("解析 0 筆，開頭：" + text[:80].replace("\n", " | "))
+        self._last_fallback_detail = "；".join(details)
         return []
+
+    def _exchange_rate_from_yahoo(self, data_id="USD", start_date=None, **_):
+        """Yahoo 的 USD/TWD 市場收盤匯率。沒有銀行買賣價，只填 close，
+        前端看到這種資料會改標「收盤匯率」，不會冒充成牌告價。"""
+        if data_id != "USD":
+            return []
+        hist = yf.Ticker("TWD=X").history(period="6mo")
+        out = []
+        for idx, row in hist.iterrows():
+            date = idx.strftime("%Y-%m-%d")
+            close = row.get("Close")
+            if start_date and date < start_date or close is None or close != close:
+                continue
+            out.append({"date": date, "currency": "USD", "close": round(float(close), 4), "source": "yahoo"})
+        self._last_fallback_detail = "" if out else "Yahoo 回傳空表"
+        return sorted(out, key=lambda r: r["date"])
 
     # ── 台指期日線：期交所「期貨每日交易行情」下載（FinMind TaiwanFuturesDaily 的原始來源）──
     TAIFEX_DOWNLOAD_URL = "https://www.taifex.com.tw/cht/3/futDataDown"

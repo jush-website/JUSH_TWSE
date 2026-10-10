@@ -7,7 +7,7 @@
 4. 靜態檔路由不能用 ../ 跳出 dist（曾可讀到 /proc/self/environ 裡的所有密鑰）
 5. FinMind 代理只轉發前端用到的資料集
 6. FinMind 通用快取一小時過期（原本整天不換，常少最新一天）
-7. 匯率、台指期日線在 FinMind 沒回資料時改用臺灣銀行、期交所官方資料
+7. 匯率、台指期日線在 FinMind 沒回資料時改用臺灣銀行、期交所官方資料（匯率再退到 Yahoo）
 
 用法：
     python3 scripts/verify_sync_guards.py
@@ -322,6 +322,38 @@ async def main():
     check("一小時內再要同一份 → 走快取，不再打期交所", not posts)
     r = W.fetcher.get_finmind_dataset("TaiwanExchangeRate", data_id="USD", start_date="2026-08-01")
     check(f"匯率改用臺灣銀行，得到 {len(r)} 筆", len(r) == 3 and r[-1]["spot_sell"] == 32.355)
+    print("\n── 匯率：臺灣銀行也失敗時改用 Yahoo 收盤匯率，並記下原因 ──")
+    import pandas as pd
+
+    class HtmlRes:  # 臺灣銀行回了網頁而不是 CSV
+        ok = True
+        content = "<!DOCTYPE html><html>維護中</html>".encode("utf-8")
+
+    class NotFound:
+        ok = False
+        status_code = 404
+
+    bot_responses = iter([HtmlRes(), NotFound()])
+    DF.requests.get = lambda url, **_: next(bot_responses)
+
+    class FakeTicker:
+        def __init__(self, sym):
+            assert sym == "TWD=X"
+
+        def history(self, period=None):
+            idx = pd.to_datetime(["2026-10-07", "2026-10-08"])
+            return pd.DataFrame({"Close": [32.31, float("nan")]}, index=idx).assign(Close=[32.31, 32.29])
+
+    DF.yf.Ticker = FakeTicker
+    W.fetcher._history_cache.clear()
+    r = W.fetcher.get_finmind_dataset("TaiwanExchangeRate", data_id="USD", start_date="2026-10-01")
+    check(f"改用 Yahoo：{r}", r == [
+        {"date": "2026-10-07", "currency": "USD", "close": 32.31, "source": "yahoo"},
+        {"date": "2026-10-08", "currency": "USD", "close": 32.29, "source": "yahoo"},
+    ])
+    notes = W.fetcher.fallback_status["TaiwanExchangeRate"]["result"]
+    check(f"失敗原因可從 sync-status 查到：{notes}", "臺灣銀行 沒有資料" in notes[0] and "HTTP 404" in notes[0] and "開頭：<!DOCTYPE html>" in notes[0] and notes[1] == "Yahoo 成功 2 筆")
+
     class FullLoader:
         def get_data(self, **_):
             import pandas as pd

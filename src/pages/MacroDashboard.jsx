@@ -44,6 +44,10 @@ const MacroDashboard = () => {
     enabled: !loading, stagger: 0.15,
   });
 
+  // 退路資料只有市場收盤匯率（Yahoo），沒有銀行買賣價：換一組欄位標題，避免被當成牌告價
+  const marketRateOnly = (data?.exchangeRates || []).length > 0
+    && data.exchangeRates.every(r => r.spot_buy == null && r.cash_buy == null && r.close != null);
+
   if (loading) return <ProgressLoader text="正在載入總體經濟數據..." />;
 
   return (
@@ -77,18 +81,30 @@ const MacroDashboard = () => {
                 <thead className="bg-overlay sticky top-0">
                   <tr>
                     <th className="p-2.5 text-ink-3 font-medium text-xs">日期</th>
-                    <th className="p-2.5 text-ink-3 font-medium text-xs">即期買入</th>
-                    <th className="p-2.5 text-ink-3 font-medium text-xs">即期賣出</th>
-                    <th className="p-2.5 text-ink-3 font-medium text-xs">現鈔賣出</th>
+                    {marketRateOnly ? (
+                      <th className="p-2.5 text-ink-3 font-medium text-xs">收盤匯率</th>
+                    ) : (
+                      <>
+                        <th className="p-2.5 text-ink-3 font-medium text-xs">即期買入</th>
+                        <th className="p-2.5 text-ink-3 font-medium text-xs">即期賣出</th>
+                        <th className="p-2.5 text-ink-3 font-medium text-xs">現鈔賣出</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {data.exchangeRates.map((item, idx) => (
                     <tr key={idx} className="hover:bg-overlay transition-colors">
                       <td className="p-2.5 font-mono text-xs text-ink-3">{item.date}</td>
-                      <td className="p-2.5 text-brand text-xs nums">{item.spot_buy ?? item.cash_buy ?? '-'}</td>
-                      <td className="p-2.5 text-bull text-xs nums">{item.spot_sell ?? '-'}</td>
-                      <td className="p-2.5 text-ink-2 text-xs nums">{item.cash_sell ?? '-'}</td>
+                      {marketRateOnly ? (
+                        <td className="p-2.5 text-brand text-xs nums">{item.close ?? '-'}</td>
+                      ) : (
+                        <>
+                          <td className="p-2.5 text-brand text-xs nums">{item.spot_buy ?? item.cash_buy ?? '-'}</td>
+                          <td className="p-2.5 text-bull text-xs nums">{item.spot_sell ?? '-'}</td>
+                          <td className="p-2.5 text-ink-2 text-xs nums">{item.cash_sell ?? '-'}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -135,7 +151,9 @@ const MacroDashboard = () => {
 
       <div className="card p-4 text-xs text-ink-3 leading-relaxed">
         <strong className="text-ink-2">資料來源：</strong>
-        美元/台幣匯率由 FinMind（TaiwanExchangeRate）提供，每日由台灣銀行更新；
+        {marketRateOnly
+          ? '美元/台幣匯率：FinMind 與臺灣銀行暫時無法取得，改顯示 Yahoo Finance 的市場收盤匯率（TWD=X），並非銀行牌告買賣價；'
+          : '美元/台幣匯率由 FinMind（TaiwanExchangeRate）或臺灣銀行牌告匯率提供，每日更新；'}
         美 10 年期公債殖利率 (^TNX) 由 Yahoo Finance 提供。
       </div>
     </div>

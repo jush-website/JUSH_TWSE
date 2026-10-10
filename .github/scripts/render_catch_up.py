@@ -71,6 +71,8 @@ def main() -> int:
             for name, detail in result.items():
                 if detail != "ok":
                     print(f"::warning::{name}：{detail}")
+            for dataset, info in (s.get("official_fallbacks") or {}).items():
+                print(f"官方資料退路 {dataset}（{info.get('at', '')}）：{'；'.join(info.get('result', []))}")
             return 0 if ok else 1
         print(f"  {waited // 60} 分鐘：同步中，最近寫入 {s.get('last_write_doc') or '（尚無）'}")
     print("::error::等了 50 分鐘還沒跑完，Render 可能中途休眠或重啟。")
