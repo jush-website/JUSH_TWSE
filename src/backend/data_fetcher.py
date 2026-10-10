@@ -141,6 +141,178 @@ class DataFetcher:
         self._history_cache[f"fm:{dataset}_{kwargs_key}"] = (time.time(), data)
 
     def get_finmind_dataset(self, dataset, **kwargs):
+        """取得 FinMind 資料集；FinMind 沒回資料時，部分資料集改用官方來源補上。
+
+        Render 上的 FinMind 長期拿不到資料（沒 token 時共用 IP 的匿名額度很快用完），
+        總經頁的匯率、期權頁的台指期日線因此一直是空的。官方來源的欄位轉成與
+        FinMind 相同的形狀，前端與 Firestore 文件都不必知道資料來自哪裡。"""
+        data = self._get_finmind_dataset(dataset, **kwargs)
+        if data:
+            return data
+        fallback = {
+            "TaiwanExchangeRate": self._exchange_rate_from_bot,
+            "TaiwanFuturesDaily": self._futures_daily_from_taifex,
+        }.get(dataset)
+        if not fallback:
+            return data
+        try:
+            rows = fallback(**kwargs)
+        except Exception as e:
+            print(f"[資料] {dataset} 官方來源也失敗: {e}")
+            return data
+        if not rows:
+            return data
+        print(f"[資料] FinMind {dataset} 沒有回資料，改用官方來源（{len(rows)} 筆）")
+        with self._lock:
+            self._set_fm_cache(dataset, str(kwargs), rows)
+        return rows
+
+    # ── 匯率：臺灣銀行牌告匯率歷史（FinMind TaiwanExchangeRate 的原始來源）──
+    BOT_RATE_URLS = (
+        "https://rate.bot.com.tw/xrt/flcsv/0/l6m/{currency}",
+        "https://rate.bot.com.tw/xrt/flcsv/0/L6M/{currency}",
+    )
+
+    @staticmethod
+    def _official_number(text):
+        """官方 CSV 的數值欄：去掉千分位；'-'、空白、0 代表當天沒有報價。"""
+        t = str(text or "").strip().replace(",", "").rstrip("%")
+        if t in ("", "-", "--"):
+            return None
+        try:
+            v = float(t)
+        except ValueError:
+            return None
+        return v
+
+    @classmethod
+    def parse_bot_rate_csv(cls, text, start_date=None):
+        """臺灣銀行牌告匯率 CSV → FinMind TaiwanExchangeRate 形狀，依日期由舊到新。
+
+        每列是「資料日期, 幣別, 本行買入, 現金, 即期, 遠期…, 本行賣出, 現金, 即期, 遠期…」。
+        以「本行買入／本行賣出」兩個標記定位，不寫死欄位序號，遠期欄位增減也不受影響。"""
+        import csv
+        import io
+        out = []
+        for row in csv.reader(io.StringIO(text)):
+            row = [c.strip() for c in row]
+            if len(row) < 3 or not row[0].isdigit() or len(row[0]) != 8:
+                continue  # 表頭或空行
+            try:
+                b, s = row.index("本行買入"), row.index("本行賣出")
+            except ValueError:
+                continue
+            pick = lambda i: cls._official_number(row[i]) if i < len(row) else None
+            zero_none = lambda v: None if v == 0 else v
+            date = f"{row[0][:4]}-{row[0][4:6]}-{row[0][6:]}"
+            if start_date and date < start_date:
+                continue
+            out.append({
+                "date": date,
+                "currency": row[1],
+                "cash_buy": zero_none(pick(b + 1)),
+                "spot_buy": zero_none(pick(b + 2)),
+                "cash_sell": zero_none(pick(s + 1)),
+                "spot_sell": zero_none(pick(s + 2)),
+            })
+        return sorted(out, key=lambda r: r["date"])
+
+    def _exchange_rate_from_bot(self, data_id="USD", start_date=None, **_):
+        for url in self.BOT_RATE_URLS:
+            res = requests.get(url.format(currency=data_id), headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+            if not res.ok:
+                continue
+            rows = self.parse_bot_rate_csv(res.content.decode("utf-8-sig", errors="replace"), start_date)
+            if rows:
+                return rows
+        return []
+
+    # ── 台指期日線：期交所「期貨每日交易行情」下載（FinMind TaiwanFuturesDaily 的原始來源）──
+    TAIFEX_DOWNLOAD_URL = "https://www.taifex.com.tw/cht/3/futDataDown"
+    TAIFEX_SESSION_MAP = {"一般": "position", "盤後": "after_market"}
+
+    @classmethod
+    def parse_taifex_futures_csv(cls, text):
+        """期交所期貨每日行情 CSV → FinMind TaiwanFuturesDaily 形狀。
+        以表頭名稱找欄位；價差組合（到期月份含 '/'）不是單一合約，略過。"""
+        import csv
+        import io
+        rows = list(csv.reader(io.StringIO(text)))
+        if not rows:
+            return []
+        header = [h.strip() for h in rows[0]]
+
+        def col(*names):
+            for i, h in enumerate(header):
+                if any(n in h for n in names):
+                    return i
+            return None
+
+        idx = {
+            "date": col("交易日期"), "futures_id": col("契約"), "contract_date": col("到期月份"),
+            "open": col("開盤價"), "max": col("最高價"), "min": col("最低價"), "close": col("收盤價"),
+            "spread": col("漲跌價"), "spread_per": col("漲跌%"), "volume": col("成交量"),
+            "settlement_price": col("結算價"), "open_interest": col("未沖銷契約數"), "session": col("交易時段"),
+        }
+        if idx["date"] is None or idx["close"] is None or idx["contract_date"] is None:
+            return []  # 不是預期的 CSV（例如查詢失敗回的 HTML）
+
+        def get(r, k):
+            i = idx[k]
+            return r[i].strip() if i is not None and i < len(r) else ""
+
+        out = []
+        for r in rows[1:]:
+            if len(r) <= idx["close"]:
+                continue
+            contract = get(r, "contract_date")
+            if not contract or "/" in contract:
+                continue
+            d = get(r, "date").replace("/", "-")
+            if len(d) != 10:
+                continue
+            num = lambda k: cls._official_number(get(r, k))
+            to_int = lambda v: int(v) if v is not None else None
+            out.append({
+                "date": d,
+                "futures_id": get(r, "futures_id"),
+                "contract_date": contract,
+                "open": num("open"), "max": num("max"), "min": num("min"), "close": num("close"),
+                "spread": num("spread"), "spread_per": num("spread_per"),
+                "volume": to_int(num("volume")) or 0,
+                "settlement_price": num("settlement_price"),
+                "open_interest": to_int(num("open_interest")),
+                "trading_session": cls.TAIFEX_SESSION_MAP.get(get(r, "session"), get(r, "session")),
+            })
+        return out
+
+    def _futures_daily_from_taifex(self, data_id="TX", start_date=None, end_date=None, **_):
+        """期交所一次只能查一個月左右的區間，逐月往前抓。"""
+        tz = pytz.timezone("Asia/Taipei")
+        end = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else datetime.now(tz).date()
+        start = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else end - timedelta(days=90)
+        out, chunk_end, first = [], end, True
+        while chunk_end >= start:
+            chunk_start = max(start, chunk_end - timedelta(days=29))
+            if not first:
+                time.sleep(1.0)
+            first = False
+            res = requests.post(
+                self.TAIFEX_DOWNLOAD_URL,
+                data={
+                    "down_type": "1", "commodity_id": data_id, "commodity_id2": "",
+                    "queryStartDate": chunk_start.strftime("%Y/%m/%d"),
+                    "queryEndDate": chunk_end.strftime("%Y/%m/%d"),
+                },
+                headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.taifex.com.tw/cht/3/futDailyMarketReport"},
+                timeout=20,
+            )
+            if res.ok:
+                out.extend(self.parse_taifex_futures_csv(res.content.decode("cp950", errors="replace")))
+            chunk_end = chunk_start - timedelta(days=1)
+        return sorted(out, key=lambda r: (r["date"], r["contract_date"], r["trading_session"]))
+
+    def _get_finmind_dataset(self, dataset, **kwargs):
         """Generic method to fetch and cache any FinMind dataset, with retry on rate limit."""
         if not self.fm_loader:
             return None
