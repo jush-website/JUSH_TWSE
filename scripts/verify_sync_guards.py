@@ -7,6 +7,7 @@
 4. 靜態檔路由不能用 ../ 跳出 dist（曾可讀到 /proc/self/environ 裡的所有密鑰）
 5. FinMind 代理只轉發前端用到的資料集
 6. FinMind 通用快取一小時過期（原本整天不換，常少最新一天）
+7. 匯率、台指期日線在 FinMind 沒回資料時改用臺灣銀行、期交所官方資料
 
 用法：
     python3 scripts/verify_sync_guards.py
@@ -249,6 +250,89 @@ async def main():
     key = "fm:TaiwanExchangeRate_k"
     f._history_cache[key] = (f._history_cache[key][0] - f.FM_CACHE_TTL_SECONDS - 1, [1])
     check("超過一小時就失效、重新抓", f._get_fm_cache("TaiwanExchangeRate", "k") is None)
+
+    print("\n── 匯率：FinMind 失效時改用臺灣銀行牌告匯率 ──")
+    DFC = DF.DataFetcher
+    bot_csv = (
+        "\ufeff資料日期,幣別,匯率,現金,即期,遠期10天,遠期30天,匯率,現金,即期,遠期10天,遠期30天\n"
+        "20261008,USD,本行買入,31.88,32.205,32.17,32.1,本行賣出,32.55,32.355,32.33,32.26\n"
+        "20261007,USD,本行買入,31.9,32.23,32.19,32.12,本行賣出,32.57,32.38,32.35,32.28\n"
+        "20260801,USD,本行買入,0,-,32.0,31.9,本行賣出,0,-,32.1,32.0\n"
+    )
+    rates = DFC.parse_bot_rate_csv(bot_csv.lstrip("\ufeff"), start_date="2026-08-01")
+    check(f"解析並由舊到新排序：{[r['date'] for r in rates]}", [r["date"] for r in rates] == ["2026-08-01", "2026-10-07", "2026-10-08"])
+    check(f"欄位與 FinMind 相同 {rates[-1]}", rates[-1] == {
+        "date": "2026-10-08", "currency": "USD", "cash_buy": 31.88, "spot_buy": 32.205,
+        "cash_sell": 32.55, "spot_sell": 32.355,
+    })
+    check("沒報價（0 或 -）→ None，不會顯示成 0", rates[0]["cash_buy"] is None and rates[0]["spot_buy"] is None)
+    check("start_date 之前的資料被濾掉", len(DFC.parse_bot_rate_csv(bot_csv, start_date="2026-10-08")) == 1)
+
+    print("\n── 台指期日線：FinMind 失效時改用期交所 ──")
+    taifex_csv = (
+        "交易日期,契約,到期月份(週別),開盤價,最高價,最低價,收盤價,漲跌價,漲跌%,成交量,結算價,未沖銷契約數,"
+        "最後最佳買價,最後最佳賣價,歷史最高價,歷史最低價,是否因訊息面暫停交易,交易時段,價差對單式委託成交量\n"
+        "2026/10/08,TX     ,202610     ,23100,23250,23010,23150,50,0.22%,52000,23148,81000,23149,23151,23900,19800,,一般,120\n"
+        "2026/10/08,TX     ,202611     ,23120,23260,23030,23170,48,0.21%,1200,23166,9000,-,-,23910,19900,,一般,0\n"
+        "2026/10/08,TX     ,202610/202611,20,22,18,20,-,-,300,-,-,-,-,-,-,,一般,\n"
+        "2026/10/08,TX     ,202610     ,23150,23300,23100,23280,130,0.56%,31000,-,-,23279,23281,23900,19800,,盤後,\n"
+    ).encode("cp950")
+    fut = DFC.parse_taifex_futures_csv(taifex_csv.decode("cp950"))
+    check(f"價差組合被略過，剩 {len(fut)} 筆單一合約", len(fut) == 3 and all("/" not in r["contract_date"] for r in fut))
+    check(f"欄位與 FinMind 相同 {fut[0]}", fut[0] == {
+        "date": "2026-10-08", "futures_id": "TX", "contract_date": "202610", "open": 23100.0, "max": 23250.0,
+        "min": 23010.0, "close": 23150.0, "spread": 50.0, "spread_per": 0.22, "volume": 52000,
+        "settlement_price": 23148.0, "open_interest": 81000, "trading_session": "position",
+    })
+    check("盤後時段標成 after_market（前端會濾掉）", fut[2]["trading_session"] == "after_market")
+    check("不是 CSV（查詢失敗回 HTML）→ 空清單", DFC.parse_taifex_futures_csv("<html>查無資料</html>") == [])
+
+    posts = []
+
+    class FakePost:
+        ok = True
+        content = taifex_csv
+
+    def fake_post(url, data=None, **_):
+        posts.append((data["queryStartDate"], data["queryEndDate"]))
+        return FakePost()
+
+    class FakeBot:
+        ok = True
+        content = bot_csv.encode("utf-8")
+
+    DF.requests.post = fake_post
+    DF.requests.get = lambda url, **_: FakeBot()
+    # 前面測 FinMind 代理時把 get_finmind_dataset 換成了假函式，這裡要測真的那支
+    W.fetcher.__dict__.pop("get_finmind_dataset", None)
+    W.fetcher._history_cache.clear()
+
+    class EmptyLoader:  # FinMind 回空表（Render 上的實際狀況）
+        def get_data(self, **_):
+            import pandas as pd
+            return pd.DataFrame()
+
+    W.fetcher.fm_loader = EmptyLoader()
+    W.fetcher._fm_backoff_until = 0
+    rows = W.fetcher.get_finmind_dataset("TaiwanFuturesDaily", data_id="TX", start_date="2026-07-10", end_date="2026-10-08")
+    check(f"90 天拆成 {len(posts)} 段一個月內的查詢：{posts}", len(posts) == 4 and posts[0] == ("2026/09/09", "2026/10/08"))
+    check("FinMind 沒資料 → 回傳期交所資料", len(rows) == 12)
+    posts.clear()
+    W.fetcher.get_finmind_dataset("TaiwanFuturesDaily", data_id="TX", start_date="2026-07-10", end_date="2026-10-08")
+    check("一小時內再要同一份 → 走快取，不再打期交所", not posts)
+    r = W.fetcher.get_finmind_dataset("TaiwanExchangeRate", data_id="USD", start_date="2026-08-01")
+    check(f"匯率改用臺灣銀行，得到 {len(r)} 筆", len(r) == 3 and r[-1]["spot_sell"] == 32.355)
+    class FullLoader:
+        def get_data(self, **_):
+            import pandas as pd
+            return pd.DataFrame([{"date": "2026-10-08", "spot_buy": 1}])
+
+    W.fetcher.fm_loader = FullLoader()
+    W.fetcher._history_cache.clear()
+    posts.clear()
+    r = W.fetcher.get_finmind_dataset("TaiwanFuturesDaily", data_id="TX", start_date="2026-07-10")
+    check("FinMind 有資料時不打官方來源", r == [{"date": "2026-10-08", "spot_buy": 1}] and not posts)
+    check("沒有官方退路的資料集維持原狀", W.fetcher.get_finmind_dataset("TaiwanStockPrice") == [{"date": "2026-10-08", "spot_buy": 1}])
 
     print("\n全部通過" if not fails else f"\n{fails} 項失敗")
     return 1 if fails else 0
