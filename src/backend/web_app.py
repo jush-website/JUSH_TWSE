@@ -525,6 +525,8 @@ async def admin_sync_status():
         # firestore_connected 為 false 時，所有同步都寫不進去，畫面就會一直是舊資料。
         "firestore_connected": firebase_db is not None,
         "expected_base_date": fetcher.get_published_base_date().strftime("%Y-%m-%d"),
+        # FinMind 失效時各官方來源最近一次的結果（成功筆數或失敗原因）
+        "official_fallbacks": getattr(fetcher, "fallback_status", {}),
         **_sync_health,
     }
 
