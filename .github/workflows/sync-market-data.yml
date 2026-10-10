@@ -4,7 +4,9 @@ name: 預算全市場資料到 Firestore
 # 前端直讀 Firestore，讀取路徑上完全沒有長駐伺服器，也就沒有冷啟動。
 #
 # 需要的 repository secrets（Settings -> Secrets and variables -> Actions）：
-#   FIREBASE_SERVICE_ACCOUNT  Firebase service account 的 JSON 全文（必要）
+#   FIREBASE_SERVICE_ACCOUNT  Firebase service account 的 JSON 全文（建議）
+#                             沒設定時改請 Render 補同步（Render 有自己的憑證），
+#                             資料一樣會更新，只是要等 Render 冷啟動、跑得比較慢。
 #   FINMIND_API_TOKEN         FinMind token（選用；沒有的話部分資料源會缺）
 #   NVIDIA_API_KEY            NVIDIA NIM 金鑰（選用；策略清單的 AI 短評要用）
 
@@ -34,27 +36,42 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 走 Render 補同步時要等它跑完全部策略，比直接在 Actions 算久
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      # 這兩支檢查/補同步腳本只用標準函式庫，runner 內建的 python3 就夠，
+      # 不必為了走 Render 退路先裝整套依賴。
+      - name: 檢查 secret
+        id: secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: python3 .github/scripts/check_firebase_secret.py
+
+      - name: 沒有 secret：請 Render 補同步
+        # 排程常延遲好幾個小時（甚至過午夜），Render 自己的「過了幾點才跑」
+        # 排程在那種時間不會動作；這支端點只看資料有沒有過期，跟時間無關。
+        if: ${{ steps.secret.outputs.has_secret != 'true' && inputs.dry_run != true }}
+        env:
+          RENDER_API_URL: ${{ vars.RENDER_API_URL }}
+        run: python3 .github/scripts/render_catch_up.py
+
+      - uses: actions/setup-python@v6
+        if: ${{ steps.secret.outputs.has_secret == 'true' }}
         with:
           # 跟 repo 的 .python-version 一致
           python-version-file: '.python-version'
           cache: 'pip'
 
       - name: 安裝依賴
+        if: ${{ steps.secret.outputs.has_secret == 'true' }}
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
 
-      - name: 檢查必要的 secret
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: python .github/scripts/check_firebase_secret.py
-
       - name: 預算全市場資料
+        if: ${{ steps.secret.outputs.has_secret == 'true' }}
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
@@ -70,7 +87,7 @@ jobs:
       - name: 預算策略清單
         # 與全市場資料分成兩步：策略掃描比較重也比較容易被外部 API 限流，
         # 失敗時不該把已經寫好的全市場資料一起算成失敗。
-        if: ${{ inputs.dry_run != true }}
+        if: ${{ steps.secret.outputs.has_secret == 'true' && inputs.dry_run != true }}
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
@@ -84,7 +101,7 @@ jobs:
         # 暖好之後個股分析頁可以直接讀 Firestore，不必叫醒任何後端。
         # continue-on-error：這是加速用的，失敗了前端仍會退回 API，
         # 不該讓整個 workflow 紅掉。
-        if: ${{ inputs.dry_run != true && (github.event_name == 'workflow_dispatch' || github.event.schedule == '5 13 * * 1-5') }}
+        if: ${{ steps.secret.outputs.has_secret == 'true' && inputs.dry_run != true && (github.event_name == 'workflow_dispatch' || github.event.schedule == '5 13 * * 1-5') }}
         continue-on-error: true
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

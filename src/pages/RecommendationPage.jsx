@@ -19,6 +19,7 @@ import { useCardAnimation } from '../hooks/useCardAnimation';
 import BlurText from '../components/bits/BlurText';
 import { usePolling } from '../hooks/usePolling';
 import { isStaleBaseDate } from '../utils/freshness';
+import NotFound from './NotFound';
 
 // 台股盤中時段（週一至週五 09:00–13:30）；與元件狀態無關，放模組層級即可。
 const isMarketHours = () => {
@@ -28,32 +29,39 @@ const isMarketHours = () => {
   return day >= 1 && day <= 5 && t >= 9 * 60 && t <= 13 * 60 + 30;
 };
 
+const TITLES = {
+  'short-term': '短線極佳推薦 (動能與量能指標)',
+  'overnight': '隔日沖動能偵測 (主力分點與尾盤拉抬)',
+  'bottom': '抄底絕佳標的 (乖離過大與超跌反彈)',
+  'burst': '強勢爆發推薦 (放量突破與趨勢確認)',
+  'long-term': '長期精選核心 (績優龍頭與穩定配息)',
+  'etf': 'ETF 佈局 (穩健進場與防禦配置)',
+  'cdp': 'CDP 逆勢分析 (當沖與隔日點位實戰)',
+  'day-trade-cdp': '當沖 CDP 偵測 (實戰區間操作)'
+};
+
 const RecommendationPage = () => {
   const { type } = useParams();
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const titles = {
-    'short-term': '短線極佳推薦 (動能與量能指標)',
-    'overnight': '隔日沖動能偵測 (主力分點與尾盤拉抬)',
-    'bottom': '抄底絕佳標的 (乖離過大與超跌反彈)',
-    'burst': '強勢爆發推薦 (放量突破與趨勢確認)',
-    'long-term': '長期精選核心 (績優龍頭與穩定配息)',
-    'etf': 'ETF 佈局 (穩健進場與防禦配置)',
-    'cdp': 'CDP 逆勢分析 (當沖與隔日點位實戰)',
-    'day-trade-cdp': '當沖 CDP 偵測 (實戰區間操作)'
-  };
 
   const [sortBy, setSortBy] = useState('score');
   const [sortOrder, setSortOrder] = useState('desc');
 
   const [updatedAt, setUpdatedAt] = useState(null);
-  // 偵測到 Firestore 資料過期時記下原本的基準日，即時運算若也失敗就提示使用者
+  // 偵測到 Firestore 資料過期時記下原本的基準日；liveStatus 標示背景即時運算的進度
   const [staleNotice, setStaleNotice] = useState(null);
+  const [liveStatus, setLiveStatus] = useState(null); // null | 'pending' | 'failed'
   const idsRef = useRef([]);
+  // 每次抓取遞增；切換策略類型後，前一個類型還在路上的即時運算結果直接作廢
+  const fetchSeq = useRef(0);
 
   const fetchData = async () => {
+    const seq = ++fetchSeq.current;
     setLoading(true);
+    setStaleNotice(null);
+    setLiveStatus(null);
     try {
       let res;
       switch (type) {
@@ -67,31 +75,44 @@ const RecommendationPage = () => {
         case 'day-trade-cdp': res = await getDayTradeCdpRecommendations(); break;
         default: res = { data: [] };
       }
-      let baseStocks = res.data || [];
-      let baseUpdatedAt = res.updated_at || null;
+      if (seq !== fetchSeq.current) return;
+      const baseStocks = res.data || [];
       // Firestore 沒資料，或資料的基準日已經落後太多（後端排程中斷時會發生：
-      // 文件還在、但停留在好幾天前），都改用 Render 即時運算補上。
-      // 過去只判斷「空」，所以「舊但存在」的資料會被一直顯示下去。
-      const stale = isStaleBaseDate(res.base_date);
-      if (baseStocks.length === 0 || stale) {
-        if (stale) setStaleNotice(res.base_date);
-        const live = await getLiveRecommendations(type).catch(() => null);
-        if (live?.data?.length) {
-          baseStocks = live.data;
-          baseUpdatedAt = live.updated_at;
-          setStaleNotice(null);
-        }
-      } else {
-        setStaleNotice(null);
+      // 文件還在、但停留在好幾天前），都要向 Render 要即時運算補上。
+      const stale = baseStocks.length > 0 && isStaleBaseDate(res.base_date);
+      if (baseStocks.length > 0) {
+        // 手上的資料先顯示出來（過期就標明日期），即時運算在背景跑。原本是等
+        // Render 回應才顯示，Render 冷啟動時整頁要轉圈 1~2 分鐘，最後常常
+        // 還是只能顯示同一份舊資料。
+        setStocks(baseStocks);
+        setUpdatedAt(res.updated_at || null);
+        setLoading(false);
+        overlayQuotes(baseStocks);
+        if (!stale) return;
+        setStaleNotice(res.base_date);
       }
-      setStocks(baseStocks);
-      setUpdatedAt(baseUpdatedAt);
-      // 盤中以即時報價覆蓋過時收盤價
-      overlayQuotes(baseStocks);
+      if (type in TITLES) {
+        setLiveStatus('pending');
+        const live = await getLiveRecommendations(type).catch(() => null);
+        if (seq !== fetchSeq.current) return;
+        if (live?.data?.length) {
+          setStocks(live.data);
+          setUpdatedAt(live.updated_at);
+          setStaleNotice(null);
+          setLiveStatus(null);
+          overlayQuotes(live.data);
+        } else {
+          setLiveStatus('failed');
+          if (baseStocks.length === 0) { setStocks([]); setUpdatedAt(null); }
+        }
+      } else if (baseStocks.length === 0) {
+        setStocks([]);
+        setUpdatedAt(null);
+      }
     } catch (err) {
       console.error('Fetch recommendations failed', err);
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   };
 
@@ -172,19 +193,24 @@ const RecommendationPage = () => {
     duration: 0.35,
   });
 
+  if (!(type in TITLES)) return <NotFound />;
+
   return (
     <div ref={containerRef} className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <BlurText as="h1" text={titles[type] || '股票推薦'} className="text-xl font-bold text-ink-1" />
+          <BlurText as="h1" text={TITLES[type] || '股票推薦'} className="text-xl font-bold text-ink-1" />
           <p className="text-ink-3 text-sm mt-0.5">
             選股策略每日盤後更新{updatedAt ? `（資料基準：${updatedAt}）` : ''}；盤中價格每分鐘即時刷新
           </p>
-          {/* 偵測到資料過期、且即時運算也補不上時才顯示，避免使用者把舊資料當成當日結果 */}
+          {/* 資料過期時標明日期，避免使用者把舊資料當成當日結果 */}
           {staleNotice && (
             <p className="text-bear text-xs mt-1.5 flex items-center gap-1">
               <AlertTriangle size={12} className="shrink-0" />
-              每日同步似乎已中斷，以下為 {staleNotice} 的舊資料；即時運算暫時無法取得，請稍後再試或按「手動更新」。
+              以下為 {staleNotice} 的舊資料；
+              {liveStatus === 'pending'
+                ? '正在向伺服器要求即時運算（伺服器休眠時約需 1 分鐘）…'
+                : '即時運算暫時無法取得，請稍後再試或按「手動更新」。'}
             </p>
           )}
         </div>

@@ -6,6 +6,7 @@ from typing import List, Optional
 import asyncio
 import time
 import os
+import sys
 import gc
 import numpy as np
 from src.backend import config
@@ -104,7 +105,28 @@ AI_COMMENTARY_DOCS = {
 # 同步失敗的統計，供 /api/admin/sync-status 查詢。
 # 過去 Firebase 憑證沒設定時 sync_doc_to_firestore 是靜默 return，
 # 結果就是「同步每天照跑、但什麼都沒寫進去」而沒有任何跡象。
-_sync_health = {"last_write_at": None, "last_write_doc": None, "skipped_no_db": 0, "last_error": None}
+_sync_health = {"last_write_at": None, "last_write_doc": None, "skipped_no_db": 0,
+                "skipped_empty": 0, "last_skipped_empty": None, "last_error": None}
+
+
+def _is_empty_payload(data) -> bool:
+    """資料源沒回東西時，各 handler 會回 None / [] / {} 或「欄位全是 None」的空殼。
+    這種結果寫進 Firestore 會蓋掉上一份好資料（三大法人就曾因 FinMind 沒回應
+    被寫成空陣列，整頁變空白），所以一律不寫。判斷規則與
+    scripts/sync_market_data.py 的 is_usable 一致。"""
+    if data is None:
+        return True
+    if isinstance(data, (list, tuple, dict)) and len(data) == 0:
+        return True
+    if isinstance(data, dict):
+        if "error" in data:
+            return True
+        payload = {k: v for k, v in data.items() if k not in {"base_date", "updated_at", "date", "session"}}
+        if "data" in payload and len(payload) == 1:
+            return _is_empty_payload(payload["data"])
+        if payload and all(v is None for v in payload.values()):
+            return True
+    return False
 
 def sync_doc_to_firestore(doc_id, data_list):
     """把策略結果寫回 Firestore；個股清單型文件會先附加 AI 短評。
@@ -115,7 +137,12 @@ def sync_doc_to_firestore(doc_id, data_list):
         _sync_health["skipped_no_db"] += 1
         _sync_health["last_error"] = "Firebase 未初始化（缺少 FIREBASE_SERVICE_ACCOUNT），資料未寫入"
         print(f"[系統] 警告：Firebase 未初始化，跳過寫入 {doc_id}。請檢查 FIREBASE_SERVICE_ACCOUNT 環境變數。")
-        return
+        return False
+    if _is_empty_payload(data_list):
+        _sync_health["skipped_empty"] += 1
+        _sync_health["last_skipped_empty"] = doc_id
+        print(f"[系統] {doc_id} 算出來是空資料（資料源可能沒回應），保留 Firestore 上一份，不覆寫。")
+        return False
     # 用實際已收盤的交易日，不要用「今天遲早會有資料」的樂觀日期，
     # 否則盤中觸發的同步會把昨天的結果標成今天。
     base_date = fetcher.get_published_base_date().strftime("%Y-%m-%d")
@@ -138,6 +165,7 @@ def sync_doc_to_firestore(doc_id, data_list):
         raise
     _sync_health["last_write_at"] = datetime.now(pytz.timezone("Asia/Taipei")).isoformat()
     _sync_health["last_write_doc"] = doc_id
+    return True
 
 
 @asynccontextmanager
@@ -191,6 +219,12 @@ async def background_strategies_sync():
     
     while True:
         try:
+            # 補同步或手動全量同步正在跑時先讓開：兩套全策略運算同時進行，
+            # Render 免費方案的 512 MB 記憶體撐不住，會整個程序被砍掉重啟
+            if _manual_sync_state["running"]:
+                await asyncio.sleep(600)
+                continue
+
             now = datetime.now(pytz.timezone("Asia/Taipei"))
             today_str = now.strftime("%Y-%m-%d")
             
@@ -294,7 +328,10 @@ async def run_all_strategy_stages():
         try:
             data = await awaitable
             if doc_id:
-                await loop.run_in_executor(None, sync_doc_to_firestore, doc_id, data)
+                written = await loop.run_in_executor(None, sync_doc_to_firestore, doc_id, data)
+                if not written:
+                    summary[name] = "skipped: 空資料或 Firebase 未連線，未覆寫"
+                    return
             summary[name] = "ok"
         except Exception as e:
             summary[name] = f"error: {e}"
@@ -305,8 +342,8 @@ async def run_all_strategy_stages():
 
     try:
         institutional_flow = await loop.run_in_executor(None, fetcher.get_institutional_flow, 30)
-        await loop.run_in_executor(None, sync_doc_to_firestore, 'institutional_flow', institutional_flow)
-        summary['institutional_flow'] = 'ok'
+        written = await loop.run_in_executor(None, sync_doc_to_firestore, 'institutional_flow', institutional_flow)
+        summary['institutional_flow'] = 'ok' if written else 'skipped: 空資料或 Firebase 未連線，未覆寫'
     except Exception as e:
         summary['institutional_flow'] = f'error: {e}'
 
@@ -363,6 +400,119 @@ async def admin_force_full_sync(secret: str = ""):
         return {"status": "already_running", "started_at": _manual_sync_state["started_at"]}
     asyncio.create_task(_run_manual_sync_bg())
     return {"status": "started"}
+
+# ── 時間無關的補同步 ─────────────────────────────────────────────
+# background_strategies_sync 的四個階段是「台北時間過了 14:30/16:30/18:00/21:00
+# 而且 Render 剛好醒著」才會跑。免費方案沒流量 15 分鐘就休眠，晚上 21:00 幾乎
+# 不會有人造訪，所以長期、抄底、CDP 等清單曾經整整兩個月沒更新；GitHub 排程
+# 又常延遲好幾個小時，延到過午夜就變成「新的一天、還沒到 14:30」，叫醒也沒用。
+# 首頁、總經、期權那些全市場資料則只有 Actions 會寫，沒設 secret 就永遠沒有，
+# 每個訪客都得等 Render 冷啟動。
+#
+# 這支只看資料本身：策略清單的 base_date 落後於應有的交易日、或全市場資料
+# 超過 MARKET_MAX_AGE 沒更新，才去補；都是新的就什麼也不做。因此不需要密鑰
+# 也不怕被濫用——資料新的時候打幾次都不會動作，真的過期也有冷卻時間擋著，
+# 不會重複燒 NVIDIA 額度或把資料源打到限流。
+CATCH_UP_DOCS = [
+    'hot_stocks', 'etf', 'capital_flow', 'institutional_flow', 'short_term_burst',
+    'short_term', 'overnight_1', 'long_term', 'bottom_fishing', 'overnight_2',
+    'cdp', 'day_trade_cdp',
+]
+# 與 scripts/sync_market_data.py 的工作清單相同，扣掉上面策略同步已經會寫的兩份
+MARKET_DOCS = [
+    'global_market', 'futures', 'market_outlook', 'news', 'market_breadth',
+    'market_distribution', 'us_treasury', 'exchange_rate', 'futures_daily',
+]
+CATCH_UP_COOLDOWN = timedelta(hours=3)       # 全策略重算很重
+MARKET_COOLDOWN = timedelta(minutes=30)      # 全市場資料輕得多
+MARKET_MAX_AGE = timedelta(hours=3)
+_catch_up_state = {"last_started_at": None, "market_last_started_at": None}
+
+
+def _stale_catch_up_docs():
+    expected = fetcher.get_published_base_date().strftime("%Y-%m-%d")
+    col = firebase_db.collection('recommendations')
+    stale = []
+    for doc_id in CATCH_UP_DOCS:
+        snap = col.document(doc_id).get(field_paths=['base_date'])
+        base = (snap.to_dict() or {}).get('base_date') if snap.exists else None
+        if not base or base < expected:
+            stale.append(doc_id)
+    now = datetime.now(pytz.utc)
+    stale_market = []
+    for doc_id in MARKET_DOCS:
+        snap = col.document(doc_id).get(field_paths=['updated_at'])
+        updated = (snap.to_dict() or {}).get('updated_at') if snap.exists else None
+        if not isinstance(updated, datetime) or now - updated > MARKET_MAX_AGE:
+            stale_market.append(doc_id)
+    return expected, stale, stale_market
+
+
+async def _run_market_data_jobs():
+    # 直接沿用 Actions 那支腳本的工作清單與寫入邏輯，兩條路徑寫出的內容才會一致
+    from scripts import sync_market_data
+    results = {}
+    await sync_market_data.run(set(MARKET_DOCS), False, W=sys.modules[__name__], results=results)
+    return results
+
+
+async def _run_catch_up_bg(market: bool, strategies: bool):
+    _manual_sync_state.update({
+        "running": True,
+        "started_at": datetime.now(pytz.timezone("Asia/Taipei")).isoformat(),
+        "finished_at": None,
+        "result": None,
+    })
+    result = {}
+    try:
+        if market:
+            try:
+                result.update(await _run_market_data_jobs())
+            except Exception as e:
+                result["market_data"] = f"error: {e}"
+        if strategies:
+            result.update(await run_all_strategy_stages())
+    except Exception as e:
+        result["fatal_error"] = str(e)
+    finally:
+        _manual_sync_state["result"] = result
+        _manual_sync_state["running"] = False
+        _manual_sync_state["finished_at"] = datetime.now(pytz.timezone("Asia/Taipei")).isoformat()
+
+
+def _cooling(key, cooldown, now):
+    last = _catch_up_state[key]
+    return last is not None and now - last < cooldown
+
+
+@app.post("/api/admin/catch-up-sync")
+async def admin_catch_up_sync():
+    if not firebase_db:
+        return {"status": "no_firestore"}
+    if _manual_sync_state["running"]:
+        return {"status": "already_running", "started_at": _manual_sync_state["started_at"]}
+    expected, stale, stale_market = await asyncio.get_running_loop().run_in_executor(None, _stale_catch_up_docs)
+    if not stale and not stale_market:
+        return {"status": "fresh", "expected_base_date": expected}
+    now = datetime.now(pytz.timezone("Asia/Taipei"))
+    run_strategies = bool(stale) and not _cooling("last_started_at", CATCH_UP_COOLDOWN, now)
+    run_market = bool(stale_market) and not _cooling("market_last_started_at", MARKET_COOLDOWN, now)
+    if not run_strategies and not run_market:
+        waits = []
+        if stale:
+            waits.append(CATCH_UP_COOLDOWN - (now - _catch_up_state["last_started_at"]))
+        if stale_market:
+            waits.append(MARKET_COOLDOWN - (now - _catch_up_state["market_last_started_at"]))
+        return {"status": "cooldown", "retry_after_seconds": int(min(waits).total_seconds())}
+    if run_strategies:
+        _catch_up_state["last_started_at"] = now
+    if run_market:
+        _catch_up_state["market_last_started_at"] = now
+    asyncio.create_task(_run_catch_up_bg(run_market, run_strategies))
+    return {
+        "status": "started", "expected_base_date": expected,
+        "stale": (stale if run_strategies else []) + (stale_market if run_market else []),
+    }
 
 @app.get("/api/admin/sync-status")
 async def admin_sync_status():
@@ -1322,12 +1472,20 @@ async def get_us_treasury():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# 前端實際會用到的 FinMind 資料集。原本任何 dataset 都照轉，等於把伺服器的
+# FinMind 額度開放給所有人隨意消耗。
+FINMIND_PROXY_DATASETS = {"TaiwanExchangeRate", "TaiwanFuturesDaily"}
+
 @app.get("/api/finmind/{dataset}")
 async def get_finmind_api(request: Request, dataset: str):
+    if dataset not in FINMIND_PROXY_DATASETS:
+        raise HTTPException(status_code=404, detail=f"不提供 {dataset}")
     kwargs = dict(request.query_params)
-    
-    # Check rate limit to prevent abuse, maybe not strict here but we rely on data_fetcher cache
-    data = fetcher.get_finmind_dataset(dataset, **kwargs)
+
+    # FinMind 是同步的網路呼叫（失敗還會重試），直接在 async handler 裡跑會把
+    # 整個伺服器的事件迴圈卡住，期間所有其他請求都得排隊；丟到執行緒池去。
+    loop = asyncio.get_running_loop()
+    data = await loop.run_in_executor(api_executor, lambda: fetcher.get_finmind_dataset(dataset, **kwargs))
     if data is None:
         raise HTTPException(status_code=404, detail=f"No data found for dataset {dataset}")
     return {"data": data}
@@ -1338,10 +1496,16 @@ async def serve_react_app(full_path: str):
     if full_path.startswith("api/"):
         raise HTTPException(status_code=404)
         
-    file_path = os.path.join(frontend_path, full_path)
-    
+    # 只能讀 dist 裡面的檔案。原本直接 os.path.join(frontend_path, full_path)：
+    # full_path 帶 %2e%2e/（../）就能跳出 dist，連 /proc/self/environ 都讀得到，
+    # 等於把 FIREBASE_SERVICE_ACCOUNT 等所有環境變數公開給任何人。
+    # realpath 會一併解開 .. 與符號連結，解完還在 dist 底下才放行。
+    root = os.path.realpath(frontend_path)
+    file_path = os.path.realpath(os.path.join(root, full_path))
+    inside_dist = file_path.startswith(root + os.sep)
+
     # If the requested file actually exists in dist, serve it directly
-    if os.path.isfile(file_path):
+    if inside_dist and os.path.isfile(file_path):
         import mimetypes
         mime_type, _ = mimetypes.guess_type(file_path)
         with open(file_path, "rb") as f:

@@ -6,13 +6,18 @@
  * 但可能是好幾天前的。前端原本只在「資料為空」時才改用即時運算，因此這種
  * 「舊但存在」的資料會被一直顯示下去。
  *
- * 這裡刻意不複製一份國定假日表（那註定會跟後端的 config.TW_HOLIDAYS_2026 走鐘），
- * 改用「距今幾個工作日」這個寬鬆但單調的指標。誤判成過期的代價只是多打一次
- * 即時運算、拿到同樣的結果；誤判成新鮮才是我們要修的問題。所以門檻刻意抓寬，
- * 並偏向「寧可判定過期」。
+ * 以「距今隔了幾個交易日」判斷，週末與休市日不算。原本只扣週末，結果連假
+ * 隔天（例如國慶補假後的週一）資料明明是最新的，卻被判成過期、整站改打
+ * 慢吞吞的即時運算。休市日清單與後端共用同一份（見 twHolidays.js），並由
+ * 驗證腳本確保兩邊一致。誤判成過期的代價只是多打一次即時運算；誤判成新鮮
+ * 才會讓舊資料一直顯示，所以清單缺漏時偏向前者。
  */
+import { TW_HOLIDAYS } from './twHolidays.js';
 
-/** 兩個日期之間隔了幾個工作日（不含週末，不扣國定假日）。 */
+const ymd = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 兩個日期之間隔了幾個交易日（不含週末與台股休市日）。 */
 function weekdaysBetween(from, to) {
   let count = 0;
   const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
@@ -20,7 +25,7 @@ function weekdaysBetween(from, to) {
   while (cursor < end) {
     cursor.setDate(cursor.getDate() + 1);
     const day = cursor.getDay();
-    if (day !== 0 && day !== 6) count++;
+    if (day !== 0 && day !== 6 && !TW_HOLIDAYS.has(ymd(cursor))) count++;
   }
   return count;
 }

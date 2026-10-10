@@ -37,10 +37,14 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def build_jobs():
+def build_jobs(W=None):
     """延後 import：web_app 在 import 時就會初始化 DataFetcher 與 Firebase，
-    放在函式裡才能先處理 --help 之類不需要那些副作用的情況。"""
-    from src.backend import web_app as W
+    放在函式裡才能先處理 --help 之類不需要那些副作用的情況。
+
+    W 讓已經在跑的 web_app（Render 上的補同步）把自己傳進來，
+    避免以不同模組名稱再 import 一次、把 Firebase 與 DataFetcher 又初始化一遍。"""
+    if W is None:
+        from src.backend import web_app as W
 
     def finmind_job(dataset, days, **params):
         """包一層 async，讓 FinMind 的同步呼叫能與其他 handler 一致地 await。
@@ -105,10 +109,11 @@ def is_usable(data) -> tuple[bool, str]:
     return True, ""
 
 
-async def run(only: set[str] | None, dry_run: bool) -> int:
-    from src.backend import web_app as W
+async def run(only: set[str] | None, dry_run: bool, W=None, results: dict | None = None) -> int:
+    if W is None:
+        from src.backend import web_app as W
 
-    jobs = build_jobs()
+    jobs = build_jobs(W)
     if only:
         unknown = only - jobs.keys()
         if unknown:
@@ -132,7 +137,8 @@ async def run(only: set[str] | None, dry_run: bool) -> int:
         print(f"      預載失敗（繼續，個別項目可能因此失敗）：{e}")
 
     print(f"[2/2] 開始產生 {len(jobs)} 個項目…")
-    results: dict[str, str] = {}
+    # 呼叫端（Render 補同步）可以傳入 dict 取回逐項結果
+    results = {} if results is None else results
     for doc_id, (handler, label) in jobs.items():
         try:
             data = await handler()
