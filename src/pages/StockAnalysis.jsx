@@ -133,7 +133,7 @@ const StockAnalysis = () => {
   const backtest = data?.chart_data ? backtestCdpDayTrade(data.chart_data) : null;
 
   // AI 整合分析：切到該分頁時才觸發（分點資料 + LLM 呼叫較慢，不預先打）。
-  // 把五個面向濃縮成文字節錄送後端，由 NVIDIA NIM 產出分段報告。
+  // 把五個面向濃縮成文字節錄送後端，由 AI 模型產出分段報告。
   const fetchIntegratedReport = async () => {
     if (!data) return;
     setAiReport({ status: 'loading' });

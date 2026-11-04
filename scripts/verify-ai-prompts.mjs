@@ -5,7 +5,7 @@
  * 提示詞一字之差就可能讓輸出走鐘（字數上限、禁止事項、分段格式都寫在裡面），
  * 而這種分岔不會丟錯、只會讓解讀品質默默變差，所以必須機械比對。
  *
- * 黃金檔由 Python 端以假的 _call_nvidia 攔下 prompt 產生，見 scripts/README.md。
+ * 黃金檔由 Python 端以假的 _call_llm 攔下 prompt 產生，見 scripts/README.md。
  * 用法：node scripts/verify-ai-prompts.mjs scripts/prompt-golden.json scripts/payloads.json
  */
 import { readFileSync } from 'node:fs';
@@ -25,7 +25,7 @@ function mockRes() {
   return r;
 }
 
-/** 攔下送往 NVIDIA 的請求，取出 system / user / max_tokens。 */
+/** 攔下送往模型的請求（NVIDIA 的 OpenAI 格式），取出 system / user / max_tokens。 */
 function captureFetch(store) {
   global.fetch = async (url, opts) => {
     const body = JSON.parse(opts.body);
@@ -151,6 +151,42 @@ console.log('\n── 回應形狀與行為 ──');
   const dumped = JSON.stringify({ body: res.body, headers: res.headers });
   t('回應不含金鑰', !dumped.includes('dummy-for-prompt-capture'));
   t('不被瀏覽器快取', res.headers['cache-control'] === 'no-store', res.headers['cache-control']);
+}
+
+console.log('\n── 實驗室模型（Ollama 相容 API，LLM_BASE_URL）──');
+{
+  // 設了 LLM_BASE_URL 就走 Ollama 原生 /api/chat，優先於 NVIDIA
+  process.env.LLM_BASE_URL = 'http://spark.example:11434/';
+  const calls = [];
+  global.fetch = async (url, opts) => {
+    calls.push({ url: String(url), headers: opts.headers, body: JSON.parse(opts.body) });
+    return { ok: true, status: 200, json: async () => ({ message: { content: '<think>先想一下</think>\n  模擬輸出  ' } }) };
+  };
+  const res = mockRes();
+  await handler({ method: 'POST', query: { kind: 'integrated' }, body: payloads.integrated }, res);
+  const c = calls[0] || { body: {}, headers: {} };
+  t('打 {base}/api/chat（尾端斜線已處理）', c.url === 'http://spark.example:11434/api/chat', c.url);
+  t('預設模型 qwen3.6:35b-a3b-mtp-q8_0', c.body.model === 'qwen3.6:35b-a3b-mtp-q8_0', c.body.model);
+  t('關閉思考、不串流', c.body.think === false && c.body.stream === false);
+  t('max_tokens 對應 num_predict', c.body.options?.num_predict === golden.integrated.max_tokens, `${c.body.options?.num_predict}`);
+  t('system / user prompt 與 NVIDIA 路徑相同', c.body.messages?.[0]?.content === golden.integrated.system
+    && normalizeFloats(c.body.messages?.[1]?.content || '') === normalizeFloats(golden.integrated.user));
+  t('沒設 LLM_API_KEY 不送 Authorization', !('Authorization' in c.headers));
+  t('<think> 區塊被拿掉', res.body.report === '模擬輸出', JSON.stringify(res.body.report));
+
+  process.env.LLM_MODEL = 'qwen3.6:27b';
+  process.env.LLM_API_KEY = 'lab-key';
+  calls.length = 0;
+  await handler({ method: 'POST', query: { kind: 'market' }, body: payloads.market }, mockRes());
+  t('LLM_MODEL 可覆蓋', calls[0]?.body.model === 'qwen3.6:27b', calls[0]?.body.model);
+  t('LLM_API_KEY 有設才帶 Bearer', calls[0]?.headers.Authorization === 'Bearer lab-key');
+
+  delete process.env.NVIDIA_API_KEY;
+  global.fetch = async () => { throw new Error('connect ECONNREFUSED'); };
+  const r2 = mockRes();
+  await handler({ method: 'POST', query: { kind: 'market' }, body: payloads.market }, r2);
+  t('連不到 Spark 時安靜回 null', r2.statusCode === 200 && r2.body.commentary === null);
+  delete process.env.LLM_BASE_URL; delete process.env.LLM_MODEL; delete process.env.LLM_API_KEY;
 }
 
 console.log(`\n${fail === 0 ? '✅ prompt 與行為全部一致' : `❌ ${fail} 項不一致`}`);

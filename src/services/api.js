@@ -246,7 +246,7 @@ export const getQuotes = async (ids = []) => {
 };
 
 // 個股分析頁：把前端已經算好的技術指標/診斷/CDP/基本面節錄送給後端，
-// 由 NVIDIA NIM 產生一段綜合解讀。沒設定金鑰或呼叫失敗都回傳 null，
+// 由 AI 模型（實驗室 Spark 或 NVIDIA NIM）產生一段綜合解讀。AI 未設定或呼叫失敗都回傳 null，
 // 呼叫端只要判斷 null 就不顯示這個區塊即可，不影響其餘分析結果。
 export const getStockAnalysisCommentary = async (analysisData) => {
   try {
@@ -259,7 +259,7 @@ export const getStockAnalysisCommentary = async (analysisData) => {
 };
 
 // AI 整合分析分頁：把五個面向（技術/籌碼/分點/基本面/新聞）的節錄送給後端，
-// 由 NVIDIA NIM 產生分段式整合報告。失敗回傳 null，呼叫端顯示錯誤提示即可。
+// 由 AI 模型（實驗室 Spark 或 NVIDIA NIM）產生分段式整合報告。失敗回傳 null，呼叫端顯示錯誤提示即可。
 export const getIntegratedAnalysis = async (payload) => {
   try {
     const res = await postFunction('/api/ai-commentary/integrated', payload, { timeout: 90000 });
