@@ -60,6 +60,7 @@ LLM_BASE_URL=http://127.0.0.1:11435     # Orin 本機的 pair API，會轉到 Sp
 # LLM_MODEL=qwen3.6:35b-a3b-mtp-q8_0   # 預設就是這個
 FINMIND_API_TOKEN=<你的 FinMind token>
 ADMIN_SYNC_SECRET=<自訂的管理密碼>
+# PORT=8000                           # 系統的 port，被占用時改這裡
 ```
 
 Firebase 憑證讀專案根目錄的 `serviceAccountKey.json`（第 1 步複製的那份）。
@@ -86,6 +87,18 @@ set -a; . ./.env; set +a
 
 用瀏覽器開 `http://<Orin 的 Tailscale IP>:8000`。打開 `http://<Orin>:8000/api/admin/sync-status`，
 `llm_provider` 應該是 `ollama`、`llm_model` 是 `qwen3.6:35b-a3b-mtp-q8_0`。
+
+## 對外公開（Tailscale Funnel）
+
+系統本身聽 `PORT`（預設 8000），跟 Tailscale 用的 443 不衝突。若 443 已經被其他服務的 Funnel 用掉，
+可以用 Funnel 允許的另一個 port（8443 或 10000）轉給系統：
+
+```bash
+sudo tailscale funnel --bg --https=8443 8000
+tailscale funnel status
+```
+
+外部網址會是 `https://<orin 的機器名>.<tailnet>.ts.net:8443`。
 
 ## 6. 設成開機自動啟動（systemd）
 

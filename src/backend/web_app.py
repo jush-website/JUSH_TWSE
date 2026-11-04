@@ -1525,4 +1525,4 @@ async def serve_react_app(full_path: str):
     return HTMLResponse(content="<h1>台股偵測系統</h1><p>請先執行 frontend 編譯 (npm run build)。</p>")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=os.environ.get("HOST", "0.0.0.0"), port=int(os.environ.get("PORT", "8000")))
