@@ -60,7 +60,7 @@ LLM_BASE_URL=http://127.0.0.1:11435     # Orin 本機的 pair API，會轉到 Sp
 # LLM_MODEL=qwen3.6:35b-a3b-mtp-q8_0   # 預設就是這個
 FINMIND_API_TOKEN=<你的 FinMind token>
 ADMIN_SYNC_SECRET=<自訂的管理密碼>
-# PORT=8000                           # 系統的 port，被占用時改這裡
+# PORT=8000                           # 系統的 port，被占用時改這裡（實驗室 Orin 的 8000 已被其他服務占用，實際用 8765）
 ```
 
 Firebase 憑證讀專案根目錄的 `serviceAccountKey.json`（第 1 步複製的那份）。
