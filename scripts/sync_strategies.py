@@ -15,7 +15,9 @@
 環境變數：
     FIREBASE_SERVICE_ACCOUNT  Firebase service account JSON（必要）
     FINMIND_API_TOKEN         FinMind token（選用）
-    NVIDIA_API_KEY            NVIDIA NIM 金鑰（選用，用於清單的 AI 短評）
+    LLM_BASE_URL              實驗室 Ollama 相容模型 API（選用，用於清單的 AI 短評；
+                              有設就優先用，模型預設 qwen3.6:35b-a3b-mtp-q8_0，可用 LLM_MODEL 改）
+    NVIDIA_API_KEY            NVIDIA NIM 金鑰（選用；沒設 LLM_BASE_URL 時才用）
 """
 from __future__ import annotations
 

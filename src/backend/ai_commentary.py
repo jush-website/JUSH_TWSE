@@ -1,20 +1,67 @@
 """
-NVIDIA NIM（build.nvidia.com 免費 API）敘述層。
+AI 敘述層：把規則引擎算好的分數/訊號翻成白話中文。
 
 重要原則：分數與訊號一律由 analyzer.py 的固定規則引擎算出，這裡的 LLM
 「絕對不」重新計算分數或給買賣建議，只負責把已經算好的數字/訊號翻譯成
-一兩句白話中文說明。任何呼叫失敗（沒有金鑰、逾時、免費額度用盡等）都
+一兩句白話中文說明。任何呼叫失敗（設定不全、逾時、額度用盡等）都
 安靜地回傳 None，絕不讓 AI 服務的可用性影響原本的推薦資料同步。
+
+上游依環境變數自動選擇（與 api/_lib/llm.js 一致）：
+
+1. 實驗室自架模型（Ollama 相容 API，例如 DGX Spark 上的
+   qwen3.6:35b-a3b-mtp-q8_0）：設定 LLM_BASE_URL 就走這條，打
+   POST {LLM_BASE_URL}/api/chat 並帶 think:false（qwen3 預設會先思考，
+   思考內容會吃光 num_predict，短評常常只剩空白）。
+   LLM_MODEL 覆蓋模型、LLM_API_KEY 選用（閘道需要驗證時才設）、
+   LLM_TIMEOUT 秒數（預設 90）、LLM_THINK=1 打開思考模式。
+2. NVIDIA NIM（舊的雲端 API）：沒設 LLM_BASE_URL、但有 NVIDIA_API_KEY 時才用。
+
+兩個都沒設：AI 解讀關閉，generate_* 直接回 None。
 """
 import os
+import re
 import requests
 from concurrent.futures import ThreadPoolExecutor
 
-NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY")
 NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-# 預設用小型、低延遲模型，免費額度（通常每分鐘數十次請求）才夠用；
-# 可用 NVIDIA_MODEL 環境變數覆蓋成 build.nvidia.com 上的其他模型代號。
-NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
+NVIDIA_DEFAULT_MODEL = "meta/llama-3.1-8b-instruct"
+LOCAL_DEFAULT_MODEL = "qwen3.6:35b-a3b-mtp-q8_0"
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.S | re.I)
+
+
+def resolve_llm_config(env=None):
+    """讀環境變數決定要打哪個上游；回 None 代表 AI 解讀關閉。
+    每次呼叫都重讀，方便測試與不重啟就切換設定。"""
+    env = os.environ if env is None else env
+    base = (env.get("LLM_BASE_URL") or "").strip().rstrip("/")
+    if base:
+        try:
+            timeout = float(env.get("LLM_TIMEOUT") or 90)
+        except ValueError:
+            timeout = 90.0
+        return {
+            "provider": "ollama",
+            "url": f"{base}/api/chat",
+            "model": env.get("LLM_MODEL") or LOCAL_DEFAULT_MODEL,
+            "api_key": env.get("LLM_API_KEY") or None,
+            "timeout": timeout,
+            "think": (env.get("LLM_THINK") or "").lower() in ("1", "true", "yes"),
+        }
+    if env.get("NVIDIA_API_KEY"):
+        return {
+            "provider": "nvidia",
+            "url": NVIDIA_API_URL,
+            "model": env.get("NVIDIA_MODEL") or NVIDIA_DEFAULT_MODEL,
+            "api_key": env.get("NVIDIA_API_KEY"),
+            "timeout": 15,
+        }
+    return None
+
+
+def llm_enabled():
+    return resolve_llm_config() is not None
+
 
 SYSTEM_PROMPT = (
     "你是台股量化系統的簡評助手。系統已經用固定規則算好分數與訊號，"
@@ -51,35 +98,46 @@ ANALYSIS_SYSTEM_PROMPT = (
 )
 
 
-def _call_nvidia(system_prompt, user_prompt, max_tokens=150, temperature=0.4):
-    """共用的 NVIDIA NIM 呼叫邏輯。沒有金鑰或任何失敗都安靜回傳 None。"""
-    if not NVIDIA_API_KEY:
+def _call_llm(system_prompt, user_prompt, max_tokens=150, temperature=0.4):
+    """共用的模型呼叫邏輯。設定不全或任何失敗都安靜回傳 None。"""
+    cfg = resolve_llm_config()
+    if not cfg:
         return None
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    headers = {"Content-Type": "application/json"}
+    if cfg["api_key"]:
+        headers["Authorization"] = f"Bearer {cfg['api_key']}"
+    if cfg["provider"] == "ollama":
+        body = {
+            "model": cfg["model"],
+            "messages": messages,
+            "stream": False,
+            "think": cfg["think"],
+            "options": {"temperature": temperature, "num_predict": max_tokens},
+        }
+    else:
+        body = {"model": cfg["model"], "messages": messages,
+                "temperature": temperature, "max_tokens": max_tokens}
     try:
-        resp = requests.post(
-            NVIDIA_API_URL,
-            headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
-            json={
-                "model": NVIDIA_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            },
-            timeout=15,
-        )
+        resp = requests.post(cfg["url"], headers=headers, json=body, timeout=cfg["timeout"])
         if resp.status_code != 200:
             return None
-        text = resp.json()["choices"][0]["message"]["content"].strip()
+        data = resp.json()
+        if cfg["provider"] == "ollama":
+            raw = (data.get("message") or {}).get("content") or ""
+        else:
+            raw = data["choices"][0]["message"]["content"] or ""
+        text = _THINK_RE.sub("", raw).strip()
         return text or None
     except Exception:
         return None
 
 
 def generate_commentary(stock_name, stock_id, score, status, signals, price=None, change_pct=None, cdp=None):
-    """呼叫 NVIDIA NIM，將已算好的分數/訊號整理成一句話評論。失敗回傳 None。
+    """呼叫模型，將已算好的分數/訊號整理成一句話評論。失敗回傳 None。
     cdp 有值時（當沖偵測清單）改用當沖 prompt，附上系統算好的 CDP 區間
     讓模型點出參考進場區間，並保證輸出帶有「僅供參考」聲明。"""
     signal_text = "、".join(signals[:5]) if signals else "無特別訊號"
@@ -102,7 +160,7 @@ def generate_commentary(stock_name, stock_id, score, status, signals, price=None
     else:
         lines.append("請用一到兩句話白話解讀以上「已經算好」的資訊。")
 
-    text = _call_nvidia(
+    text = _call_llm(
         DAY_TRADE_SYSTEM_PROMPT if is_day_trade else SYSTEM_PROMPT,
         "\n".join(lines), max_tokens=200 if is_day_trade else 150,
     )
@@ -116,7 +174,7 @@ def generate_stock_analysis_commentary(payload):
     """個股分析頁專用：綜合技術面/籌碼面/基本面/CDP 等已算好的資料，
     產出一段 3~5 句的整體解讀。payload 是前端已經算好的分析結果節錄。
     失敗（無金鑰、逾時等）安靜回傳 None。"""
-    if not NVIDIA_API_KEY:
+    if not llm_enabled():
         return None
 
     def g(key, default='未知'):
@@ -154,7 +212,7 @@ def generate_stock_analysis_commentary(payload):
     lines.append("請將以上「已經算好」的資訊整合成一段 3~5 句的繁體中文綜合解讀。")
     user_prompt = "\n".join(lines)
 
-    return _call_nvidia(ANALYSIS_SYSTEM_PROMPT, user_prompt, max_tokens=350)
+    return _call_llm(ANALYSIS_SYSTEM_PROMPT, user_prompt, max_tokens=350)
 
 
 INTEGRATED_SYSTEM_PROMPT = (
@@ -193,7 +251,7 @@ def _fmt_num(v):
 def generate_integrated_analysis(payload):
     """AI 整合分析分頁專用：把技術/籌碼/分點/基本面/新聞五個面向的節錄
     整合成一份分段報告。payload 由前端整理，失敗安靜回傳 None。"""
-    if not NVIDIA_API_KEY:
+    if not llm_enabled():
         return None
 
     g = lambda k, d='未知': _fmt_num(payload.get(k)) if payload.get(k) not in (None, '') else d
@@ -248,7 +306,7 @@ def generate_integrated_analysis(payload):
     lines.append("")
     lines.append("請依指定格式輸出整合分析報告。")
 
-    return _call_nvidia(INTEGRATED_SYSTEM_PROMPT, "\n".join(lines),
+    return _call_llm(INTEGRATED_SYSTEM_PROMPT, "\n".join(lines),
                         max_tokens=900, temperature=0.4)
 
 
@@ -277,7 +335,7 @@ CAPITAL_FLOW_SYSTEM_PROMPT = (
 
 def generate_capital_flow_commentary(payload):
     """資金流向頁 AI 摘要：整合產業資金分布與新聞題材。失敗安靜回傳 None。"""
-    if not NVIDIA_API_KEY:
+    if not llm_enabled():
         return None
     lines = []
     if payload.get('industries'):
@@ -289,13 +347,13 @@ def generate_capital_flow_commentary(payload):
     if not lines:
         return None
     lines.append("請整合以上資訊，解讀今日熱門產業與可能的題材。")
-    return _call_nvidia(CAPITAL_FLOW_SYSTEM_PROMPT, "\n".join(lines), max_tokens=400)
+    return _call_llm(CAPITAL_FLOW_SYSTEM_PROMPT, "\n".join(lines), max_tokens=400)
 
 
 def generate_market_commentary(payload):
     """首頁大盤 AI 解讀：整合走勢展望、台指期、全球市場與新聞標題。
     失敗（無金鑰、逾時等）安靜回傳 None。"""
-    if not NVIDIA_API_KEY:
+    if not llm_enabled():
         return None
 
     lines = []
@@ -319,7 +377,7 @@ def generate_market_commentary(payload):
         return None
     lines.append("請整合以上資訊，產出一段大盤解讀。")
 
-    return _call_nvidia(MARKET_SYSTEM_PROMPT, "\n".join(lines), max_tokens=400)
+    return _call_llm(MARKET_SYSTEM_PROMPT, "\n".join(lines), max_tokens=400)
 
 
 def _extract_score_context(stock):
@@ -344,8 +402,8 @@ def _extract_score_context(stock):
 def attach_commentary(stock_list, top_n=5, max_workers=3, include_cdp_range=False):
     """為清單前 top_n 檔（假設已依分數排序）附加 ai_commentary 欄位。
     include_cdp_range=True（當沖偵測清單）時附上 CDP 區間讓評語包含參考進場區間。
-    沒有設定 NVIDIA_API_KEY 時直接原樣返回，不產生任何額外延遲或錯誤。"""
-    if not NVIDIA_API_KEY or not stock_list:
+    AI 解讀關閉（沒設 LLM_BASE_URL 也沒設 NVIDIA_API_KEY）時直接原樣返回，不產生任何額外延遲或錯誤。"""
+    if not llm_enabled() or not stock_list:
         return stock_list
 
     targets = stock_list[:top_n]

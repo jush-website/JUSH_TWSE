@@ -69,7 +69,7 @@ node scripts/verify-function-routing.mjs
 
 ## verify-ai-prompts.mjs
 
-把 `api/ai-commentary/[kind].js` 送往 NVIDIA 的 prompt 與 Python 原版
+把 `api/ai-commentary/[kind].js` 送往模型的 prompt 與 Python 原版
 （`src/backend/ai_commentary.py`）逐字比對，外加回應形狀、無金鑰／429／逾時／
 素材不足都安靜回 `null`、金鑰不外洩等行為。
 
@@ -79,14 +79,14 @@ node scripts/verify-ai-prompts.mjs scripts/prompt-golden.json scripts/payloads.j
 
 ### 重新產生 prompt 黃金檔
 
-在裝好 `requirements.txt` 的環境下，用假的 `_call_nvidia` 攔下 prompt：
+在裝好 `requirements.txt` 的環境下，用假的 `_call_llm` 攔下 prompt：
 
 ```python
 import json, os
-os.environ["NVIDIA_API_KEY"] = "dummy"       # 不設的話 generate_* 會直接回 None
+os.environ["LLM_BASE_URL"] = "http://dummy"  # 不設的話 generate_* 會直接回 None
 from src.backend import ai_commentary as A
 captured = {}
-A._call_nvidia = lambda s, u, max_tokens=150, temperature=0.4: (
+A._call_llm = lambda s, u, max_tokens=150, temperature=0.4: (
     captured.update(system=s, user=u, max_tokens=max_tokens, temperature=temperature) or "X")
 A.generate_market_commentary(json.load(open("scripts/payloads.json"))["market"])
 print(captured)

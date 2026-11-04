@@ -13,7 +13,7 @@
  * 不重算、不給買賣建議。任何失敗都回 { commentary: null }，呼叫端判斷
  * null 就不顯示該區塊，不影響頁面其他內容。
  */
-import { callNvidia, field, listField } from '../_lib/nvidia.js';
+import { callLlm, field, listField } from '../_lib/llm.js';
 import {
   ANALYSIS_SYSTEM_PROMPT,
   INTEGRATED_SYSTEM_PROMPT,
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
   // 素材不足：直接回 null，與後端「安靜不顯示」的行為一致
   if (!prompt) return res.status(200).json({ [responseKey]: null });
 
-  const text = await callNvidia(prompt.system, prompt.user, { maxTokens: prompt.maxTokens });
+  const text = await callLlm(prompt.system, prompt.user, { maxTokens: prompt.maxTokens });
   // AI 解讀相同輸入會給相同結果的機會不高，不做 CDN 快取；
   // 但也不要讓瀏覽器自己快取成舊解讀。
   res.setHeader('Cache-Control', 'no-store');
