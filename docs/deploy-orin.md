@@ -4,6 +4,14 @@
 所以 Orin 上只要跑這一個服務。AI 解讀打 Orin 本機的 pair API（`http://127.0.0.1:11435`），
 由它轉到 DGX Spark 上的模型。
 
+## 先在自己電腦測試
+
+`127.0.0.1` 指的是「執行系統的那台機器自己」。pair API 在 Orin 上，所以在你電腦上跑時：
+
+- 不設 `LLM_BASE_URL`：照舊用 NVIDIA NIM（有 `NVIDIA_API_KEY` 的話），或者 AI 區塊不顯示，其他功能正常。
+- 或設 `LLM_BASE_URL=http://<Orin 的 Tailscale IP>:11435`：電腦要在同一個 Tailscale 網路，且 Orin 的 pair API 不能只聽 `127.0.0.1`。
+  先測 `curl http://<Orin 的 Tailscale IP>:11435/api/tags`。
+
 ## 1. 把程式放到 Orin：用 git，不要整包複製
 
 在 Orin 上直接從 GitHub 拉，之後更新只要 `git pull`，不會有「哪一版才是最新」的問題：
