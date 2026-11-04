@@ -63,7 +63,7 @@ JS 的 `JSON.parse("22.0")` 得到 Number 印成 `22`。小數點那位資訊在
 
 | 變數 | 用途 | 沒設的話 |
 |---|---|---|
-| `LLM_BASE_URL` | 實驗室 Ollama 相容模型 API，例如 `http://<spark 的 tailscale 位址>:11434`。有設就優先用，打 `{LLM_BASE_URL}/api/chat` | 改看 `NVIDIA_API_KEY` |
+| `LLM_BASE_URL` | 實驗室 Ollama 相容模型 API，Orin 上是 pair API `http://127.0.0.1:11435`（轉到 Spark）。有設就優先用，打 `{LLM_BASE_URL}/api/chat` | 改看 `NVIDIA_API_KEY` |
 | `LLM_MODEL` | 覆蓋實驗室模型名稱 | 用 `qwen3.6:35b-a3b-mtp-q8_0` |
 | `LLM_API_KEY` | 模型閘道需要驗證時才設，會以 `Bearer` 送出 | 不送 `Authorization` |
 | `LLM_TIMEOUT_MS`（Python 端是 `LLM_TIMEOUT` 秒） | 逾時 | 90 秒 |

@@ -1,7 +1,8 @@
 # 部署到實驗室 AGX Orin
 
 一個 FastAPI 行程（`src/backend/web_app.py`，port 8000）同時提供 API 和編譯好的前端（`dist/`），
-所以 Orin 上只要跑這一個服務。AI 解讀透過 Tailscale 打 DGX Spark 上的 Ollama。
+所以 Orin 上只要跑這一個服務。AI 解讀打 Orin 本機的 pair API（`http://127.0.0.1:11435`），
+由它轉到 DGX Spark 上的模型。
 
 ## 1. 把程式放到 Orin：用 git，不要整包複製
 
@@ -47,7 +48,7 @@ VITE_API_URL= npm run build      # 留空：前端所有請求都打 Orin 自己
 在 `~/JUSH_TWSE/.env` 寫入（這個檔案已被 `.gitignore` 排除）：
 
 ```bash
-LLM_BASE_URL=http://<Spark 的 Tailscale IP>:11434
+LLM_BASE_URL=http://127.0.0.1:11435     # Orin 本機的 pair API，會轉到 Spark
 # LLM_MODEL=qwen3.6:35b-a3b-mtp-q8_0   # 預設就是這個
 FINMIND_API_TOKEN=<你的 FinMind token>
 ADMIN_SYNC_SECRET=<自訂的管理密碼>
@@ -55,14 +56,17 @@ ADMIN_SYNC_SECRET=<自訂的管理密碼>
 
 Firebase 憑證讀專案根目錄的 `serviceAccountKey.json`（第 1 步複製的那份）。
 
-先確認 Orin 連得到 Spark 的模型：
+先在 Orin 上確認 pair API 看得到模型：
 
 ```bash
-curl http://<Spark 的 Tailscale IP>:11434/api/tags
+curl http://127.0.0.1:11435/api/tags
 ```
 
-清單裡要看得到 `qwen3.6:35b-a3b-mtp-q8_0`。連不到的話，檢查 Spark 上的 Ollama 是不是只聽 `127.0.0.1`，
-要設 `OLLAMA_HOST=0.0.0.0:11434` 再重啟 Ollama。
+清單裡要看得到 `qwen3.6:35b-a3b-mtp-q8_0`。再試一次實際生成：
+
+```bash
+curl http://127.0.0.1:11435/api/chat -d '{"model":"qwen3.6:35b-a3b-mtp-q8_0","messages":[{"role":"user","content":"你好"}],"stream":false,"think":false}'
+```
 
 ## 5. 先手動跑一次
 
