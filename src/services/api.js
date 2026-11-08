@@ -262,7 +262,7 @@ export const getStockAnalysisCommentary = async (analysisData) => {
 // 由 AI 模型（實驗室 Spark 或 NVIDIA NIM）產生分段式整合報告。失敗回傳 null，呼叫端顯示錯誤提示即可。
 export const getIntegratedAnalysis = async (payload) => {
   try {
-    const res = await postFunction('/api/ai-commentary/integrated', payload, { timeout: 120000 });
+    const res = await postFunction('/api/ai-commentary/integrated', payload, { timeout: 200000 });
     return res.data?.report || null;
   } catch (err) {
     console.warn('AI 整合分析取得失敗', err);
