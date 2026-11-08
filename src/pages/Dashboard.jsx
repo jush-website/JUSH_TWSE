@@ -203,6 +203,9 @@ const Dashboard = () => {
             <div className="gsap-dashboard-card card divide-y divide-line max-h-[540px] overflow-y-auto">
               {/* 後端若回傳缺少 taiwan/global 欄位的內容，這裡原本會直接丟 TypeError
                   並讓 ErrorBoundary 接管整個首頁；補上預設值讓其餘區塊照常顯示。 */}
+              {(news[key] || []).length === 0 && (
+                <p className="p-6 text-center text-sm text-ink-3">目前沒有新聞，資料來源可能暫時無回應，稍後會自動更新</p>
+              )}
               {(news[key] || []).map((item, idx) => (
                 <a
                   key={idx}
