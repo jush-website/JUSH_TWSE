@@ -67,6 +67,17 @@ rewrite 正則確實放行 `/api` 而攔下其他路徑（SPA 的 catch-all 若�
 node scripts/verify-function-routing.mjs
 ```
 
+## verify-pring.mjs
+
+驗證 `src/utils/pring.js`（普林格技術分析檢核表）。用構造出來的 K 線測書中規則
+有沒有被正確實作：波峰波谷墊高＝上升趨勢、較低波峰後跌破前波谷＝頂部反轉、
+收盤突破前高 3% 且放量＝有效突破、無量或未達 3%＝未確認、突破後跌回＝假突破、
+向下跌破不需量、停損在支撐下方、牛市 RSI 超買不當賣訊。測的是規則，不是預測準度。
+
+```bash
+node scripts/verify-pring.mjs
+```
+
 ## verify-ai-prompts.mjs
 
 把 `api/ai-commentary/[kind].js` 送往模型的 prompt 與 Python 原版

@@ -13,7 +13,16 @@ import LightweightChart from '../components/LightweightChart';
 import gsap, { useGSAP } from '../lib/gsap';
 import { useCardAnimation } from '../hooks/useCardAnimation';
 import { backtestCdpDayTrade, VERDICT, VERDICT_LABEL } from '../utils/backtest';
+import { evaluatePring, STANCE_LABEL } from '../utils/pring';
 import CountUp from '../components/bits/CountUp';
+
+// 普林格檢核表的多空標籤配色（台股慣例：紅多綠空，對應 bull / bear token）
+const PRING_STYLE = {
+  bull: 'bg-bull-muted text-bull',
+  bear: 'bg-bear-muted text-bear',
+  neutral: 'bg-line/60 text-ink-2',
+  na: 'bg-line/40 text-ink-3',
+};
 
 // 頁面五張 recharts 圖共用的漸層/glow 定義（原本同一份 <defs> 複製了五次）
 const CHART_DEFS = (
@@ -120,6 +129,7 @@ const StockAnalysis = () => {
       pe: data.pe, yield: data.yield, roe: data.roe, debt_ratio: data.debt_ratio,
       diagnosis: data.diagnosis, volume_patterns: (data.volume_patterns || []).map(vp => vp.pattern),
       cdp: data.cdp, strategy_name: data.strategy_name,
+      pring_summary: (data.chart_data && evaluatePring(data.chart_data)?.summary) || null,
       entry_range: data.entry_range, stop_loss: data.stop_loss, exit_rule: data.exit_rule,
     }).then(text => {
       if (!cancelled) setAiCommentary(text);
@@ -131,6 +141,8 @@ const StockAnalysis = () => {
 
   // CDP 當沖規則的歷史模擬（純本地計算，chart_data 已載入、零 API 成本）
   const backtest = data?.chart_data ? backtestCdpDayTrade(data.chart_data) : null;
+  // 普林格檢核表（純本地計算）：可量化的規則在這裡算好，AI 只負責解讀與主觀形態判讀
+  const pring = data?.chart_data ? evaluatePring(data.chart_data) : null;
 
   // AI 整合分析：切到該分頁時才觸發（分點資料 + LLM 呼叫較慢，不預先打）。
   // 把五個面向濃縮成文字節錄送後端，由 AI 模型產出分段報告。
@@ -203,6 +215,7 @@ const StockAnalysis = () => {
       pe: data.pe, yield: data.yield, roe: data.roe, debt_ratio: data.debt_ratio,
       diagnosis: data.diagnosis, volume_patterns: (data.volume_patterns || []).map(vp => vp.pattern),
       kline_summary: klineSummary,
+      pring_summary: pring?.summary || null,
       chip_summary: chipSummary || null,
       branch_summary: branchSummary,
       community_summary: communitySummary,
@@ -589,6 +602,42 @@ const StockAnalysis = () => {
                           </p>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {pring && (
+                    <div className="card p-4 sm:p-5">
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 text-ink-2">
+                          <Target size={15} />
+                          <h2 className="font-semibold text-ink-1">普林格技術分析檢核表</h2>
+                        </div>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${PRING_STYLE[pring.overall]}`}>
+                          {STANCE_LABEL[pring.overall]}
+                        </span>
+                      </div>
+                      <p className="text-sm text-ink-2 mb-3">{pring.overallText}</p>
+                      <div className="space-y-2">
+                        {pring.items.map(it => (
+                          <div key={it.key} className="p-2.5 bg-overlay rounded-lg">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="text-sm font-medium text-ink-1">{it.title}</span>
+                              <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${PRING_STYLE[it.stance]}`}>
+                                {STANCE_LABEL[it.stance]}
+                              </span>
+                            </div>
+                            <ul className="space-y-0.5">
+                              {it.lines.map((l, i) => (
+                                <li key={i} className="text-xs text-ink-2 leading-relaxed">{l}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[10px] text-ink-3">
+                        依 Martin Pring《技術分析》可量化的規則自動計算（近 {pring.bars} 根日 K）。頭肩、三角、旗形與 K 線形態屬主觀判讀，
+                        由「AI 整合分析」參考波段高低點推測。動能指標只作警訊，趨勢以價格為準。僅供參考，非投資建議。
+                      </p>
                     </div>
                   )}
 

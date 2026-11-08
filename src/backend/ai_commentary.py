@@ -91,7 +91,9 @@ ANALYSIS_SYSTEM_PROMPT = (
     "3 到 5 句的繁體中文綜合解讀，幫使用者快速看懂系統在說什麼。"
     "你可以綜合技術面（均線/KD/RSI/MACD/量能）、籌碼面診斷、CDP 區間、"
     "基本面（本益比/殖利率/ROE）等資訊，指出多空訊號是否一致、有沒有互相"
-    "矛盾的地方、以及主要風險。絕對不要自己編造任何分數、價位或數據，"
+    "矛盾的地方、以及主要風險。"
+    "若有提供「普林格檢核」，以它判斷主要趨勢方向並遵守普林格原則：趨勢以價格（波峰波谷、均線、3% 突破）為準，動能指標（RSI/MACD/KD）只是警訊，牛市中的超買不等於賣出訊號。"
+    "絕對不要自己編造任何分數、價位或數據，"
     "不要給出買賣建議、目標價或保證獲利的字眼，只針對系統已提供的資訊做"
     "客觀解讀。字數控制在 200 字以內，直接輸出說明文字，不要加開場白、"
     "不要加項目符號、不要加引號。"
@@ -198,6 +200,8 @@ def generate_stock_analysis_commentary(payload):
         lines.append("系統診斷訊號：" + "；".join(str(d) for d in diagnosis[:8]))
     if volume_patterns:
         lines.append("成交量形態：" + "、".join(str(v) for v in volume_patterns[:5]))
+    if payload.get('pring_summary'):
+        lines.append("普林格檢核（系統以固定規則算好）：\n" + str(payload['pring_summary']))
     if cdp.get('CDP') is not None:
         lines.append(
             f"CDP 區間：AH {cdp.get('AH')} / NH {cdp.get('NH')} / "
@@ -228,6 +232,7 @@ INTEGRATED_SYSTEM_PROMPT = (
     "全文總長控制在 300 字以內。"
     "【技術面】請結合提供的日 K 走勢資料（每日開高低收與量能、近期高低點位置）"
     "描述價格型態與趨勢，例如是否創高/破低、上下影線、量價配合情況。"
+    "若有提供普林格檢核，【技術面】以它為主軸（主要趨勢、支撐阻力、突破是否符合 3% 與量能原則），並可依日 K 與波段高低點推測是否形成頭肩、雙重頂底、三角形或旗形等形態；形態屬主觀判讀，必須寫「疑似」，且不得與系統算好的檢核結論矛盾。"
     "【消息面】的新聞標題前附有日期，請對照日 K 各日的漲跌與量能變化，"
     "推測近期股價波動最可能與哪些新聞事件或題材有關（例如某日放量大漲前後"
     "剛好有相關利多新聞），若看不出明顯關聯就照實說明。"
@@ -270,6 +275,10 @@ def generate_integrated_analysis(payload):
         lines.append("系統診斷：" + "；".join(str(d) for d in payload['diagnosis'][:8]))
     if payload.get('volume_patterns'):
         lines.append("成交量形態：" + "、".join(str(v) for v in payload['volume_patterns'][:5]))
+    if payload.get('pring_summary'):
+        lines.append("")
+        lines.append("== 普林格技術分析檢核（系統以固定規則算好）==")
+        lines.append(str(payload['pring_summary']))
 
     lines.append("")
     lines.append("== 日 K 走勢（近 20 個交易日，含近 60 日高低點）==")
