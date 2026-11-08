@@ -18,6 +18,7 @@ AI 敘述層：把規則引擎算好的分數/訊號翻成白話中文。
 
 兩個都沒設：AI 解讀關閉，generate_* 直接回 None。
 """
+import logging
 import os
 import re
 import requests
@@ -26,6 +27,8 @@ from concurrent.futures import ThreadPoolExecutor
 NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_DEFAULT_MODEL = "meta/llama-3.1-8b-instruct"
 LOCAL_DEFAULT_MODEL = "qwen3.6:35b-a3b-mtp-q8_0"
+
+log = logging.getLogger("jush.ai")
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.S | re.I)
 
@@ -126,6 +129,8 @@ def _call_llm(system_prompt, user_prompt, max_tokens=150, temperature=0.4):
     try:
         resp = requests.post(cfg["url"], headers=headers, json=body, timeout=cfg["timeout"])
         if resp.status_code != 200:
+            # 失敗仍安靜回 None 給前端，但把原因寫進 log（journalctl -u jush-twse 看得到）
+            log.warning("LLM %s 回應 HTTP %s：%s", cfg["url"], resp.status_code, resp.text[:300])
             return None
         data = resp.json()
         if cfg["provider"] == "ollama":
@@ -133,8 +138,11 @@ def _call_llm(system_prompt, user_prompt, max_tokens=150, temperature=0.4):
         else:
             raw = data["choices"][0]["message"]["content"] or ""
         text = _THINK_RE.sub("", raw).strip()
+        if not text:
+            log.warning("LLM %s 回傳空內容（model=%s）", cfg["url"], cfg["model"])
         return text or None
-    except Exception:
+    except Exception as e:
+        log.warning("LLM %s 呼叫失敗：%s: %s", cfg["url"], type(e).__name__, e)
         return None
 
 
