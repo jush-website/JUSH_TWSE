@@ -38,6 +38,7 @@ function buildStockAnalysis(p) {
   if (diagnosis) lines.push('系統診斷訊號：' + diagnosis.join('；'));
   const patterns = listField(p, 'volume_patterns', 5);
   if (patterns) lines.push('成交量形態：' + patterns.join('、'));
+  if (p.pring_summary) lines.push('普林格檢核（系統以固定規則算好）：\n' + p.pring_summary);
   if (cdp.CDP !== undefined && cdp.CDP !== null) {
     lines.push(`CDP 區間：AH ${cdp.AH} / NH ${cdp.NH} / CDP ${cdp.CDP} / NL ${cdp.NL} / AL ${cdp.AL}`);
   }
@@ -66,6 +67,7 @@ function buildIntegrated(p) {
   if (diagnosis) lines.push('系統診斷：' + diagnosis.join('；'));
   const patterns = listField(p, 'volume_patterns', 5);
   if (patterns) lines.push('成交量形態：' + patterns.join('、'));
+  if (p.pring_summary) lines.push('', '== 普林格技術分析檢核（系統以固定規則算好）==', String(p.pring_summary));
 
   const section = (title, value) => { lines.push('', title, value || '無資料'); };
   section('== 日 K 走勢（近 20 個交易日，含近 60 日高低點）==', p.kline_summary);

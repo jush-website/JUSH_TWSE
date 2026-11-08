@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把 11 份策略清單算好寫進 Firestore —— 不需要 Render 醒著。
+"""把 12 份策略清單算好寫進 Firestore —— 不需要 Render 醒著。
 
 原本的流程是 GitHub Actions 打 Render 的 /api/admin/force-full-sync，由 Render
 邊算邊寫，Actions 只負責輪詢把它撐著不休眠。但那條路有兩個問題：Render 免費

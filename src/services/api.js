@@ -140,7 +140,7 @@ const fetchPrecomputed = async (docId, apiPath) => {
 const REC_DOC_BY_TYPE = {
   'short-term': 'short_term', overnight: 'overnight_1', bottom: 'bottom_fishing',
   burst: 'short_term_burst', 'long-term': 'long_term', etf: 'etf', cdp: 'cdp',
-  'day-trade-cdp': 'day_trade_cdp',
+  'day-trade-cdp': 'day_trade_cdp', pring: 'pring_trend',
 };
 const ROUTE_DOCS = {
   '/': ['global_market', 'news', 'futures', 'market_outlook', 'market_breadth', 'capital_flow'],
@@ -173,6 +173,7 @@ export const getDayTradeCdpRecommendations = () => fetchFromFirestore('recommend
 export const getOvernightRecommendations = (mode = "1") => fetchFromFirestore('recommendations', `overnight_${mode}`);
 export const getCdpRecommendations = () => fetchFromFirestore('recommendations', 'cdp');
 export const getEtfRecommendations = () => fetchFromFirestore('recommendations', 'etf');
+export const getPringRecommendations = () => fetchFromFirestore('recommendations', 'pring_trend');
 export const getCapitalFlow = () => fetchPrecomputed('capital_flow', '/api/capital-flow');
 
 export const getMarketBreadth = () => fetchPrecomputed('market_breadth', '/api/market-breadth');
@@ -213,6 +214,7 @@ const LIVE_REC_ENDPOINTS = {
   'etf': '/api/etf-recommendations',
   'cdp': '/api/cdp-recommendations',
   'day-trade-cdp': '/api/recommendations/day-trade-cdp',
+  'pring': '/api/pring-recommendations',
 };
 
 export const getLiveRecommendations = async (type) => {
@@ -262,7 +264,7 @@ export const getStockAnalysisCommentary = async (analysisData) => {
 // 由 AI 模型（實驗室 Spark 或 NVIDIA NIM）產生分段式整合報告。失敗回傳 null，呼叫端顯示錯誤提示即可。
 export const getIntegratedAnalysis = async (payload) => {
   try {
-    const res = await postFunction('/api/ai-commentary/integrated', payload, { timeout: 90000 });
+    const res = await postFunction('/api/ai-commentary/integrated', payload, { timeout: 200000 });
     return res.data?.report || null;
   } catch (err) {
     console.warn('AI 整合分析取得失敗', err);

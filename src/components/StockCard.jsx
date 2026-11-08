@@ -38,6 +38,23 @@ const VolBadge = ({ ratio }) => {
   );
 };
 
+// 普林格檢核結論（後端策略同步時一併算好，見 src/backend/pring.py）。
+// 普林格清單本身已經以它為主軸，不重複顯示。
+const PRING_BADGE = {
+  bull:    { label: '普林格偏多', cls: 'bg-bull-muted text-bull border-bull/20' },
+  bear:    { label: '普林格偏空', cls: 'bg-bear-muted text-bear border-bear/20' },
+  neutral: { label: '普林格中性', cls: 'bg-overlay text-ink-3 border-line' },
+};
+const PringBadge = ({ pring }) => {
+  const b = pring && PRING_BADGE[pring.overall];
+  if (!b) return null;
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${b.cls}`} title={pring.text}>
+      {b.label} {pring.bull}:{pring.bear}
+    </span>
+  );
+};
+
 const StockCard = ({ stock, type }) => {
   const navigate = useNavigate();
 
@@ -68,6 +85,10 @@ const StockCard = ({ stock, type }) => {
   } else if (type === 'cdp') {
     score = stock.total_score || 0;
     status = stock.cdp?.is_preview ? '明日預覽' : '今日即時';
+  } else if (type === 'pring') {
+    score = stock.pring_rec?.score || 0;
+    status = stock.pring_rec?.status || '';
+    signals = stock.pring_rec?.signals || [];
   } else if (type === 'day-trade-cdp') {
     score = stock.day_trade_cdp_rec?.score || 0;
     status = stock.day_trade_cdp_rec?.status || '';
@@ -98,6 +119,7 @@ const StockCard = ({ stock, type }) => {
                 {status}
               </span>
             )}
+            {type !== 'pring' && <PringBadge pring={stock.pring} />}
           </div>
         </div>
         <ScoreRing score={score} />

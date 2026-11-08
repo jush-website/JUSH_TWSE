@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Zap, Moon, Rocket, Anchor, Diamond } from 'lucide-react';
+import { Zap, Moon, Rocket, Anchor, Diamond, Compass } from 'lucide-react';
 
 const StrategySubNav = () => {
   const location = useLocation();
@@ -10,6 +10,7 @@ const StrategySubNav = () => {
     { id: 'burst',       name: '強勢爆發',   icon: <Rocket size={14} /> },
     { id: 'bottom',      name: '抄底絕佳',   icon: <Anchor size={14} /> },
     { id: 'long-term',   name: '長期精選',   icon: <Diamond size={14} /> },
+    { id: 'pring',       name: '普林格趨勢', icon: <Compass size={14} /> },
   ];
 
   return (

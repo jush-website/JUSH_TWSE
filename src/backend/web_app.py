@@ -99,7 +99,7 @@ else:
 # institutional_flow 等資料形狀不同，不適用同一套摘要邏輯。
 AI_COMMENTARY_DOCS = {
     'short_term_burst', 'short_term', 'overnight_1', 'overnight_2',
-    'long_term', 'bottom_fishing', 'cdp', 'day_trade_cdp'
+    'long_term', 'bottom_fishing', 'cdp', 'day_trade_cdp', 'pring_trend'
 }
 
 # 同步失敗的統計，供 /api/admin/sync-status 查詢。
@@ -297,6 +297,11 @@ async def background_strategies_sync():
                     day_trade_cdp = await get_day_trade_cdp_recommendations(force=True)
                     await loop.run_in_executor(None, update_doc, 'day_trade_cdp', day_trade_cdp)
                 except: pass
+                try:
+                    pring_trend = await get_pring_recommendations(force=True)
+                    await loop.run_in_executor(None, update_doc, 'pring_trend', pring_trend)
+                except Exception as e:
+                    print(f"[系統] 同步 pring_trend 失敗: {e}")
                 sync_status["stage4_done"] = True
                 executed_any = True
                 print("[系統] 階段四同歩完成")
@@ -355,6 +360,7 @@ async def run_all_strategy_stages():
     await step('overnight_2', get_overnight_recommendations(mode="2", force=True), 'overnight_2')
     await step('cdp', get_cdp_recommendations(force=True), 'cdp')
     await step('day_trade_cdp', get_day_trade_cdp_recommendations(force=True), 'day_trade_cdp')
+    await step('pring_trend', get_pring_recommendations(force=True), 'pring_trend')
 
     return summary
 
@@ -416,7 +422,7 @@ async def admin_force_full_sync(secret: str = ""):
 CATCH_UP_DOCS = [
     'hot_stocks', 'etf', 'capital_flow', 'institutional_flow', 'short_term_burst',
     'short_term', 'overnight_1', 'long_term', 'bottom_fishing', 'overnight_2',
-    'cdp', 'day_trade_cdp',
+    'cdp', 'day_trade_cdp', 'pring_trend',
 ]
 # 與 scripts/sync_market_data.py 的工作清單相同，扣掉上面策略同步已經會寫的兩份
 MARKET_DOCS = [
@@ -805,6 +811,56 @@ async def get_short_term_recommendations(force: bool = False):
     final_res = sanitize_data(results[:10])
     set_cached_response("short_term", final_res)
     return final_res
+
+_BREAKOUT_LABEL = {
+    "up-confirmed": "放量有效突破", "up-no-volume": "無量突破（待確認）",
+    "up-unconfirmed": "站上前高未達 3%", "failed-down": "假跌破後站回",
+}
+
+
+def _pring_rec(tag):
+    """把普林格標籤轉成策略卡片共用的 {score, status, signals} 形狀。
+    分數 = 前五項中偏多的項數 × 20，再扣掉偏空項數 × 10（0~100）。"""
+    bull, bear = tag.get("bull", 0), tag.get("bear", 0)
+    names = {"trend": "主要趨勢偏多", "sr": "緊靠支撐", "ma": "均線與突破偏多",
+             "momentum": "動能偏多", "volume": "量價健康"}
+    signals = [names[k] for k, v in (tag.get("items") or {}).items() if v == "bull" and k in names]
+    if tag.get("breakout") in _BREAKOUT_LABEL:
+        signals.insert(0, _BREAKOUT_LABEL[tag["breakout"]])
+    return {
+        "score": max(0, min(100, bull * 20 - bear * 10)),
+        "status": "多方共振" if tag.get("overall") == "bull" else "偏多觀察",
+        "signals": signals,
+    }
+
+
+@app.get("/api/pring-recommendations")
+async def get_pring_recommendations(force: bool = False):
+    """普林格趨勢清單：熱門股中，依普林格檢核「多方共振」者（前五項至少三項偏多，
+    且主要趨勢與均線突破都不偏空）。不足 5 檔時補上偏多 2 項、無偏空的觀察名單。"""
+    if not force:
+        cached = get_cached_response("pring_trend")
+        if cached: return cached
+
+    loop = asyncio.get_event_loop()
+    sids = await loop.run_in_executor(bg_executor, lambda: fetcher.get_hot_battlefield_ids()[:60])
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_data(sids))
+    await loop.run_in_executor(bg_executor, lambda: fetcher.prefetch_intraday_data(sids))
+
+    all_res = await asyncio.gather(*[loop.run_in_executor(bg_executor, analyze_wrap, sid) for sid in sids])
+    results = [r for r in all_res if r and "error" not in r and r.get("pring")]
+    for r in results:
+        r["pring_rec"] = _pring_rec(r["pring"])
+    rank = lambda r: (r["pring_rec"]["score"], r["pring"].get("breakout") == "up-confirmed", r.get("total_score", 0))
+    picks = sorted([r for r in results if r["pring"]["overall"] == "bull"], key=rank, reverse=True)
+    if len(picks) < 5:
+        extra = [r for r in results if r["pring"]["overall"] != "bull"
+                 and r["pring"].get("bull", 0) >= 2 and r["pring"].get("bear", 0) == 0]
+        picks += sorted(extra, key=rank, reverse=True)[:10 - len(picks)]
+    final_res = sanitize_data(picks[:15])
+    set_cached_response("pring_trend", final_res)
+    return final_res
+
 
 @app.get("/api/bottom-fishing-recommendations")
 async def get_bottom_fishing_recommendations(force: bool = False):
