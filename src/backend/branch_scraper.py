@@ -17,6 +17,9 @@ def fetch_branch_data(stock_id: str):
     
     try:
         r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code != 200:
+            print(f"Fetch branch data {stock_id}: HiStock HTTP {r.status_code}")
+            return None
         # HiStock 的頁面編碼通常是 utf-8，保險起見自動偵測
         r.encoding = r.apparent_encoding if r.encoding == 'ISO-8859-1' else r.encoding
         

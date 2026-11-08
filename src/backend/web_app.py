@@ -1445,15 +1445,30 @@ async def get_stock_ptt(stock_id: str, name: str = None):
 
 @app.get("/api/stock/{stock_id}/branch-data")
 async def get_stock_branch_data(stock_id: str):
+    """分點進出（來源 HiStock）。
+
+    原本抓不到資料時在 try 裡丟 404，又被同一個 except 接走變成 500；前端對 GET 的 5xx
+    會自動重試兩次，所以每開一次分點分頁 log 就出現三筆 500。抓不到是資料來源的
+    常態（非交易日、HiStock 改版或擋 IP），改回 200 + data:null 加原因，由前端顯示說明。
+    結果（含失敗）快取 10 分鐘，避免使用者反覆切分頁一直打 HiStock。
+    """
     from src.backend.branch_scraper import fetch_branch_data
+    cache_key = f"branch:{stock_id}"
+    cached = get_cached_response(cache_key)
+    if cached is not None:
+        return cached
     loop = asyncio.get_event_loop()
     try:
         data = await loop.run_in_executor(api_executor, fetch_branch_data, stock_id)
-        if not data:
-            raise HTTPException(status_code=404, detail="找不到籌碼分點資料")
-        return {"data": data}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[分點] {stock_id} 抓取失敗：{e}")
+        data = None
+    if data and (data.get("buy_branches") or data.get("sell_branches")):
+        res = {"data": data}
+    else:
+        res = {"data": None, "message": "目前取不到這檔股票的分點資料（非交易日或資料來源暫時無回應）"}
+    set_cached_response(cache_key, res, expiry=600)
+    return res
 
 @app.get("/api/macro/us-treasury")
 async def get_us_treasury():
