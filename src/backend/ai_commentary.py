@@ -400,7 +400,7 @@ def generate_market_commentary(payload):
 def _extract_score_context(stock):
     """從各策略的巢狀欄位（short_term_rec / overnight / ...）取出分數、狀態、訊號。
     找不到已知子欄位時退回頂層的 total_score / diagnosis。"""
-    for key in ('short_term_rec', 'overnight', 'bottom_fishing_rec',
+    for key in ('pring_rec', 'short_term_rec', 'overnight', 'bottom_fishing_rec',
                 'short_term_burst_rec', 'day_trade_cdp_rec', 'low_pe_rec'):
         sub = stock.get(key)
         if isinstance(sub, dict) and sub.get('signals'):

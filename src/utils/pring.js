@@ -471,6 +471,8 @@ export function evaluatePring(chartData) {
     items,
     overall,
     overallText,
+    bull,
+    bear,
     bars: bars.length,
     pivots: pivots.slice(-8).map(p => ({ date: bars[p.i].date, type: p.type, price: r2(p.price) })),
     summary,

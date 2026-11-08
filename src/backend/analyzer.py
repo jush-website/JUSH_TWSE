@@ -4,6 +4,7 @@ from src.backend import config
 import pytz
 from src.backend.data_fetcher import DataFetcher
 from datetime import datetime
+from src.backend.pring import evaluate_pring
 
 class StockAnalyzer:
     def __init__(self, fetcher=None):
@@ -912,8 +913,9 @@ class StockAnalyzer:
                 "macd_line": round(float(row['MACD_Line']), 3) if not pd.isna(row['MACD_Line']) else 0,
                 "macd_signal": round(float(row['MACD_Signal']), 3) if not pd.isna(row['MACD_Signal']) else 0
             })
-        
+
         return {
+            "pring": self.pring_tag(price_df),
             "stock_id": stock_id, "stock_name": stock_name, "is_etf": is_etf, "category": category, "total_score": st_res["score"], 
             "price": round(last['Close'], 2), "yesterday_close": round(prev['Close'], 2), "change_percent": change_pct, "is_limit_up": change_pct >= 9.7, "vol_ratio": st_res["vol_ratio"],
             "kd": f"{round(last['K'],1)}/{round(last['D'],1)}", "rsi": round(last['RSI'], 1), "macd": f"{'多方' if macd.iloc[-1]>0 else '空方'}", "ma5": round(last['MA5'], 2), "ma20": round(last['MA20'], 2), "ma60": round(last['MA60'], 2), "ma120": round(last['MA120'], 2) if not pd.isna(last['MA120']) else None,
@@ -934,6 +936,29 @@ class StockAnalyzer:
             "exit_rule": strat_res.get("exit_rule"),
             "chart_data": chart_data
         }
+
+    def pring_tag(self, price_df):
+        """策略清單用的普林格標籤：只留多空結論與各項判定，不帶長篇說明，
+        避免每檔多出幾 KB 寫進 Firestore。完整檢核表在個股頁由前端即時算。"""
+        try:
+            bars = [{
+                "date": idx.strftime("%m-%d") if hasattr(idx, "strftime") else str(idx)[5:10],
+                "open": float(r["Open"]), "high": float(r["High"]), "low": float(r["Low"]),
+                "close": float(r["Close"]), "volume": float(r["Volume"]) / 1000,
+            } for idx, r in price_df.iterrows() if not pd.isna(r["Close"])]
+            res = evaluate_pring(bars)
+            if not res:
+                return None
+            ma = next(it for it in res["items"] if it["key"] == "ma")
+            return {
+                "overall": res["overall"], "text": res["overallText"],
+                "bull": res["bull"], "bear": res["bear"],
+                "breakout": ma.get("breakout"),
+                "items": {it["key"]: it["stance"] for it in res["items"]},
+            }
+        except Exception as e:
+            print(f"[普林格] 計算失敗：{e}")
+            return None
 
     def evaluate_opening_checklist(self, intraday_snapshot):
         """
@@ -1279,8 +1304,9 @@ class StockAnalyzer:
                 "macd_line": round(float(row['MACD_Line']), 3) if not pd.isna(row['MACD_Line']) else 0,
                 "macd_signal": round(float(row['MACD_Signal']), 3) if not pd.isna(row['MACD_Signal']) else 0
             })
-        
+
         return {
+            "pring": self.pring_tag(price_df),
             "stock_id": stock_id, "stock_name": stock_name, "is_etf": is_etf, "category": category, "total_score": st_res["score"], 
             "price": round(last['Close'], 2), "yesterday_close": round(prev['Close'], 2), "change_percent": change_pct, "is_limit_up": change_pct >= 9.7, "vol_ratio": st_res["vol_ratio"],
             "kd": f"{round(last['K'],1)}/{round(last['D'],1)}", "rsi": round(last['RSI'], 1), "macd": f"{'多方' if price_df['MACD_Hist'].iloc[-1]>0 else '空方'}", "ma5": round(last['MA5'], 2), "ma20": round(last['MA20'], 2), "ma60": round(last['MA60'], 2), "ma120": round(last['MA120'], 2) if not pd.isna(last['MA120']) else None,
