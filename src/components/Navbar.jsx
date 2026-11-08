@@ -50,6 +50,7 @@ const STRATEGIES = [
   { path: '/recommendations/day-trade-cdp', label: '當沖 CDP' },
   { path: '/recommendations/bottom',        label: '抄底' },
   { path: '/recommendations/long-term',     label: '長期精選' },
+  { path: '/recommendations/pring',         label: '普林格趨勢' },
 ];
 
 const Navbar = React.forwardRef(({ status, className = '' }, ref) => {

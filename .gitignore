@@ -9,3 +9,4 @@ src/backend/cache/
 # 本機 Claude Code 外掛的執行狀態，不屬於專案
 .claude-flow/
 .venv/
+.swarm/
