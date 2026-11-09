@@ -15,6 +15,7 @@ const BranchAnalysis = ({ stockId }) => {
       try {
         const res = await api.get(`/api/stock/${stockId}/branch-data`);
         setData(res.data.data);
+        if (!res.data.data && res.data.message) setError(res.data.message);
       } catch (err) {
         console.error("Fetch branch data error:", err);
         setError(err.response?.data?.detail || err.message || '無法取得籌碼分點資料');

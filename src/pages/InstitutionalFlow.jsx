@@ -103,12 +103,12 @@ const InstitutionalFlow = () => {
 
       <div className="card p-5">
         <h2 className="font-semibold text-ink-1 flex items-center gap-2 mb-5">
-          <TrendingUp size={16} className="text-ink-3" /> 近 30 日資金流向趨勢
+          <TrendingUp size={16} className="text-ink-3" /> 近 {data.length} 個交易日資金流向趨勢
         </h2>
         
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
+            <ComposedChart data={data} stackOffset="sign" margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#A855F7" stopOpacity={0.3}/>
@@ -135,7 +135,7 @@ const InstitutionalFlow = () => {
               <Bar dataKey="自營商" name="自營商" stackId="a" fill="#10B981" radius={[4, 4, 0, 0]} opacity={0.8} />
               
               <Area 
-                type="monotone" 
+                type="linear" 
                 dataKey="合計" 
                 name="合計" 
                 stroke="#A855F7" 

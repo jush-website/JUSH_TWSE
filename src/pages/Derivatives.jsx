@@ -87,7 +87,7 @@ const Derivatives = () => {
             <div className="text-[10px] text-ink-3 mt-1">口</div>
           </div>
           <div className="gsap-derivative-card card p-4">
-            <div className="text-xs text-ink-3 mb-1">今日高 / 低</div>
+            <div className="text-xs text-ink-3 mb-1">當日高 / 低</div>
             <div className="text-base font-bold text-bull nums">{latest.max?.toLocaleString()}</div>
             <div className="text-base font-bold text-bear nums">{latest.min?.toLocaleString()}</div>
           </div>

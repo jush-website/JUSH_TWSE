@@ -7,12 +7,28 @@ import {
 import ThemeToggle from './ThemeToggle';
 import FontSizeToggle from './FontSizeToggle';
 import { usePolling } from '../hooks/usePolling';
+import { TW_HOLIDAYS } from '../utils/twHolidays';
+
+// 開收盤狀態一律以台北時間判斷：用瀏覽器本地時間的話，人在國外或電腦時區
+// 設錯就會顯示錯的狀態；國定假日也要算休市，不然連假時會一直顯示「盤中」。
+const taipeiNow = () => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', weekday: 'short', hourCycle: 'h23',
+    }).formatToParts(new Date()).map(p => [p.type, p.value]),
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    weekday: parts.weekday,
+    minutes: Number(parts.hour) * 60 + Number(parts.minute),
+  };
+};
 
 const getLocalMarketStatus = () => {
-  const now = new Date();
-  const day = now.getDay();
-  const total = now.getHours() * 60 + now.getMinutes();
-  if (day === 0 || day === 6)  return { label: '週末休市',        dot: 'bg-ink-3',    text: 'text-ink-3' };
+  const { date, weekday, minutes: total } = taipeiNow();
+  if (weekday === 'Sat' || weekday === 'Sun') return { label: '週末休市', dot: 'bg-ink-3', text: 'text-ink-3' };
+  if (TW_HOLIDAYS.has(date))   return { label: '國定假日休市',    dot: 'bg-ink-3',      text: 'text-ink-3' };
   if (total < 9 * 60)          return { label: '盤前',            dot: 'bg-yellow-500', text: 'text-yellow-600 dark:text-yellow-400' };
   if (total < 13 * 60 + 30)   return { label: '盤中 · 即時',     dot: 'bg-bear',       text: 'text-bear' };
   if (total < 14 * 60)        return { label: '盤後收盤中',       dot: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400' };
@@ -159,7 +175,7 @@ const Navbar = React.forwardRef(({ status, className = '' }, ref) => {
 
           {/* Mobile right */}
           <div className="lg:hidden flex items-center gap-0.5">
-            <div className="hidden xs:flex sm:flex flex-col items-end mr-1">
+            <div className="flex flex-col items-end mr-1">
               <div className="flex items-center gap-1">
                 <span className={`text-[10px] font-semibold ${marketStatus.text}`}>{marketStatus.label}</span>
                 <span className={`inline-flex rounded-full h-1.5 w-1.5 ${marketStatus.dot}`} />
@@ -168,8 +184,6 @@ const Navbar = React.forwardRef(({ status, className = '' }, ref) => {
                 {status?.last_sync ? `更新 ${status.last_sync}` : '同步中...'}
               </span>
             </div>
-            {/* Compact status indicator on very narrow screens */}
-            <span className={`sm:hidden inline-flex rounded-full h-2 w-2 mr-1 ${marketStatus.dot}`} aria-label={marketStatus.label} />
             <FontSizeToggle />
             <ThemeToggle />
             <button

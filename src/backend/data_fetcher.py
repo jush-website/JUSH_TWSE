@@ -2231,36 +2231,92 @@ class DataFetcher:
 
 
     def get_global_news(self):
-        """獲取全球財經新聞 (從主要指數 Ticker 獲取)"""
+        """獲取全球財經新聞。
+
+        原本只靠 yfinance 的 ^GSPC.news，但 Yahoo 改過回傳格式、也常對雲端 IP 回空，
+        首頁「國際財經」因此長期是空的。現在依序試三個來源，第一個有結果的就用：
+        yfinance → Yahoo Finance RSS → Google 新聞 RSS（繁中「國際財經」）。
+        """
+        for source in (self._global_news_yfinance, self._global_news_yahoo_rss, self._global_news_google_rss):
+            try:
+                items = source()
+            except Exception as e:
+                if self.logger: self.logger.warning(f"global news {source.__name__} failed: {e}")
+                items = []
+            if items:
+                return items[:10]
+        return []
+
+    @staticmethod
+    def _news_time(pub):
+        """把各來源的發布時間轉成台北時間 'MM-DD HH:MM'，失敗回空字串。"""
+        if not pub:
+            return ""
+        tz = pytz.timezone("Asia/Taipei")
         try:
-            # 獲取標普500的新聞作為全球財經新聞代表
-            t = yf.Ticker("^GSPC")
-            news = t.news[:10]
-            items = []
-            for item in news:
-                content = item.get("content", {})
-                title = content.get("title") or item.get("title")
-                link = content.get("canonicalUrl", {}).get("url") or item.get("link")
-                pubDate = content.get("pubDate") or item.get("providerPublishTime")
-                publisher = content.get("provider", {}).get("displayName") or item.get("publisher", "Yahoo")
-                
-                time_str = ""
-                if pubDate:
-                    try:
-                        time_str = datetime.fromisoformat(str(pubDate).replace("Z", "+00:00")).strftime("%m-%d %H:%M")
-                    except:
-                        try: time_str = datetime.fromtimestamp(pubDate).strftime("%m-%d %H:%M")
-                        except: pass
-                if title:
-                    items.append({
-                        "title": title, 
-                        "url": link if link else "",
-                        "source": publisher,
-                        "time": time_str
-                    })
-            return items
-        except:
-            return []
+            if isinstance(pub, (int, float)):
+                return datetime.fromtimestamp(pub, tz).strftime("%m-%d %H:%M")
+            text = str(pub)
+            try:
+                dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            except ValueError:
+                from email.utils import parsedate_to_datetime
+                dt = parsedate_to_datetime(text)
+            if dt.tzinfo is None:
+                dt = pytz.utc.localize(dt)
+            return dt.astimezone(tz).strftime("%m-%d %H:%M")
+        except Exception:
+            return ""
+
+    def _global_news_yfinance(self):
+        items = []
+        for item in (yf.Ticker("^GSPC").news or [])[:10]:
+            content = item.get("content") or {}
+            title = content.get("title") or item.get("title")
+            link = (content.get("canonicalUrl") or {}).get("url") \
+                or (content.get("clickThroughUrl") or {}).get("url") or item.get("link")
+            pub = content.get("pubDate") or item.get("providerPublishTime")
+            publisher = (content.get("provider") or {}).get("displayName") or item.get("publisher") or "Yahoo"
+            if title:
+                items.append({"title": title, "url": link or "", "source": publisher, "time": self._news_time(pub)})
+        return items
+
+    def _rss_items(self, url, default_source):
+        import xml.etree.ElementTree as ET
+        res = self._session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        res.raise_for_status()
+        root = ET.fromstring(res.content)
+        items = []
+        for it in root.iter("item"):
+            title = (it.findtext("title") or "").strip()
+            if not title:
+                continue
+            src_el = it.find("source")
+            source = (src_el.text or "").strip() if src_el is not None and src_el.text else default_source
+            # Google 新聞標題結尾會帶「 - 來源」，來源已另外顯示就拿掉
+            if source and title.endswith(f" - {source}"):
+                title = title[: -len(source) - 3]
+            items.append({
+                "title": title,
+                "url": (it.findtext("link") or "").strip(),
+                "source": source,
+                "time": self._news_time(it.findtext("pubDate")),
+            })
+            if len(items) >= 10:
+                break
+        return items
+
+    def _global_news_yahoo_rss(self):
+        return self._rss_items(
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=%5EGSPC,%5EIXIC,%5EDJI&region=US&lang=en-US",
+            "Yahoo Finance",
+        )
+
+    def _global_news_google_rss(self):
+        return self._rss_items(
+            "https://news.google.com/rss/search?q=%E5%9C%8B%E9%9A%9B%E8%B2%A1%E7%B6%93+when:2d&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+            "Google 新聞",
+        )
 
     def get_capital_flow(self):
         """
