@@ -1580,19 +1580,31 @@ async def serve_react_app(full_path: str):
     file_path = os.path.realpath(os.path.join(root, full_path))
     inside_dist = file_path.startswith(root + os.sep)
 
+    # 快取策略：assets/ 底下檔名帶 hash，內容不會變，可以讓瀏覽器長期快取；
+    # index.html、sw.js 等入口檔每次都要回來確認，否則重新部署後瀏覽器還拿舊的
+    # index.html，去要已經不存在的舊分包，就會「Failed to fetch dynamically imported module」。
+    is_hashed_asset = full_path.startswith("assets/")
+    cache_header = {"Cache-Control": "public, max-age=31536000, immutable"} if is_hashed_asset \
+        else {"Cache-Control": "no-cache"}
+
     # If the requested file actually exists in dist, serve it directly
     if inside_dist and os.path.isfile(file_path):
         import mimetypes
         mime_type, _ = mimetypes.guess_type(file_path)
         with open(file_path, "rb") as f:
             from fastapi.responses import Response
-            return Response(content=f.read(), media_type=mime_type or "application/octet-stream")
-            
+            return Response(content=f.read(), media_type=mime_type or "application/octet-stream", headers=cache_header)
+
+    # 舊的分包已經不存在：回 404，不要回 index.html。回 HTML 的話瀏覽器會把它當 JS
+    # 解析失敗，錯誤訊息更難懂；404 則讓前端的 lazyWithReload 重新整理拿新版。
+    if is_hashed_asset:
+        raise HTTPException(status_code=404)
+
     # Otherwise, fallback to index.html for React Router
     index_path = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
+            return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache"})
     return HTMLResponse(content="<h1>台股偵測系統</h1><p>請先執行 frontend 編譯 (npm run build)。</p>")
 
 if __name__ == "__main__":

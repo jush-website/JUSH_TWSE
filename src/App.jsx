@@ -6,14 +6,35 @@ import { usePolling } from './hooks/usePolling';
 import Navbar from './components/Navbar';
 import { getSyncStatus } from './services/api';
 
+// 重新部署後 dist/ 裡的分包檔名（hash）會換掉。已經開著的舊頁面、或瀏覽器快取的舊
+// index.html 還會去要舊檔名，就會出現「Failed to fetch dynamically imported module」。
+// 這時重新整理一次就能拿到新版；用 sessionStorage 記時間，避免檔案真的壞掉時無限重整。
+const RELOAD_KEY = 'chunk-reload-at';
+const lazyWithReload = (factory) => React.lazy(async () => {
+  try {
+    const mod = await factory();
+    try { sessionStorage.removeItem(RELOAD_KEY); } catch { /* 無痕模式可能不能用 */ }
+    return mod;
+  } catch (err) {
+    let last = 0;
+    try { last = Number(sessionStorage.getItem(RELOAD_KEY)) || 0; } catch { /* ignore */ }
+    if (Date.now() - last > 10000) {
+      try { sessionStorage.setItem(RELOAD_KEY, String(Date.now())); } catch { /* ignore */ }
+      window.location.reload();
+      return new Promise(() => {}); // 等重新整理，不要閃一下錯誤畫面
+    }
+    throw err;
+  }
+});
+
 // 路由級 code splitting（美化.md 2-5）：首包只留首頁，其餘頁面用到才載
-const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const RecommendationPage = React.lazy(() => import('./pages/RecommendationPage'));
-const StockAnalysis = React.lazy(() => import('./pages/StockAnalysis'));
-const CapitalFlow = React.lazy(() => import('./pages/CapitalFlow'));
-const MacroDashboard = React.lazy(() => import('./pages/MacroDashboard'));
-const Derivatives = React.lazy(() => import('./pages/Derivatives'));
-const NotFound = React.lazy(() => import('./pages/NotFound'));
+const Dashboard = lazyWithReload(() => import('./pages/Dashboard'));
+const RecommendationPage = lazyWithReload(() => import('./pages/RecommendationPage'));
+const StockAnalysis = lazyWithReload(() => import('./pages/StockAnalysis'));
+const CapitalFlow = lazyWithReload(() => import('./pages/CapitalFlow'));
+const MacroDashboard = lazyWithReload(() => import('./pages/MacroDashboard'));
+const Derivatives = lazyWithReload(() => import('./pages/Derivatives'));
+const NotFound = lazyWithReload(() => import('./pages/NotFound'));
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
